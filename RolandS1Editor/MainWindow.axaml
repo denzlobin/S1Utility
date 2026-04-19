@@ -105,10 +105,6 @@
                             Classes="toolbar"
                             Content="Send All"
                             IsEnabled="False"/>
-                    <Button x:Name="SyncButton"
-                            Classes="toolbar"
-                            Content="Sync from Hardware"
-                            IsEnabled="False"/>
                     <TextBlock x:Name="StatusText"
                                Foreground="#888888"
                                VerticalAlignment="Center"
@@ -139,9 +135,6 @@
                     <Button x:Name="OpenPrmButton"
                             Classes="toolbar"
                             Content="Open PRM File"/>
-                    <Button x:Name="SavePrmButton"
-                            Classes="toolbar"
-                            Content="Save PRM File"/>
                     <TextBlock Foreground="#888888"
                                VerticalAlignment="Center"
                                FontSize="10"
@@ -153,10 +146,7 @@
             </StackPanel>
         </Border>
 
-        <!-- ── Content area (sections + sync overlay) ───────────────────── -->
-        <Panel>
-
-        <!-- Section panels -->
+        <!-- ── Content area ─────────────────────────────────────────────── -->
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
             <Grid Margin="4"
@@ -230,53 +220,6 @@
 
             </Grid>
         </ScrollViewer>
-
-        <!-- ── Sync overlay (hidden until Sync from Hardware is clicked) ── -->
-        <Panel x:Name="SyncOverlay"
-               IsVisible="False"
-               Background="#B2000000">
-
-            <Border Background="#262626"
-                    BorderBrush="#505050"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="36,28"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    MinWidth="420">
-                <StackPanel Spacing="18">
-
-                    <TextBlock Text="SYNC FROM HARDWARE"
-                               Foreground="#FFFFFF"
-                               FontSize="13"
-                               FontWeight="Bold"
-                               HorizontalAlignment="Center"/>
-
-                    <TextBlock Foreground="#CCCCCC"
-                               FontSize="12"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               MaxWidth="360"
-                               Text="Wiggle each knob on your S-1 back and forth, returning each knob to its original position after wiggling. Click Done when finished."/>
-
-                    <TextBlock x:Name="SyncProgressText"
-                               Text="Captured: 0 / 54"
-                               Foreground="#F0A040"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               HorizontalAlignment="Center"/>
-
-                    <Button x:Name="SyncDoneButton"
-                            Classes="toolbar"
-                            Content="Done"
-                            HorizontalAlignment="Center"
-                            MinWidth="120"/>
-
-                </StackPanel>
-            </Border>
-        </Panel>
-
-        </Panel><!-- end content Panel -->
 
     </DockPanel>
 </Window>

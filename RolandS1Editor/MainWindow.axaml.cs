@@ -30,9 +30,6 @@ public partial class MainWindow : Window
     private InputDevice? _activeInput;
     private int MidiChannel => ChannelCombo.SelectedIndex >= 0 ? ChannelCombo.SelectedIndex + 1 : 3;
 
-    // Non-null only while a Sync from Hardware session is active.
-    private HardwareSyncSession? _syncSession;
-
     // Chop step-pattern model (4 waveforms × 16 steps, PRM-only).
     private readonly ChopPattern _chopPattern = new();
 
@@ -40,9 +37,6 @@ public partial class MainWindow : Window
     private static readonly IBrush s_chopOnBrush  = new SolidColorBrush(Color.Parse("#CC2222"));
     private static readonly IBrush s_chopOffBrush = new SolidColorBrush(Color.Parse("#383838"));
     private static readonly IBrush s_chopBorder   = new SolidColorBrush(Color.Parse("#505050"));
-
-    // Raw key→value data from the last opened .PRM file — used for round-trip saves.
-    private PrmFileData? _lastPrmData;
 
     // ── PRM-only effect parameters ────────────────────────────────────────────
 
@@ -88,6 +82,9 @@ public partial class MainWindow : Window
     private readonly List<PrmParameter> _prmDelayAdv;
     private readonly List<PrmParameter> _prmReverbAdv;
 
+    // PRM-only delay tempo (used when Delay Sync = On; raw index 0-127).
+    private readonly PrmParameter _delayTempo = new("Delay Tempo", "DELAY_TEMPO");
+
     // ── Section accent colours ────────────────────────────────────────────────
 
     private static readonly IBrush OscAccent   = new SolidColorBrush(Color.Parse("#F0A040"));
@@ -112,10 +109,7 @@ public partial class MainWindow : Window
         SendAllButton.Click  += OnSendAllClicked;
         SaveButton.Click     += OnSaveClicked;
         LoadButton.Click     += OnLoadClicked;
-        SyncButton.Click     += OnSyncClicked;
-        SyncDoneButton.Click += OnSyncDoneClicked;
         OpenPrmButton.Click  += OnOpenPrmClicked;
-        SavePrmButton.Click  += OnSavePrmClicked;
     }
 
     // ── Device lists ──────────────────────────────────────────────────────────
@@ -189,11 +183,13 @@ public partial class MainWindow : Window
         };
     }
 
-    // Returns the human-readable display string for a PRM-only parameter.
-    private static string GetPrmKnobDisplayValue(PrmParameter param)
+    // Human-readable value string for a PRM-only parameter.
+    private static string GetPrmDisplayString(PrmParameter p)
     {
-        int prmVal = param.ToPrm();
-        return param.PrmKey == "REVERB_PRE_DELAY" ? $"{prmVal}ms" : prmVal.ToString();
+        if (p.Options is not null)
+            return p.Value < p.Options.Length ? p.Options[p.Value] : p.Value.ToString();
+        int v = p.ToPrm();
+        return p.PrmKey == "REVERB_PRE_DELAY" ? $"{v}ms" : v.ToString();
     }
 
     // Rotary knob + value label + name label for continuous/mode parameters.
@@ -372,7 +368,6 @@ public partial class MainWindow : Window
 
     private void BuildChopSection()
     {
-        // Divider + subtitle
         ChopGridPanel.Children.Add(new Border
         {
             Height     = 1,
@@ -388,40 +383,26 @@ public partial class MainWindow : Window
             Margin     = new Thickness(0, 0, 0, 6),
         });
 
-        // Hint label — replaces the removed Chop On/Off dropdown
-        ChopGridPanel.Children.Add(new TextBlock
-        {
-            Text         = "Set Overtone above 0 to activate chop effect",
-            FontSize     = 9,
-            Foreground   = new SolidColorBrush(Color.Parse("#888888")),
-            FontStyle    = Avalonia.Media.FontStyle.Italic,
-            Margin       = new Thickness(0, 0, 0, 6),
-        });
-
-        // Top controls row: Comb knob + Overtone slider
-        var topRow = new WrapPanel { Margin = new Thickness(0, 0, 0, 8) };
-        topRow.Children.Add(MakeKnob(_patch.GetByCC(104)!, OscAccent, minCcValue: 3));  // Comb (hw min CC=3)
-        topRow.Children.Add(MakeOvertoneSlider(_patch.GetByCC(103)!));                  // Overtone 0-200
+        var topRow = new WrapPanel { Margin = new Thickness(0, 0, 0, 4) };
+        topRow.Children.Add(MakeKnob(_patch.GetByCC(104)!, OscAccent, minCcValue: 3));
+        topRow.Children.Add(MakeOvertoneSlider(_patch.GetByCC(103)!));
         ChopGridPanel.Children.Add(topRow);
 
-        // 4-row step grid
-        var grid = new StackPanel { Spacing = 4 };
+        ChopGridPanel.Children.Add(MakeChopInfoExpander());
+    }
+
+    // Read-only chop step pattern display inside an Info expander.
+    private Expander MakeChopInfoExpander()
+    {
+        var grid = new StackPanel { Spacing = 4, Margin = new Thickness(2, 6, 2, 2) };
 
         for (int w = 0; w < ChopPattern.Waveforms; w++)
         {
             int waveform = w;
+            var stepSquares = new Border[ChopPattern.Steps];
 
-            // Capture arrays for the PatternChanged closure
-            var stepBtns = new Button[ChopPattern.Steps];
-
-            // Row 1: label + 16 step buttons
-            var stepRow = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing     = 0,
-            };
-
-            stepRow.Children.Add(new TextBlock
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0 };
+            row.Children.Add(new TextBlock
             {
                 Text              = ChopPattern.WaveformNames[w],
                 Width             = 42,
@@ -432,92 +413,41 @@ public partial class MainWindow : Window
 
             for (int s = 0; s < ChopPattern.Steps; s++)
             {
-                int step = s;
-                bool isOn = _chopPattern.GetStep(w, s);
-
-                var btn = new Button
+                var sq = new Border
                 {
                     Width           = 16,
                     Height          = 16,
-                    Padding         = new Thickness(0),
-                    MinWidth        = 0,
-                    MinHeight       = 0,
                     Margin          = new Thickness(1, 0),
-                    Background      = isOn ? s_chopOnBrush : s_chopOffBrush,
+                    Background      = _chopPattern.GetStep(w, s) ? s_chopOnBrush : s_chopOffBrush,
                     BorderBrush     = s_chopBorder,
                     BorderThickness = new Thickness(1),
                     CornerRadius    = new CornerRadius(2),
                 };
-
-                btn.Click += (_, _) =>
-                {
-                    bool newOn = !_chopPattern.GetStep(waveform, step);
-                    _chopPattern.SetStep(waveform, step, newOn);
-                    btn.Background = newOn ? s_chopOnBrush : s_chopOffBrush;
-                };
-
-                stepBtns[s] = btn;
-                stepRow.Children.Add(btn);
+                stepSquares[s] = sq;
+                row.Children.Add(sq);
             }
 
-            // Row 2: indented utility buttons
-            var utilRow = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing     = 4,
-                Margin      = new Thickness(42, 2, 0, 0),
-            };
-
-            var allOnBtn = new Button
-            {
-                Content  = "All On",
-                FontSize = 9,
-                Padding  = new Thickness(6, 2),
-                MinWidth = 0,
-            };
-            var allOffBtn = new Button
-            {
-                Content  = "All Off",
-                FontSize = 9,
-                Padding  = new Thickness(6, 2),
-                MinWidth = 0,
-            };
-
-            allOnBtn.Click  += (_, _) => _chopPattern.SetAll(waveform, true);
-            allOffBtn.Click += (_, _) => _chopPattern.SetAll(waveform, false);
-
-            utilRow.Children.Add(allOnBtn);
-            utilRow.Children.Add(allOffBtn);
-
-            // Sync all buttons when the full pattern is replaced (SetAll / LoadFromPrm)
             _chopPattern.PatternChanged += changedWaveform =>
             {
                 if (changedWaveform != waveform) return;
                 Dispatcher.UIThread.Post(() =>
                 {
                     for (int s = 0; s < ChopPattern.Steps; s++)
-                        stepBtns[s].Background = _chopPattern.GetStep(waveform, s)
+                        stepSquares[s].Background = _chopPattern.GetStep(waveform, s)
                             ? s_chopOnBrush : s_chopOffBrush;
                 });
             };
 
-            var waveformBlock = new StackPanel { Spacing = 0 };
-            waveformBlock.Children.Add(stepRow);
-            waveformBlock.Children.Add(utilRow);
-            grid.Children.Add(waveformBlock);
+            grid.Children.Add(row);
         }
 
-        ChopGridPanel.Children.Add(grid);
-
-        // Footer note
-        ChopGridPanel.Children.Add(new TextBlock
+        return new Expander
         {
-            Text         = "Chop patterns require saving to .PRM to take effect on hardware.",
-            FontSize     = 9,
-            Foreground   = new SolidColorBrush(Color.Parse("#777777")),
-            TextWrapping = TextWrapping.Wrap,
-            Margin       = new Thickness(0, 6, 0, 0),
-        });
+            Header     = "Info",
+            IsExpanded = false,
+            Margin     = new Thickness(0, 4, 0, 0),
+            Content    = grid,
+        };
     }
 
     // Horizontal slider for CC103 Overtone — displays native PRM scale 0-255,
@@ -576,135 +506,89 @@ public partial class MainWindow : Window
         };
     }
 
-    // ── Effects panel (CC + PRM-only controls interleaved) ───────────────────
+    // ── Effects panel ─────────────────────────────────────────────────────────
 
     private void BuildEffectsPanel()
     {
-        // Layer 1 — main controls (always visible)
         EffectsPanel.Children.Add(MakeKnob(_patch.GetByCC(92)!, FxAccent));   // Delay Level
         EffectsPanel.Children.Add(MakeKnob(_patch.GetByCC(90)!, FxAccent));   // Delay Time
-        foreach (var p in _prmDelayMain)
-            EffectsPanel.Children.Add(MakePrmControl(p, FxAccent));
-
         EffectsPanel.Children.Add(MakeKnob(_patch.GetByCC(91)!, FxAccent));   // Reverb Level
         EffectsPanel.Children.Add(MakeKnob(_patch.GetByCC(89)!, FxAccent));   // Reverb Time
-        foreach (var p in _prmReverbMain)
-            EffectsPanel.Children.Add(MakePrmControl(p, FxAccent));
-
         EffectsPanel.Children.Add(MakeDropdown(_patch.GetByCC(93)!));          // Chorus Type
+        EffectsStack.Children.Add(BuildEffectsInfoExpander());
+    }
 
-        // Layer 2 — advanced controls (collapsed by default)
-        var advWrap = new WrapPanel();
-        foreach (var p in _prmDelayAdv)
-            advWrap.Children.Add(MakePrmControl(p, FxAccent));
-        foreach (var p in _prmReverbAdv)
-            advWrap.Children.Add(MakePrmControl(p, FxAccent));
+    // Info expander for the effects section.
+    // Delay Time is contextual: shows ms (from CC90) when Delay Sync is Off,
+    // or the raw DELAY_TEMPO index when Delay Sync is On.
+    private Expander BuildEffectsInfoExpander()
+    {
+        var panel = new StackPanel { Spacing = 4, Margin = new Thickness(2, 6, 2, 2) };
 
-        var expander = new Expander
+        // Contextual Delay Time row
+        var delaySw     = _prmDelayMain[0];
+        var delayTimeCC = _patch.GetByCC(90)!;
+
+        var dtLabel = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")) };
+
+        void RefreshDelayTime()
         {
-            Header     = "Advanced",
+            dtLabel.Text = delaySw.Value == 0
+                ? $"{1 + (int)Math.Round(delayTimeCC.Value * 739.0 / 127)}ms"
+                : _delayTempo.ToPrm().ToString();
+        }
+
+        RefreshDelayTime();
+        delaySw.ValueChanged     += (_, _) => Dispatcher.UIThread.Post(RefreshDelayTime);
+        delayTimeCC.ValueChanged += (_, _) => Dispatcher.UIThread.Post(RefreshDelayTime);
+        _delayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(RefreshDelayTime);
+
+        panel.Children.Add(MakeInfoRow("Delay Time:", dtLabel));
+
+        // Standard rows for all PRM-only params
+        foreach (var p in AllPrmOnlyParams())
+            panel.Children.Add(MakePrmInfoRow(p));
+
+        return new Expander
+        {
+            Header     = "Info",
             IsExpanded = false,
-            Margin     = new Thickness(0, 4, 0, 0),
-            Content    = new StackPanel
+            Margin     = new Thickness(0, 6, 0, 0),
+            Content    = panel,
+        };
+    }
+
+    // A labeled read-only row: "Name:" + value TextBlock.
+    private static StackPanel MakeInfoRow(string label, TextBlock valueLabel) =>
+        new()
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing     = 6,
+            Children    =
             {
-                Children =
+                new TextBlock
                 {
-                    new TextBlock
-                    {
-                        Text         = "These settings require saving to .PRM and reloading on the hardware to take effect.",
-                        Foreground   = new SolidColorBrush(Color.Parse("#888888")),
-                        FontSize     = 9,
-                        TextWrapping = TextWrapping.Wrap,
-                        Margin       = new Thickness(2, 4, 2, 6),
-                    },
-                    advWrap,
-                }
-            },
-        };
-
-        EffectsStack.Children.Add(expander);
-    }
-
-    // Knob for a PRM-only parameter — value label shows the native PRM scale.
-    private static Control MakePrmKnob(PrmParameter param, IBrush accent)
-    {
-        string initDisplay = GetPrmKnobDisplayValue(param);
-
-        var knob = new RotaryKnob { Value = param.Value, AccentBrush = accent };
-        ToolTip.SetTip(knob, $"{param.Name}: {initDisplay}");
-
-        var valueLabel = new TextBlock
-        {
-            Classes = { "param-value-label" },
-            Text    = initDisplay,
-        };
-
-        knob.ValueChanged += (_, v) =>
-        {
-            param.Value = v;
-            string display = GetPrmKnobDisplayValue(param);
-            ToolTip.SetTip(knob, $"{param.Name}: {display}");
-            valueLabel.Text = display;
-        };
-
-        param.ValueChanged += (_, v) =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                knob.Value = v;
-                string display = GetPrmKnobDisplayValue(param);
-                ToolTip.SetTip(knob, $"{param.Name}: {display}");
-                valueLabel.Text = display;
-            });
-
-        return new StackPanel
-        {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            =
-            {
-                knob,
+                    Text       = label,
+                    FontSize   = 10,
+                    Foreground = new SolidColorBrush(Color.Parse("#777777")),
+                    MinWidth   = 130,
+                },
                 valueLabel,
-                new TextBlock { Classes = { "param-label" }, Text = param.Name },
             },
         };
-    }
 
-    // Dropdown for a PRM-only parameter.
-    private static Control MakePrmDropdown(PrmParameter param)
+    // A row for a PrmParameter, subscribed to its ValueChanged event.
+    private static StackPanel MakePrmInfoRow(PrmParameter p)
     {
-        var opts  = param.Options!;
-        var combo = new ComboBox { Classes = { "param-combo" } };
-        foreach (var opt in opts)
-            combo.Items.Add(opt);
-        combo.SelectedIndex = param.Value;
-
-        combo.SelectionChanged += (_, _) =>
+        var lbl = new TextBlock
         {
-            if (combo.SelectedIndex >= 0)
-                param.Value = combo.SelectedIndex;
+            FontSize   = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
+            Text       = GetPrmDisplayString(p),
         };
-
-        param.ValueChanged += (_, v) =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (combo.SelectedIndex != v)
-                    combo.SelectedIndex = v;
-            });
-
-        var label = new TextBlock { Classes = { "param-label" }, Text = param.Name };
-
-        return new StackPanel
-        {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            = { combo, label },
-        };
+        p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() => lbl.Text = GetPrmDisplayString(p));
+        return MakeInfoRow(p.Name + ":", lbl);
     }
-
-    private static Control MakePrmControl(PrmParameter param, IBrush accent) =>
-        param.Options is not null ? MakePrmDropdown(param) : MakePrmKnob(param, accent);
 
     // ── Toolbar actions ───────────────────────────────────────────────────────
 
@@ -732,7 +616,6 @@ public partial class MainWindow : Window
 
         ConnectButton.Content   = "Reconnect";
         SendAllButton.IsEnabled = true;
-        SyncButton.IsEnabled    = true;
 
         // ── Input connection via DryWetMidi (optional) ───────────────────
         if (InputCombo.SelectedIndex < 0 || InputCombo.SelectedIndex >= _inputDevices.Count)
@@ -757,24 +640,12 @@ public partial class MainWindow : Window
     }
 
     // Receives all MIDI events from the selected input device.
-    // Routes to the sync session buffer (if active) or directly to the patch model.
     private void OnMidiEventReceived(object? sender, MidiEventReceivedEventArgs e)
     {
         if (e.Event is not ControlChangeEvent cc) return;
         if ((int)cc.Channel != MidiChannel - 1) return;
 
-        int ccNumber = (int)cc.ControlNumber;
-        int value    = (int)cc.ControlValue;
-
-        if (_syncSession is not null)
-        {
-            // Must call DispatcherTimer methods on the UI thread.
-            Dispatcher.UIThread.Post(() => _syncSession?.RecordCC(ccNumber, value));
-        }
-        else
-        {
-            _patch.HandleIncomingCC(ccNumber, value);
-        }
+        _patch.HandleIncomingCC((int)cc.ControlNumber, (int)cc.ControlValue);
     }
 
     private async void OnSendAllClicked(object? sender, RoutedEventArgs e)
@@ -784,61 +655,6 @@ public partial class MainWindow : Window
         await _patch.SendAllAsync();
         SendAllButton.IsEnabled = true;
         SetStatus("All parameters sent.", "#70C870");
-    }
-
-    // ── Sync from Hardware ────────────────────────────────────────────────────
-
-    private void OnSyncClicked(object? sender, RoutedEventArgs e)
-    {
-        // Start a fresh session.
-        _syncSession?.Dispose();
-        _syncSession = new HardwareSyncSession();
-
-        _syncSession.ParameterSettled += OnParameterSettled;
-
-        // Show the overlay and disable toolbar buttons that shouldn't be used mid-sync.
-        SyncOverlay.IsVisible   = true;
-        SyncButton.IsEnabled    = false;
-        SendAllButton.IsEnabled = false;
-        // Exclude Mod Wheel (CC1) and Expression (CC11) — physical controllers
-        // whose position cannot be read by wiggling synth knobs.
-        int syncableCount = _patch.AllParameters.Count(p => p.CcNumber != 1 && p.CcNumber != 11);
-        SyncProgressText.Text   = $"Captured: 0 / {syncableCount}";
-    }
-
-    // Called (on UI thread via DispatcherTimer) each time a CC settles.
-    private void OnParameterSettled(int ccNumber, int median)
-    {
-        // Write the settled median immediately so the UI knob updates live.
-        _patch.HandleIncomingCC(ccNumber, median);
-
-        int syncableCount = _patch.AllParameters.Count(p => p.CcNumber != 1 && p.CcNumber != 11);
-        SyncProgressText.Text =
-            $"Captured: {_syncSession?.CapturedCount ?? 0} / {syncableCount}";
-    }
-
-    private async void OnSyncDoneClicked(object? sender, RoutedEventArgs e)
-    {
-        if (_syncSession is null) return;
-
-        // Commit any CCs whose debounce timer hasn't fired yet
-        // (e.g. the user clicked Done while still wiggling).
-        var final = _syncSession.GetFinalValues();
-        foreach (var (cc, value) in final)
-            _patch.HandleIncomingCC(cc, value);
-
-        _syncSession.Dispose();
-        _syncSession = null;
-
-        // Hide overlay and restore toolbar.
-        SyncOverlay.IsVisible   = false;
-        SendAllButton.IsEnabled = true;
-        SyncButton.IsEnabled    = true;
-
-        // Send all current values to hardware so it matches the editor.
-        SetStatus("Syncing to hardware…", "#AAAAAA");
-        await _patch.SendAllAsync();
-        SetStatus("Sync complete.", "#70C870");
     }
 
     // ── Preset save / load ────────────────────────────────────────────────────
@@ -944,8 +760,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _lastPrmData = parsed;
-
         // Map every known PRM key → CC, apply per-parameter scaling, push into model.
         foreach (var (key, rawValue) in parsed.Parameters)
         {
@@ -959,8 +773,9 @@ public partial class MainWindow : Window
         _patch.HandleIncomingCC(1,  0);    // Mod Wheel = 0
         _patch.HandleIncomingCC(11, 127);  // Expression = 127 (fully open)
 
-        // Load PRM-only effect parameters (Sync, Type, Feedback, EQ, etc.)
+        // Load PRM-only effect parameters (Sync, Tempo, Type, Feedback, EQ, etc.)
         LoadPrmOnly(parsed, _prmDelayMain);
+        LoadPrmOnly(parsed, [_delayTempo]);
         LoadPrmOnly(parsed, _prmReverbMain);
         LoadPrmOnly(parsed, _prmDelayAdv);
         LoadPrmOnly(parsed, _prmReverbAdv);
@@ -991,47 +806,6 @@ public partial class MainWindow : Window
         SetStatus($"Loaded PRM: {fileName}", "#70C870");
     }
 
-    private async void OnSavePrmClicked(object? sender, RoutedEventArgs e)
-    {
-        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title             = "Save PRM Patch File",
-            SuggestedFileName = PresetNameBox.Text?.Trim() is { Length: > 0 } n ? n : "PATCH",
-            DefaultExtension  = "PRM",
-            FileTypeChoices   = new[] { PrmFileType },
-        });
-
-        if (file is null) return;
-
-        try
-        {
-            var localPath = file.TryGetLocalPath()!;
-
-            var allPrmOnly = _prmDelayMain
-                .Concat(_prmReverbMain)
-                .Concat(_prmDelayAdv)
-                .Concat(_prmReverbAdv);
-
-            // Comb (CC104) inverse: PRM = clamp(1 + round((cc-3)*31/124), 1, 32)
-            // Maps CC 3→PRM 1 and CC 127→PRM 32.
-            var combParam  = _patch.GetByCC(104);
-            int combPrmVal = combParam is not null
-                ? Math.Clamp(1 + (int)Math.Round((combParam.Value - 3) * 31.0 / 124.0), 1, 32)
-                : 1;
-
-            var chopRaw = Enumerable.Range(0, ChopPattern.Waveforms)
-                .Select(w => (ChopPattern.PrmKeys[w], _chopPattern.ToPrm(w)))
-                .Append(("OSC_CHOP_COMB", combPrmVal));
-
-            PrmFileParser.Serialize(localPath, _patch, _lastPrmData, allPrmOnly, chopRaw);
-            SetStatus($"Saved PRM: {file.Name}", "#70C870");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"PRM save error: {ex.Message}", "#FF6B6B");
-        }
-    }
-
     private static void LoadPrmOnly(PrmFileData data, IEnumerable<PrmParameter> prms)
     {
         foreach (var p in prms)
@@ -1042,9 +816,9 @@ public partial class MainWindow : Window
         }
     }
 
-    // All PRM-only effect parameters in a single flat enumeration.
+    // All PRM-only effect parameters grouped by effect type (used for .s1patch persistence).
     private IEnumerable<PrmParameter> AllPrmOnlyParams() =>
-        _prmDelayMain.Concat(_prmReverbMain).Concat(_prmDelayAdv).Concat(_prmReverbAdv);
+        _prmDelayMain.Concat(_prmDelayAdv).Concat(new[] { _delayTempo }).Concat(_prmReverbMain).Concat(_prmReverbAdv);
 
     private void SetStatus(string message, string hexColour)
     {
