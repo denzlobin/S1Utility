@@ -57,11 +57,11 @@ public class S1Patch : IDisposable
         Voice = new List<S1Parameter>
         {
             new("Portamento Time",        cc:  5, S1Section.Voice),
-            //new("Pan",                    cc: 10, S1Section.Voice, initialValue: 64),
+            new("Pan",                    cc: 10, S1Section.Voice, initialValue: 64),
             new("Portamento Mode",        cc: 31, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Off", "On" }),
             new("Portamento",             cc: 65, S1Section.Voice, initialValue: 0,  Toggle),
-            //new("Keyboard Transpose",     cc: 77, S1Section.Voice, initialValue: 64),
+            new("Keyboard Transpose",     cc: 77, S1Section.Voice, initialValue: 64),
             new("Polyphony Mode",         cc: 80, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Mono", "Unison", "Poly", "Chord" }),
             new("Chord Voice 2 On/Off",   cc: 81, S1Section.Voice, initialValue: 0,  Toggle),

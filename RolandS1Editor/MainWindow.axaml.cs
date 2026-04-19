@@ -83,7 +83,7 @@ public partial class MainWindow : Window
     private readonly List<PrmParameter> _prmReverbAdv;
 
     // PRM-only delay tempo (used when Delay Sync = On; raw index 0-127).
-    private readonly PrmParameter _delayTempo = new("Delay Tempo", "DELAY_TEMPO");
+    private readonly PrmParameter _delayTempo = new("Delay Tempo", "DELAY_TEMPO", options: new []{ "128", "64t", "128d", "1_64", "32t", "64d", "1_32", "16t", "32d", "1_16", "8t", "16d", "1_8", "4t", "8d", "1_4"});
 
     // ── Section accent colours ────────────────────────────────────────────────
 

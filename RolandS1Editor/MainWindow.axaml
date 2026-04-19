@@ -151,12 +151,12 @@
                       VerticalScrollBarVisibility="Auto">
             <Grid Margin="4"
                   ColumnDefinitions="*,*,*"
-                  RowDefinitions="Auto,Auto">
+                  RowDefinitions="Auto, Auto, Auto">
 
-                <!-- Row 0 ─────────────────────────────────────────────── -->
+                <!-- Column 0 ─────────────────────────────────────────────── -->
 
                 <!-- OSCILLATOR -->
-                <Border Classes="section-card" Grid.Column="0" Grid.Row="0">
+                <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="3">
                     <StackPanel>
                         <TextBlock Classes="section-title"
                                    Text="OSCILLATOR"
@@ -166,6 +166,8 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Column 1 ─────────────────────────────────────────────── -->
+                
                 <!-- FILTER -->
                 <Border Classes="section-card" Grid.Column="1" Grid.Row="0">
                     <StackPanel>
@@ -177,7 +179,7 @@
                 </Border>
 
                 <!-- ENVELOPE -->
-                <Border Classes="section-card" Grid.Column="2" Grid.Row="0">
+                <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
                     <StackPanel>
                         <TextBlock Classes="section-title"
                                    Text="ENVELOPE"
@@ -186,10 +188,8 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Row 1 ─────────────────────────────────────────────── -->
-
                 <!-- LFO -->
-                <Border Classes="section-card" Grid.Column="0" Grid.Row="1">
+                <Border Classes="section-card" Grid.Column="1" Grid.Row="2">
                     <StackPanel>
                         <TextBlock Classes="section-title"
                                    Text="LFO"
@@ -198,8 +198,10 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Column 2 ─────────────────────────────────────────────── -->
+                
                 <!-- VOICE (includes Controls: Mod Wheel, Expression, Damper) -->
-                <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
+                <Border Classes="section-card" Grid.Column="2" Grid.Row="1" Grid.RowSpan="2">
                     <StackPanel>
                         <TextBlock Classes="section-title"
                                    Text="VOICE"
@@ -209,7 +211,7 @@
                 </Border>
 
                 <!-- EFFECTS -->
-                <Border Classes="section-card" Grid.Column="2" Grid.Row="1">
+                <Border Classes="section-card" Grid.Column="2" Grid.Row="0">
                     <StackPanel x:Name="EffectsStack">
                         <TextBlock Classes="section-title"
                                    Text="EFFECTS"
