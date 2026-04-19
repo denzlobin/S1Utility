@@ -1,0 +1,282 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RolandS1Editor.MainWindow"
+        Title="Roland S-1 Editor"
+        Background="#1A1A1A"
+        MinWidth="960" MinHeight="620"
+        Width="1120" Height="740">
+
+    <Window.Styles>
+        <!-- Section card border -->
+        <Style Selector="Border.section-card">
+            <Setter Property="Background"       Value="#222222"/>
+            <Setter Property="BorderBrush"      Value="#383838"/>
+            <Setter Property="BorderThickness"  Value="1"/>
+            <Setter Property="CornerRadius"     Value="6"/>
+            <Setter Property="Padding"          Value="10"/>
+            <Setter Property="Margin"           Value="4"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+
+        <!-- Section title label -->
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize"     Value="11"/>
+            <Setter Property="FontWeight"   Value="Bold"/>
+            <Setter Property="Margin"       Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Knob numeric value label (sits between knob and name) -->
+        <Style Selector="TextBlock.param-value-label">
+            <Setter Property="FontSize"            Value="9"/>
+            <Setter Property="Foreground"          Value="#DDDDDD"/>
+            <Setter Property="TextAlignment"       Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="MinWidth"            Value="40"/>
+        </Style>
+
+        <!-- Knob parameter label -->
+        <Style Selector="TextBlock.param-label">
+            <Setter Property="FontSize"          Value="9.5"/>
+            <Setter Property="Foreground"        Value="#AAAAAA"/>
+            <Setter Property="TextAlignment"     Value="Center"/>
+            <Setter Property="TextWrapping"      Value="Wrap"/>
+            <Setter Property="MaxWidth"          Value="68"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Dropdown (ComboBox) parameter -->
+        <Style Selector="ComboBox.param-combo">
+            <Setter Property="MinWidth"  Value="90"/>
+            <Setter Property="MaxWidth"  Value="120"/>
+            <Setter Property="FontSize"  Value="10"/>
+            <Setter Property="Padding"   Value="4,2"/>
+        </Style>
+
+        <!-- Toggle (CheckBox) parameter -->
+        <Style Selector="CheckBox.param-toggle">
+            <Setter Property="Foreground"   Value="#CCCCCC"/>
+            <Setter Property="FontSize"     Value="10"/>
+            <Setter Property="Margin"       Value="4,6"/>
+        </Style>
+
+        <!-- Top-bar button -->
+        <Style Selector="Button.toolbar">
+            <Setter Property="Padding"      Value="14,5"/>
+            <Setter Property="FontSize"     Value="12"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+
+        <!-- ── Top bar ───────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                Background="#1E1E1E"
+                BorderBrush="#333333"
+                BorderThickness="0,0,0,1"
+                Padding="12,8">
+            <StackPanel Spacing="8">
+
+                <!-- Row 1: MIDI device selection -->
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="Out"
+                               Foreground="#888888"
+                               VerticalAlignment="Center"
+                               FontSize="11"/>
+                    <ComboBox x:Name="DeviceCombo"
+                              Width="200"
+                              PlaceholderText="— output device —"/>
+                    <TextBlock Text="In"
+                               Foreground="#888888"
+                               VerticalAlignment="Center"
+                               FontSize="11"/>
+                    <ComboBox x:Name="InputCombo"
+                              Width="200"
+                              PlaceholderText="— input device —"/>
+                    <TextBlock Text="Ch"
+                               Foreground="#888888"
+                               VerticalAlignment="Center"
+                               FontSize="11"/>
+                    <ComboBox x:Name="ChannelCombo"
+                              Width="56"/>
+                    <Button x:Name="ConnectButton"
+                            Classes="toolbar"
+                            Content="Connect"/>
+                    <Button x:Name="SendAllButton"
+                            Classes="toolbar"
+                            Content="Send All"
+                            IsEnabled="False"/>
+                    <Button x:Name="SyncButton"
+                            Classes="toolbar"
+                            Content="Sync from Hardware"
+                            IsEnabled="False"/>
+                    <TextBlock x:Name="StatusText"
+                               Foreground="#888888"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"
+                               FontSize="11"/>
+                </StackPanel>
+
+                <!-- Row 2: Preset management -->
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="Preset"
+                               Foreground="#888888"
+                               VerticalAlignment="Center"
+                               FontSize="11"/>
+                    <TextBox x:Name="PresetNameBox"
+                             Width="200"
+                             Text="Untitled"
+                             PlaceholderText="Preset name…"/>
+                    <Button x:Name="SaveButton"
+                            Classes="toolbar"
+                            Content="Save Preset"/>
+                    <Button x:Name="LoadButton"
+                            Classes="toolbar"
+                            Content="Load Preset"/>
+                </StackPanel>
+
+                <!-- Row 3: PRM file support -->
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button x:Name="OpenPrmButton"
+                            Classes="toolbar"
+                            Content="Open PRM File"/>
+                    <Button x:Name="SavePrmButton"
+                            Classes="toolbar"
+                            Content="Save PRM File"/>
+                    <TextBlock Foreground="#888888"
+                               VerticalAlignment="Center"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               MaxWidth="620"
+                               Text="To access patch files on the S-1: connect USB, then hold PLAY while powering on. Files are in the BACKUP folder. To restore: copy files to RESTORE folder, eject, then press HOLD on the device."/>
+                </StackPanel>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ── Content area (sections + sync overlay) ───────────────────── -->
+        <Panel>
+
+        <!-- Section panels -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <Grid Margin="4"
+                  ColumnDefinitions="*,*,*"
+                  RowDefinitions="Auto,Auto">
+
+                <!-- Row 0 ─────────────────────────────────────────────── -->
+
+                <!-- OSCILLATOR -->
+                <Border Classes="section-card" Grid.Column="0" Grid.Row="0">
+                    <StackPanel>
+                        <TextBlock Classes="section-title"
+                                   Text="OSCILLATOR"
+                                   Foreground="#F0A040"/>
+                        <WrapPanel x:Name="OscillatorPanel"/>
+                        <StackPanel x:Name="ChopGridPanel"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- FILTER -->
+                <Border Classes="section-card" Grid.Column="1" Grid.Row="0">
+                    <StackPanel>
+                        <TextBlock Classes="section-title"
+                                   Text="FILTER"
+                                   Foreground="#40B0F0"/>
+                        <WrapPanel x:Name="FilterPanel"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- ENVELOPE -->
+                <Border Classes="section-card" Grid.Column="2" Grid.Row="0">
+                    <StackPanel>
+                        <TextBlock Classes="section-title"
+                                   Text="ENVELOPE"
+                                   Foreground="#70C870"/>
+                        <WrapPanel x:Name="EnvelopePanel"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 1 ─────────────────────────────────────────────── -->
+
+                <!-- LFO -->
+                <Border Classes="section-card" Grid.Column="0" Grid.Row="1">
+                    <StackPanel>
+                        <TextBlock Classes="section-title"
+                                   Text="LFO"
+                                   Foreground="#B070D8"/>
+                        <WrapPanel x:Name="LfoPanel"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- VOICE (includes Controls: Mod Wheel, Expression, Damper) -->
+                <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
+                    <StackPanel>
+                        <TextBlock Classes="section-title"
+                                   Text="VOICE"
+                                   Foreground="#F07840"/>
+                        <WrapPanel x:Name="VoicePanel"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- EFFECTS -->
+                <Border Classes="section-card" Grid.Column="2" Grid.Row="1">
+                    <StackPanel x:Name="EffectsStack">
+                        <TextBlock Classes="section-title"
+                                   Text="EFFECTS"
+                                   Foreground="#40C8A8"/>
+                        <WrapPanel x:Name="EffectsPanel"/>
+                    </StackPanel>
+                </Border>
+
+            </Grid>
+        </ScrollViewer>
+
+        <!-- ── Sync overlay (hidden until Sync from Hardware is clicked) ── -->
+        <Panel x:Name="SyncOverlay"
+               IsVisible="False"
+               Background="#B2000000">
+
+            <Border Background="#262626"
+                    BorderBrush="#505050"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="36,28"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    MinWidth="420">
+                <StackPanel Spacing="18">
+
+                    <TextBlock Text="SYNC FROM HARDWARE"
+                               Foreground="#FFFFFF"
+                               FontSize="13"
+                               FontWeight="Bold"
+                               HorizontalAlignment="Center"/>
+
+                    <TextBlock Foreground="#CCCCCC"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               MaxWidth="360"
+                               Text="Wiggle each knob on your S-1 back and forth, returning each knob to its original position after wiggling. Click Done when finished."/>
+
+                    <TextBlock x:Name="SyncProgressText"
+                               Text="Captured: 0 / 54"
+                               Foreground="#F0A040"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"/>
+
+                    <Button x:Name="SyncDoneButton"
+                            Classes="toolbar"
+                            Content="Done"
+                            HorizontalAlignment="Center"
+                            MinWidth="120"/>
+
+                </StackPanel>
+            </Border>
+        </Panel>
+
+        </Panel><!-- end content Panel -->
+
+    </DockPanel>
+</Window>
