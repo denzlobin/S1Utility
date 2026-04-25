@@ -59,7 +59,7 @@ public class S1Patch : IDisposable
             new("Portamento Time",        cc:  5, S1Section.Voice),
             new("Pan",                    cc: 10, S1Section.Voice, initialValue: 64),
             new("Portamento Mode",        cc: 31, S1Section.Voice, initialValue: 0, Dropdown,
-                new[] { "Off", "On" }),
+                new[] { "Off", "Auto", "On" }),
             new("Portamento",             cc: 65, S1Section.Voice, initialValue: 0,  Toggle),
             new("Keyboard Transpose",     cc: 77, S1Section.Voice, initialValue: 64),
             new("Polyphony Mode",         cc: 80, S1Section.Voice, initialValue: 0, Dropdown,
@@ -76,7 +76,7 @@ public class S1Patch : IDisposable
         {
             new("OSC LFO Pitch",      cc:  13, S1Section.Oscillator),
             new("OSC Range",          cc:  14, S1Section.Oscillator, initialValue: 0, Dropdown,
-                new[] { "32'", "16'", "8'", "4'" }),
+                new[] { "64'", "32'", "16'", "8'", "4'", "2'" }),
             new("OSC Square PW",      cc:  15, S1Section.Oscillator),
             new("OSC PWM Source",     cc:  16, S1Section.Oscillator, initialValue: 0, Dropdown,
                 new[] { "Envelope", "Manual", "LFO" }),
@@ -240,6 +240,16 @@ public class S1Patch : IDisposable
             SendOne(param);
             await Task.Delay(5);
         }
+    }
+
+    // Sends a MIDI Program Change on the connected channel.
+    // The S-1 maps its 64 patterns as programs 0–63 (group × 16 + pattern_index).
+    public void SendProgramChange(int program)
+    {
+        if (_output == null) return;
+        byte ch = (byte)(_statusByte & 0x0F);
+        _output.Send(new[] { (byte)(0xC0 | ch), (byte)Math.Clamp(program, 0, 127) },
+            offset: 0, length: 2, timestamp: 0);
     }
 
     public void Dispose() => Disconnect();
