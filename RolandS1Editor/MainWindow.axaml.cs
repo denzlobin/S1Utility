@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
@@ -43,6 +44,27 @@ public partial class MainWindow : Window
 
     // Patch/pattern bank buttons (4 groups × 16 patterns = 64 program changes).
     private readonly List<Button> _patchButtons = new();
+
+    private bool _autoConnect;
+    private bool _filterModEnabled;
+    private static readonly string SettingsPath =
+        System.IO.Path.Combine(AppContext.BaseDirectory, "s1editor.settings.json");
+
+    // ── Filter modulation animation ───────────────────────────────────────────
+
+    private enum EnvPhase { Off, Attack, Decay, Sustain, Release }
+
+    private Action?  _filterCurveUpdate;
+    private Action?  _envelopeDotUpdate;
+    private double   _filterModOffset;
+    private EnvPhase _envPhase = EnvPhase.Off;
+    private double   _envLevel;
+    private double   _envLevelAtRelease;
+    private int      _noteCount;
+    private double   _lfoPhase;
+    private double   _lfoRandom;
+    private DateTime _lastModTick;
+    private readonly DispatcherTimer _modTimer = new();
 
     // Brushes reused across all 64 step buttons.
     private static readonly IBrush s_chopOnBrush  = new SolidColorBrush(Color.Parse("#CC2222"));
@@ -95,6 +117,16 @@ public partial class MainWindow : Window
         "128", "64t", "128d", "1_64", "32t", "64d", "1_32", "16t",
         "32d", "1_16", "8t", "16d", "1_8", "4t", "8d", "1_4" });
 
+    // 31 synced LFO rate values, indexed by CC 0–30 (slowest → fastest).
+    private static readonly string[] s_lfoSyncValues =
+    {
+        "8_1",  "6_1",  "8_1t", "4_1",  "3_1",  "4_1t",
+        "2_1",  "1_1d", "2_1t", "1_1",  "2d",   "1_1t",
+        "1_2",  "4d",   "1_2t", "1_4",  "8d",   "4t",
+        "1_8",  "16d",  "8t",   "1_16", "32d",  "16t",
+        "1_32", "64d",  "32t",  "1_64", "128d", "64t",  "128",
+    };
+
     // ── Section accent colours ────────────────────────────────────────────────
 
     private static readonly IBrush OscAccent   = new SolidColorBrush(Color.Parse("#F0A040"));
@@ -123,6 +155,28 @@ public partial class MainWindow : Window
         SaveButton.Click     += OnSaveClicked;
         LoadButton.Click     += OnLoadClicked;
         OpenPrmButton.Click  += OnOpenPrmClicked;
+
+        LoadSettings();
+        AutoConnectToggle.IsChecked = _autoConnect;
+        AutoConnectToggle.IsCheckedChanged += (_, _) =>
+        {
+            _autoConnect = AutoConnectToggle.IsChecked == true;
+            SaveSettings();
+        };
+        if (_autoConnect) TryAutoConnect();
+
+        FilterModToggle.IsChecked = _filterModEnabled;
+        FilterModToggle.IsCheckedChanged += (_, _) =>
+        {
+            _filterModEnabled = FilterModToggle.IsChecked == true;
+            if (!_filterModEnabled) { _filterModOffset = 0; _filterCurveUpdate?.Invoke(); _envelopeDotUpdate?.Invoke(); }
+            SaveSettings();
+        };
+
+        _lastModTick = DateTime.UtcNow;
+        _modTimer.Interval = TimeSpan.FromMilliseconds(16);
+        _modTimer.Tick += OnModTimerTick;
+        _modTimer.Start();
     }
 
     // ── Device lists ──────────────────────────────────────────────────────────
@@ -159,11 +213,17 @@ public partial class MainWindow : Window
 
     private void BuildOscPanel()
     {
-        // Knobs: all except dropdowns and draw/chop specials
-        var knobRow = new WrapPanel();
-        foreach (int cc in new[] { 13, 15, 18, 19, 20, 21, 23, 76 })
-            knobRow.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
-        OscillatorPanel.Children.Add(knobRow);
+        // Row 1: level knobs
+        var knobRow1 = new WrapPanel();
+        foreach (int cc in new[] { 19, 20, 21, 23 })
+            knobRow1.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
+        OscillatorPanel.Children.Add(knobRow1);
+
+        // Row 2: modulation / tuning knobs
+        var knobRow2 = new WrapPanel();
+        foreach (int cc in new[] { 15, 13, 76, 18 })
+            knobRow2.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
+        OscillatorPanel.Children.Add(knobRow2);
 
         // 2-col button grid: Range/NoiseMode row1, PWMSource/SubOctave row2
         var btnGrid = new Grid
@@ -199,10 +259,16 @@ public partial class MainWindow : Window
     private void BuildFilterPanel()
     {
         FilterPanel.Children.Add(MakeFilterCurve(_patch.GetByCC(74)!, _patch.GetByCC(71)!));
-        var knobs = new WrapPanel();
-        foreach (int cc in new[] { 74, 71, 24, 25, 26, 27 })
-            knobs.Children.Add(MakeKnob(_patch.GetByCC(cc)!, FiltAccent));
-        FilterPanel.Children.Add(knobs);
+
+        var filtRow1 = new WrapPanel();
+        foreach (int cc in new[] { 74, 71, 24 })
+            filtRow1.Children.Add(MakeKnob(_patch.GetByCC(cc)!, FiltAccent));
+        FilterPanel.Children.Add(filtRow1);
+
+        var filtRow2 = new WrapPanel();
+        foreach (int cc in new[] { 25, 26, 27 })
+            filtRow2.Children.Add(MakeKnob(_patch.GetByCC(cc)!, FiltAccent));
+        FilterPanel.Children.Add(filtRow2);
     }
 
     private void BuildEnvelopePanel()
@@ -226,7 +292,7 @@ public partial class MainWindow : Window
     private void BuildLfoPanel()
     {
         var knobs = new WrapPanel();
-        knobs.Children.Add(MakeKnob(_patch.GetByCC(3)!,  LfoAccent));
+        knobs.Children.Add(MakeLfoRateKnob());
         knobs.Children.Add(MakeKnob(_patch.GetByCC(17)!, LfoAccent));
         LfoPanel.Children.Add(knobs);
 
@@ -260,10 +326,22 @@ public partial class MainWindow : Window
 
         VoicePanel.Children.Add(MakeDroneButton(_patch.GetByCC(64)!, VoiceAccent));
 
-        VoicePanel.Children.Add(MakeSubSectionHeader("CHORD", VoiceAccent));
-        VoicePanel.Children.Add(MakeChordVoiceRow(2, _patch.GetByCC(81)!, _patch.GetByCC(85)!, VoiceAccent));
-        VoicePanel.Children.Add(MakeChordVoiceRow(3, _patch.GetByCC(82)!, _patch.GetByCC(86)!, VoiceAccent));
-        VoicePanel.Children.Add(MakeChordVoiceRow(4, _patch.GetByCC(83)!, _patch.GetByCC(87)!, VoiceAccent));
+        var chordSection = new StackPanel();
+        chordSection.Children.Add(MakeSubSectionHeader("CHORD", VoiceAccent));
+        chordSection.Children.Add(MakeChordVoiceRow(2, _patch.GetByCC(81)!, _patch.GetByCC(85)!, VoiceAccent));
+        chordSection.Children.Add(MakeChordVoiceRow(3, _patch.GetByCC(82)!, _patch.GetByCC(86)!, VoiceAccent));
+        chordSection.Children.Add(MakeChordVoiceRow(4, _patch.GetByCC(83)!, _patch.GetByCC(87)!, VoiceAccent));
+        VoicePanel.Children.Add(chordSection);
+
+        var polyParam = _patch.GetByCC(80)!;
+        void UpdateChordEnabled(int v)
+        {
+            bool isChord = v == 3;
+            chordSection.IsEnabled = isChord;
+            chordSection.Opacity   = isChord ? 1.0 : 0.3;
+        }
+        UpdateChordEnabled(polyParam.Value);
+        polyParam.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => UpdateChordEnabled(v));
 
         VoicePanel.Children.Add(MakeSubSectionHeader("TRANSPOSE", VoiceAccent));
         VoicePanel.Children.Add(MakeKeyShiftSlider(_patch.GetByCC(77)!));
@@ -276,7 +354,10 @@ public partial class MainWindow : Window
         string[] opts = param.Options
             ?? (param.ParameterType == S1ParameterType.Toggle ? new[] { "Off", "On" } : new[] { "0", "1" });
 
-        var borders = new Border[opts.Length];
+        bool waveIcons = param.CcNumber == 12;
+
+        var borders      = new Border[opts.Length];
+        var setColor     = new Action<IBrush>[opts.Length];
 
         int GetIndex(int v) => param.ParameterType == S1ParameterType.Toggle
             ? (v > 0 ? 1 : 0)
@@ -292,9 +373,7 @@ public partial class MainWindow : Window
                     ? new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0))
                     : new SolidColorBrush(Color.Parse("#191919"));
                 borders[i].BorderBrush = on ? accent : new SolidColorBrush(Color.Parse("#303030"));
-                ((TextBlock)borders[i].Child!).Foreground = on
-                    ? accent
-                    : new SolidColorBrush(Color.Parse("#4A4A4A"));
+                setColor[i](on ? accent : new SolidColorBrush(Color.Parse("#4A4A4A")));
             }
         }
 
@@ -303,19 +382,36 @@ public partial class MainWindow : Window
         for (int i = 0; i < opts.Length; i++)
         {
             int idx = i;
-            var lbl = new TextBlock
+
+            Control content;
+            if (waveIcons)
             {
-                Text     = opts[i].ToUpperInvariant(),
-                FontSize = 8,
-            };
+                var poly = new Polyline
+                {
+                    StrokeThickness = 1.3,
+                    StrokeLineCap   = PenLineCap.Round,
+                    Points          = new Avalonia.Collections.AvaloniaList<Point>(WaveformIconPoints(i)),
+                };
+                var wc = new Canvas { Width = 26, Height = 12 };
+                wc.Children.Add(poly);
+                content = wc;
+                setColor[i] = brush => poly.Stroke = brush;
+            }
+            else
+            {
+                var lbl = new TextBlock { Text = opts[i].ToUpperInvariant(), FontSize = 10 };
+                content = lbl;
+                setColor[i] = brush => lbl.Foreground = brush;
+            }
+
             var cell = new Border
             {
                 BorderThickness = new Thickness(1),
                 CornerRadius    = new CornerRadius(2),
-                Padding         = new Thickness(5, 2),
+                Padding         = waveIcons ? new Thickness(5, 4) : new Thickness(8, 3),
                 Margin          = new Thickness(1),
                 Cursor          = new Cursor(StandardCursorType.Hand),
-                Child           = lbl,
+                Child           = content,
             };
             cell.PointerPressed += (_, _) =>
                 param.Value = param.ParameterType == S1ParameterType.Toggle ? (idx > 0 ? 127 : 0) : idx;
@@ -343,11 +439,31 @@ public partial class MainWindow : Window
         };
     }
 
+    // Polyline point sets for the six LFO waveform icons (26×12 canvas).
+    private static Point[] WaveformIconPoints(int index) => index switch
+    {
+        0 => new[] { new Point(0,11), new Point(13,1),  new Point(13,11), new Point(26,1)  },  // Sawtooth
+        1 => new[] { new Point(0,1),  new Point(13,11), new Point(13,1),  new Point(26,11) },  // Inv Saw
+        2 => new[] { new Point(0,6),  new Point(7,1),   new Point(19,11), new Point(26,6)  },  // Triangle
+        3 => new[] { new Point(0,2),  new Point(13,2),  new Point(13,10), new Point(26,10) },  // Square
+        4 => new[]                                                                              // Random (S&H)
+        {
+            new Point(0,3),  new Point(6,3),  new Point(6,9),  new Point(11,9),
+            new Point(11,2), new Point(17,2), new Point(17,7), new Point(26,7),
+        },
+        _ => new[]                                                                              // Noise
+        {
+            new Point(0,6), new Point(3,2), new Point(6,10), new Point(9,4),
+            new Point(12,9), new Point(15,3), new Point(18,11), new Point(21,2),
+            new Point(24,7), new Point(26,5),
+        },
+    };
+
     // ── Filter curve (live lowpass SVG-style visualizer) ─────────────────────────
 
     private Control MakeFilterCurve(S1Parameter freqParam, S1Parameter resParam)
     {
-        const double W = 140, H = 34;
+        const double W = 252, H = 34;
 
         var fillPath = new Path { Fill = new SolidColorBrush(Color.FromArgb(0x14, 0x40, 0xB0, 0xF0)) };
         var linePath = new Path { Stroke = FiltAccent, StrokeThickness = 1.5, StrokeLineCap = PenLineCap.Round };
@@ -358,44 +474,36 @@ public partial class MainWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(0x40, 0x40, 0xB0, 0xF0)),
         };
 
-        var canvas = new Canvas { Width = W, Height = H, Margin = new Thickness(2, 0, 2, 3) };
+        var canvas = new Canvas { Width = W, Height = H, Margin = new Thickness(4, 0, 2, 3) };
         canvas.Children.Add(fillPath);
         canvas.Children.Add(linePath);
         canvas.Children.Add(marker);
 
         void Update()
         {
-            double fN    = freqParam.Value / 127.0;
+            double fN    = Math.Clamp(freqParam.Value / 127.0 + _filterModOffset, 0.0, 1.0);
             double rN    = resParam.Value  / 127.0;
             double xC    = 8 + fN * (W - 16);
-            const double flatY = H * 0.45;
+            double flatY  = 4.0 + rN * (H * 0.60 - 4.0);  // rises with resonance; res=0 → near top
             double peak   = rN * (flatY - 2);
             double startY = flatY - peak;
-
-            const double slopeRatio = 1.0;
-            double slopeHoriz = (H - startY) / slopeRatio;
-            bool   fullSlope  = xC + slopeHoriz <= W;
-            double slopeEndX  = fullSlope ? xC + slopeHoriz : W;
-            double slopeEndY  = fullSlope ? H : startY + slopeRatio * (W - xC);
-
-            // Smooth transition point a few px into the rolloff
-            double transX = Math.Min(xC + 10, slopeEndX);
-            double transY = Math.Min(H, startY + slopeRatio * 10);
 
             void Stroke(StreamGeometryContext ctx)
             {
                 ctx.BeginFigure(new Point(0, flatY), false);
-                ctx.LineTo(new Point(Math.Max(0, xC - 18), flatY));   // flat passband
-                ctx.CubicBezierTo(                                      // smooth S-curve up to peak
+                ctx.LineTo(new Point(Math.Max(0, xC - 18), flatY));    // flat passband
+                ctx.CubicBezierTo(                                       // S-curve up to peak
                     new Point(xC - 8, flatY),
-                    new Point(xC - 2, startY + 2),
+                    new Point(xC - 2, Math.Min(startY + 2, flatY)),
                     new Point(xC,     startY));
-                ctx.CubicBezierTo(                                      // smooth departure from peak
-                    new Point(xC + 2, startY),
-                    new Point(xC + 6, startY + slopeRatio * 4),
-                    new Point(transX, transY));
-                ctx.LineTo(new Point(slopeEndX, slopeEndY));            // 24 dB/oct rolloff
-                if (fullSlope) ctx.LineTo(new Point(W, H));
+                // Fixed-width rolloff — 24dB/oct steep drop then flat
+                double slopeW = Math.Min(W - xC - 1, 80.0);
+                ctx.CubicBezierTo(
+                    new Point(xC + slopeW * 0.08, startY + (H - startY) * 0.75),
+                    new Point(xC + slopeW * 0.45, H),
+                    new Point(xC + slopeW,        H));
+                if (xC + slopeW < W)
+                    ctx.LineTo(new Point(W, H));
                 ctx.EndFigure(false);
             }
 
@@ -407,7 +515,6 @@ public partial class MainWindow : Window
             using (var ctx = fillSg.Open())
             {
                 Stroke(ctx);
-                if (!fullSlope) ctx.LineTo(new Point(W, H));    // close bottom-right corner
                 ctx.LineTo(new Point(0, H));
                 ctx.EndFigure(true);
             }
@@ -416,6 +523,7 @@ public partial class MainWindow : Window
             Canvas.SetLeft(marker, xC);
         }
 
+        _filterCurveUpdate = Update;
         Update();
         freqParam.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
         resParam.ValueChanged  += (_, _) => Dispatcher.UIThread.Post(Update);
@@ -439,7 +547,7 @@ public partial class MainWindow : Window
         var lblS = new TextBlock { Text = "S", FontSize = 7, Foreground = new SolidColorBrush(Color.Parse("#506050")) };
         var lblR = new TextBlock { Text = "R", FontSize = 7, Foreground = new SolidColorBrush(Color.Parse("#506050")) };
 
-        var canvas = new Canvas { Width = W, Height = H, Margin = new Thickness(2, 0, 2, 4) };
+        var canvas = new Canvas { Width = W, Height = H, Margin = new Thickness(4, 0, 2, 4) };
         canvas.Children.Add(fillPoly);
         canvas.Children.Add(strokePoly);
         canvas.Children.Add(lblA);
@@ -449,31 +557,110 @@ public partial class MainWindow : Window
 
         void Update()
         {
-            double aT   = 4 + (attackP.Value  / 127.0) * 36;
-            double dT   = 4 + (decayP.Value   / 127.0) * 36;
-            double rT   = 4 + (releaseP.Value / 127.0) * 36;
-            double sL   = H - (sustainP.Value / 127.0) * (H - 5);
-            double hw   = Math.Max(8, W - aT - dT - rT - 8);
+            // All four segments share the canvas proportionally by their normalized values.
+            // Sustain width scales with its level (same value drives both height and width).
+            // Shape always fills W exactly.
+            const double minSeg  = 5;
+            const double varPool = W - 4 * minSeg;  // 232px variable pool
+
+            double aN = attackP.Value  / 127.0;
+            double dN = decayP.Value   / 127.0;
+            double sN = sustainP.Value / 127.0;
+            double rN = releaseP.Value / 127.0;
+            double sum = aN + dN + sN + rN;
+            if (sum < 0.01) { aN = dN = sN = rN = 0.25; sum = 1.0; }
+
+            double aT = minSeg + (aN / sum) * varPool;
+            double dT = minSeg + (dN / sum) * varPool;
+            double hw = minSeg + (sN / sum) * varPool;
+            double rT = minSeg + (rN / sum) * varPool;
+            double sL = H - (sustainP.Value / 127.0) * (H - 5);
 
             var pts = new[]
             {
-                new Point(0,                          H),
-                new Point(aT,                         3),
-                new Point(aT + dT,                    sL),
-                new Point(aT + dT + hw,               sL),
-                new Point(aT + dT + hw + rT,          H),
+                new Point(0,                    H),
+                new Point(aT,                   3),
+                new Point(aT + dT,              sL),
+                new Point(aT + dT + hw,         sL),
+                new Point(aT + dT + hw + rT,    H),
             };
 
             strokePoly.Points = new Avalonia.Collections.AvaloniaList<Point>(pts);
-            fillPoly.Points   = new Avalonia.Collections.AvaloniaList<Point>(pts.Append(new Point(W, H)));
+            fillPoly.Points   = new Avalonia.Collections.AvaloniaList<Point>(pts);
 
-            // Position ADSR labels at midpoint of each segment, below baseline
-            Canvas.SetLeft(lblA, aT / 2 - 3);                         Canvas.SetTop(lblA, H - 9);
-            Canvas.SetLeft(lblD, aT + dT / 2 - 3);                    Canvas.SetTop(lblD, H - 9);
-            Canvas.SetLeft(lblS, aT + dT + hw / 2 - 3);               Canvas.SetTop(lblS, H - 9);
-            Canvas.SetLeft(lblR, aT + dT + hw + rT / 2 - 3);          Canvas.SetTop(lblR, H - 9);
+            Canvas.SetLeft(lblA, aT / 2 - 3);                  Canvas.SetTop(lblA, H - 9);
+            Canvas.SetLeft(lblD, aT + dT / 2 - 3);             Canvas.SetTop(lblD, H - 9);
+            Canvas.SetLeft(lblS, aT + dT + hw / 2 - 3);        Canvas.SetTop(lblS, H - 9);
+            Canvas.SetLeft(lblR, aT + dT + hw + rT / 2 - 3);   Canvas.SetTop(lblR, H - 9);
         }
 
+        var dot = new Ellipse
+        {
+            Width  = 7,
+            Height = 7,
+            Fill   = new SolidColorBrush(Colors.White),
+            IsVisible = false,
+        };
+        canvas.Children.Add(dot);
+
+        void UpdateDot()
+        {
+            if (!_filterModEnabled || _envPhase == EnvPhase.Off)
+            {
+                dot.IsVisible = false;
+                return;
+            }
+
+            // Re-derive segment layout from current param values (mirrors Update() logic).
+            double aN2  = attackP.Value  / 127.0;
+            double dN2  = decayP.Value   / 127.0;
+            double sN2  = sustainP.Value / 127.0;
+            double rN2  = releaseP.Value / 127.0;
+            double sum2 = aN2 + dN2 + sN2 + rN2;
+            if (sum2 < 0.01) { aN2 = dN2 = sN2 = rN2 = 0.25; sum2 = 1.0; }
+            const double minSeg2  = 5;
+            const double varPool2 = W - 4 * minSeg2;
+            double aT2 = minSeg2 + (aN2 / sum2) * varPool2;
+            double dT2 = minSeg2 + (dN2 / sum2) * varPool2;
+            double hw2 = minSeg2 + (sN2 / sum2) * varPool2;
+            double rT2 = minSeg2 + (rN2 / sum2) * varPool2;
+            double sL2 = H - sN2 * (H - 5);
+            double lvl  = _envLevel;
+
+            double dx, dy;
+            switch (_envPhase)
+            {
+                case EnvPhase.Attack:
+                    dx = lvl * aT2;
+                    dy = H - lvl * (H - 3);
+                    break;
+                case EnvPhase.Decay:
+                    double dd = 1.0 - sN2 > 0.001
+                        ? Math.Clamp((1.0 - lvl) / (1.0 - sN2), 0, 1) : 1.0;
+                    dx = aT2 + dd * dT2;
+                    dy = 3 + dd * (sL2 - 3);
+                    break;
+                case EnvPhase.Sustain:
+                    dx = aT2 + dT2;
+                    dy = sL2;
+                    break;
+                case EnvPhase.Release:
+                    double rp = _envLevelAtRelease > 0.001
+                        ? Math.Clamp(1.0 - lvl / _envLevelAtRelease, 0, 1) : 1.0;
+                    dx = aT2 + dT2 + hw2 + rp * rT2;
+                    dy = H - lvl * (H - 3);   // Y from actual level, X from release progress
+                    break;
+                default:
+                    dot.IsVisible = false;
+                    return;
+            }
+
+            dot.IsVisible = true;
+            Canvas.SetLeft(dot, dx - 3.5);
+            Canvas.SetTop(dot, dy - 3.5);
+        }
+
+        _envelopeDotUpdate = UpdateDot;
         Update();
         attackP.ValueChanged  += (_, _) => Dispatcher.UIThread.Post(Update);
         decayP.ValueChanged   += (_, _) => Dispatcher.UIThread.Post(Update);
@@ -588,7 +775,7 @@ public partial class MainWindow : Window
 
         var label = new TextBlock
         {
-            Text          = "DRONE",
+            Text          = "HOLD",
             FontSize      = 8.5,
             LetterSpacing = 0.7,
             VerticalAlignment = VerticalAlignment.Center,
@@ -960,7 +1147,7 @@ public partial class MainWindow : Window
             if (delaySw.Value != 1)
                 return $"{1 + (int)Math.Round(param.Value * 739.0 / 127)}ms";
             var opts = _delayTempo.Options!;
-            int idx  = Math.Clamp(param.Value, 0, opts.Length - 1);
+            int idx  = Math.Clamp(param.Value, 0, opts.Length - 1);  // CC 0-15 → index 0-15
             return opts[idx];
         }
 
@@ -975,13 +1162,59 @@ public partial class MainWindow : Window
             valueLabel.Text = d;
         }
 
-        // When sync is on, CC 1-16 maps evenly across the full knob rotation.
+        // When sync is on, CC 0-15 maps evenly across the full knob rotation.
         int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, 15) * 127.0 / 15);
         int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * 15.0 / 127), 0, 15);
 
         knob.ValueChanged    += (_, v) => { param.Value = delaySw.Value == 1 ? KnobToSync(v) : v; Refresh(); };
         param.ValueChanged   += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = delaySw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
         delaySw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() => { knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value; Refresh(); });
+
+        return new StackPanel
+        {
+            Spacing             = 3,
+            Margin              = new Thickness(4, 6),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Children            =
+            {
+                knob,
+                valueLabel,
+                new TextBlock { Classes = { "param-label" }, Text = param.Name },
+            },
+        };
+    }
+
+    // ── LFO Rate knob — context-aware: free 0-127 when sync off, 32 values when sync on ──
+    private Control MakeLfoRateKnob()
+    {
+        var param  = _patch.GetByCC(3)!;
+        var syncSw = _patch.GetByCC(106)!;
+
+        string GetDisplay()
+        {
+            if (syncSw.Value == 0) return ((int)Math.Round(param.Value * 255.0 / 127)).ToString();
+            int idx = Math.Clamp(param.Value, 0, s_lfoSyncValues.Length - 1);
+            return s_lfoSyncValues[idx];
+        }
+
+        var knob       = new RotaryKnob { Value = param.Value, AccentBrush = LfoAccent };
+        var valueLabel = new TextBlock   { Classes = { "param-value-label" }, Text = GetDisplay() };
+        ToolTip.SetTip(knob, $"{param.Name}: {GetDisplay()}");
+
+        void Refresh()
+        {
+            string d = GetDisplay();
+            ToolTip.SetTip(knob, $"{param.Name}: {d}");
+            valueLabel.Text = d;
+        }
+
+        // When sync on, CC 0–30 spread evenly across full knob rotation.
+        int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, 30) * 127.0 / 30);
+        int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * 30.0 / 127), 0, 30);
+
+        knob.ValueChanged   += (_, v) => { param.Value = syncSw.Value == 1 ? KnobToSync(v) : v; Refresh(); };
+        param.ValueChanged  += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = syncSw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
+        syncSw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() => { knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value; Refresh(); });
 
         return new StackPanel
         {
@@ -1626,7 +1859,9 @@ public partial class MainWindow : Window
 
     // ── Toolbar actions ───────────────────────────────────────────────────────
 
-    private async void OnConnectClicked(object? sender, RoutedEventArgs e)
+    private async void OnConnectClicked(object? sender, RoutedEventArgs e) => await PerformConnectAsync();
+
+    private async Task PerformConnectAsync()
     {
         if (DeviceCombo.SelectedIndex < 0)
         {
@@ -1671,11 +1906,61 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void TryAutoConnect()
+    {
+        var outPorts = new List<IMidiPortDetails>(_midi.Outputs);
+        int outIdx   = outPorts.FindIndex(p => p.Name.Contains("S-1", StringComparison.OrdinalIgnoreCase));
+        if (outIdx < 0)
+        {
+            SetStatus("Auto-connect: S-1 output not found.", "#F0A040");
+            return;
+        }
+
+        int inIdx = _inputDevices.FindIndex(d => d.Name.Contains("S-1", StringComparison.OrdinalIgnoreCase));
+
+        DeviceCombo.SelectedIndex = outIdx;
+        if (inIdx >= 0) InputCombo.SelectedIndex = inIdx;
+
+        await PerformConnectAsync();
+    }
+
+    private void LoadSettings()
+    {
+        try
+        {
+            if (!System.IO.File.Exists(SettingsPath)) return;
+            using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(SettingsPath));
+            if (doc.RootElement.TryGetProperty("autoConnect", out var el))
+                _autoConnect = el.GetBoolean();
+            if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2))
+                _filterModEnabled = el2.GetBoolean();
+        }
+        catch { }
+    }
+
+    private void SaveSettings()
+    {
+        try { System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new { autoConnect = _autoConnect, filterModEnabled = _filterModEnabled }, JsonOptions)); }
+        catch { }
+    }
+
     private void OnMidiEventReceived(object? sender, MidiEventReceivedEventArgs e)
     {
-        if (e.Event is not ControlChangeEvent cc) return;
-        if ((int)cc.Channel != MidiChannel - 1) return;
-        _patch.HandleIncomingCC((int)cc.ControlNumber, (int)cc.ControlValue);
+        switch (e.Event)
+        {
+            case ControlChangeEvent cc when (int)cc.Channel == MidiChannel - 1:
+                _patch.HandleIncomingCC((int)cc.ControlNumber, (int)cc.ControlValue);
+                break;
+            case NoteOnEvent noteOn when (int)noteOn.Channel == MidiChannel - 1:
+                if (noteOn.Velocity > 0)
+                    Dispatcher.UIThread.Post(OnNoteOn);
+                else
+                    Dispatcher.UIThread.Post(OnNoteOff);
+                break;
+            case NoteOffEvent noteOff when (int)noteOff.Channel == MidiChannel - 1:
+                Dispatcher.UIThread.Post(OnNoteOff);
+                break;
+        }
     }
 
     private async void OnSendAllClicked(object? sender, RoutedEventArgs e)
@@ -1867,10 +2152,109 @@ public partial class MainWindow : Window
         StatusText.Foreground = new SolidColorBrush(Color.Parse(hexColour));
     }
 
+    // ── Filter modulation: note tracking ─────────────────────────────────────
+
+    private void OnNoteOn()
+    {
+        _noteCount++;
+        _envPhase = EnvPhase.Attack;
+        _envLevel = 0;
+        if (_patch.GetByCC(105)!.Value == 1)
+            _lfoPhase = 0;
+    }
+
+    private void OnNoteOff()
+    {
+        _noteCount = Math.Max(0, _noteCount - 1);
+        if (_noteCount == 0)
+        {
+            _envLevelAtRelease = _envLevel;
+            _envPhase = EnvPhase.Release;
+        }
+    }
+
+    // ── Filter modulation: 60 fps tick ───────────────────────────────────────
+
+    private void OnModTimerTick(object? sender, EventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        double dt = Math.Min((now - _lastModTick).TotalSeconds, 0.1);
+        _lastModTick = now;
+
+        // ── Envelope ──────────────────────────────────────────────────────
+        double attackSecs  = ModEnvTime(_patch.GetByCC(73)!.Value);
+        double decaySecs   = ModEnvTime(_patch.GetByCC(75)!.Value);
+        double sustainLvl  = _patch.GetByCC(30)!.Value / 127.0;
+        double releaseSecs = ModEnvTime(_patch.GetByCC(72)!.Value);
+
+        switch (_envPhase)
+        {
+            case EnvPhase.Attack:
+                _envLevel = Math.Min(1.0, _envLevel + dt / attackSecs);
+                if (_envLevel >= 1.0) _envPhase = EnvPhase.Decay;
+                break;
+            case EnvPhase.Decay:
+                _envLevel = Math.Max(sustainLvl, _envLevel - dt * (1.0 - sustainLvl) / decaySecs);
+                if (_envLevel <= sustainLvl) _envPhase = EnvPhase.Sustain;
+                break;
+            case EnvPhase.Sustain:
+                _envLevel = sustainLvl;
+                break;
+            case EnvPhase.Release:
+                _envLevel = Math.Max(0, _envLevel - dt * _envLevelAtRelease / releaseSecs);
+                if (_envLevel <= 0) { _envLevel = 0; _envPhase = EnvPhase.Off; }
+                break;
+        }
+
+        // ── LFO ───────────────────────────────────────────────────────────
+        bool   lfoSync = _patch.GetByCC(106)!.Value == 1;
+        bool   lfoFast = _patch.GetByCC(79)!.Value  == 1;
+        double lfoHz   = ModLfoHz(_patch.GetByCC(3)!.Value, lfoSync, lfoFast);
+        double prevPhase = _lfoPhase;
+        _lfoPhase = (_lfoPhase + lfoHz * dt) % 1.0;
+        if (_lfoPhase < prevPhase)
+            _lfoRandom = Random.Shared.NextDouble() * 2.0 - 1.0;
+
+        double lfoVal = ModLfoValue(_patch.GetByCC(12)!.Value, _lfoPhase, _lfoRandom);
+
+        // ── Combine (only when feature is enabled) ────────────────────────
+        if (!_filterModEnabled) return;
+        double envAmount = _patch.GetByCC(24)!.Value / 127.0;
+        double lfoAmount = _patch.GetByCC(25)!.Value / 127.0;
+        _filterModOffset = envAmount * _envLevel + lfoAmount * lfoVal;
+
+        _filterCurveUpdate?.Invoke();
+        _envelopeDotUpdate?.Invoke();
+    }
+
+    // Maps CC 0-127 to envelope time: 1 ms at 0, ~8 s at 127 (square-law taper).
+    private static double ModEnvTime(int cc) => 0.001 + Math.Pow(cc / 127.0, 2.0) * 8.0;
+
+    // Maps rate CC to Hz with exponential taper; Fast mode doubles two octaves.
+    private static double ModLfoHz(int cc, bool sync, bool fast)
+    {
+        double hz = sync
+            ? 0.06 * Math.Pow(260.0, Math.Clamp(cc, 0, 30) / 30.0)   // ~0.06–16 Hz across 31 steps
+            : 0.01 * Math.Pow(2000.0, cc / 127.0);                    // ~0.01–20 Hz
+        return fast ? hz * 4.0 : hz;
+    }
+
+    // Returns -1..+1 LFO value for the given waveform and phase.
+    private static double ModLfoValue(int waveform, double phase, double random) => waveform switch
+    {
+        0 => phase * 2.0 - 1.0,                                          // Sawtooth
+        1 => 1.0 - phase * 2.0,                                          // Inv Saw
+        2 => phase < 0.5 ? phase * 4.0 - 1.0 : 3.0 - phase * 4.0,       // Triangle
+        3 => phase < 0.5 ? 1.0 : -1.0,                                   // Square
+        4 => random,                                                       // S&H (Random)
+        _ => Random.Shared.NextDouble() * 2.0 - 1.0,                     // Noise
+    };
+
     // ── Cleanup ───────────────────────────────────────────────────────────────
 
     protected override void OnClosed(EventArgs e)
     {
+        _modTimer.Stop();
         _activeInput?.StopEventsListening();
         foreach (var d in _inputDevices) d.Dispose();
         _patch.Dispose();

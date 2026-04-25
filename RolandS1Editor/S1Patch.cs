@@ -36,27 +36,27 @@ public class S1Patch : IDisposable
         Controls = new List<S1Parameter>
         {
             new("Mod Wheel",        cc:  1, S1Section.Controls),
-            new("Expression Pedal", cc: 11, S1Section.Controls),
+            new("Exp Pedal", cc: 11, S1Section.Controls),
             new("Damper Pedal",     cc: 64, S1Section.Controls, initialValue: 0, Toggle),
         };
 
         Lfo = new List<S1Parameter>
         {
-            new("LFO Rate",            cc:   3, S1Section.Lfo),
-            new("LFO Waveform",        cc:  12, S1Section.Lfo, initialValue: 0, Dropdown,
-                new[] { "Triangle", "Sine", "Sawtooth", "Square", "Sample & Hold" }),
-            new("LFO Modulation Depth",cc:  17, S1Section.Lfo),
-            new("LFO Mode",            cc:  79, S1Section.Lfo, initialValue: 0, Dropdown,
+            new("Rate",            cc:   3, S1Section.Lfo),
+            new("Waveform",        cc:  12, S1Section.Lfo, initialValue: 0, Dropdown,
+                new[] { "Sawtooth", "Inv Saw", "Triangle", "Square", "Random", "Noise" }),
+            new("Mod Depth",cc:  17, S1Section.Lfo),
+            new("Mode",            cc:  79, S1Section.Lfo, initialValue: 0, Dropdown,
                 new[] { "Normal", "Fast" }),
-            new("LFO Key Trigger",     cc: 105, S1Section.Lfo, initialValue: 0, Dropdown,
+            new("Key Trigger",     cc: 105, S1Section.Lfo, initialValue: 0, Dropdown,
                 new[] { "Off", "On" }),
-            new("LFO Sync",            cc: 106, S1Section.Lfo, initialValue: 0, Dropdown,
+            new("Sync",            cc: 106, S1Section.Lfo, initialValue: 0, Dropdown,
                 new[] { "Off", "On" }),
         };
 
         Voice = new List<S1Parameter>
         {
-            new("Portamento Time",        cc:  5, S1Section.Voice),
+            new("Glide Time",        cc:  5, S1Section.Voice),
             new("Pan",                    cc: 10, S1Section.Voice, initialValue: 64),
             new("Portamento Mode",        cc: 31, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Off", "Auto", "On" }),
@@ -74,37 +74,37 @@ public class S1Patch : IDisposable
 
         Oscillator = new List<S1Parameter>
         {
-            new("OSC LFO Pitch",      cc:  13, S1Section.Oscillator),
-            new("OSC Range",          cc:  14, S1Section.Oscillator, initialValue: 0, Dropdown,
+            new("LFO Pitch",      cc:  13, S1Section.Oscillator),
+            new("Range",          cc:  14, S1Section.Oscillator, initialValue: 0, Dropdown,
                 new[] { "64'", "32'", "16'", "8'", "4'", "2'" }),
-            new("OSC Square PW",      cc:  15, S1Section.Oscillator),
-            new("OSC PWM Source",     cc:  16, S1Section.Oscillator, initialValue: 0, Dropdown,
+            new("Square PW",      cc:  15, S1Section.Oscillator),
+            new("PWM Source",     cc:  16, S1Section.Oscillator, initialValue: 0, Dropdown,
                 new[] { "Envelope", "Manual", "LFO" }),
-            new("Pitch Bend Sens",    cc:  18, S1Section.Oscillator),
-            new("Square Level",       cc:  19, S1Section.Oscillator),
-            new("Saw Level",          cc:  20, S1Section.Oscillator),
-            new("Sub Level",          cc:  21, S1Section.Oscillator),
+            new("Bend Amount",    cc:  18, S1Section.Oscillator),
+            new("Square",       cc:  19, S1Section.Oscillator),
+            new("Saw",          cc:  20, S1Section.Oscillator),
+            new("Sub",          cc:  21, S1Section.Oscillator),
             new("Sub Octave Type",    cc:  22, S1Section.Oscillator, initialValue: 0, Dropdown,
                 new[] { "-2 Oct Asymmetric", "-2 Oct Symmetric", "-1 Oct Symmetric" }),
-            new("Noise Level",        cc:  23, S1Section.Oscillator),
-            new("Range Fine Tune",    cc:  76, S1Section.Oscillator, initialValue: 64),
+            new("Noise",        cc:  23, S1Section.Oscillator),
+            new("Fine Tune",    cc:  76, S1Section.Oscillator, initialValue: 64),
             new("Noise Mode",         cc:  78, S1Section.Oscillator, initialValue: 0, Dropdown,
                 new[] { "White", "Pink" }),
             new("Draw Multiply",      cc: 102, S1Section.Oscillator, initialValue: 0),
             new("Chop Overtone",      cc: 103, S1Section.Oscillator),
             new("Chop Comb",          cc: 104, S1Section.Oscillator),
-            new("Draw Step/Slope",    cc: 107, S1Section.Oscillator, initialValue: 0, Dropdown,
-                new[] { "Off", "On" }),
+            new("Draw",    cc: 107, S1Section.Oscillator, initialValue: 0, Dropdown,
+                new[] { "Off", "Step", "Slope" }),
         };
 
         Filter = new List<S1Parameter>
         {
-            new("Filter Envelope Depth",    cc: 24, S1Section.Filter),
-            new("Filter LFO Depth",         cc: 25, S1Section.Filter),
-            new("Filter Keytracking",   cc: 26, S1Section.Filter),
-            new("Filter Bend Sensitivity",  cc: 27, S1Section.Filter),
-            new("Filter Resonance",         cc: 71, S1Section.Filter),
-            new("Filter Frequency",         cc: 74, S1Section.Filter),
+            new("Env Amount",    cc: 24, S1Section.Filter),
+            new("LFO Amount",         cc: 25, S1Section.Filter),
+            new("Keytracking",   cc: 26, S1Section.Filter),
+            new("Bend Amount",  cc: 27, S1Section.Filter),
+            new("Resonance",         cc: 71, S1Section.Filter),
+            new("Cutoff",         cc: 74, S1Section.Filter),
         };
 
         Envelope = new List<S1Parameter>
@@ -121,11 +121,11 @@ public class S1Patch : IDisposable
 
         Effects = new List<S1Parameter>
         {
-            new("Reverb Time",  cc: 89, S1Section.Effects),
-            new("Delay Time",   cc: 90, S1Section.Effects),
-            new("Reverb Level", cc: 91, S1Section.Effects),
-            new("Delay Level",  cc: 92, S1Section.Effects),
-            new("Chorus Type",  cc: 93, S1Section.Effects, initialValue: 0, Dropdown,
+            new("Time",  cc: 89, S1Section.Effects),
+            new("Time",   cc: 90, S1Section.Effects),
+            new("Level", cc: 91, S1Section.Effects),
+            new("Level",  cc: 92, S1Section.Effects),
+            new("Type",  cc: 93, S1Section.Effects, initialValue: 0, Dropdown,
                 new[] { "Off", "Type 1", "Type 2", "Type 3", "Type 4" }),
         };
 
@@ -228,7 +228,7 @@ public class S1Patch : IDisposable
     // A small delay between messages avoids overwhelming the S-1's MIDI buffer.
     // CCs that are never bulk-sent to hardware — they are physical controllers
     // whose position on the device should not be overridden by the editor.
-    private static readonly HashSet<int> _noBulkSend = new() { 1, 11 };
+    private static readonly HashSet<int> _noBulkSend = new() { 1, 11, 64 };
 
     public async Task SendAllAsync()
     {
