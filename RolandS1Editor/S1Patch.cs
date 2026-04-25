@@ -85,7 +85,7 @@ public class S1Patch : IDisposable
             new("Saw",          cc:  20, S1Section.Oscillator),
             new("Sub",          cc:  21, S1Section.Oscillator),
             new("Sub Octave Type",    cc:  22, S1Section.Oscillator, initialValue: 0, Dropdown,
-                new[] { "-2 Oct Asymmetric", "-2 Oct Symmetric", "-1 Oct Symmetric" }),
+                new[] { "-2 Oct Asym", "-2 Oct", "-1 Oct" }),
             new("Noise",        cc:  23, S1Section.Oscillator),
             new("Fine Tune",    cc:  76, S1Section.Oscillator, initialValue: 64),
             new("Noise Mode",         cc:  78, S1Section.Oscillator, initialValue: 0, Dropdown,

@@ -64,15 +64,16 @@
             <Setter Property="BorderBrush"      Value="#333333"/>
             <Setter Property="BorderThickness"  Value="1"/>
             <Setter Property="CornerRadius"     Value="5"/>
-            <Setter Property="Padding"          Value="7"/>
-            <Setter Property="Margin"           Value="2"/>
+            <Setter Property="Padding"          Value="9"/>
+            <Setter Property="Margin"           Value="3"/>
         </Style>
 
         <!-- Section title label -->
         <Style Selector="TextBlock.section-title">
-            <Setter Property="FontSize"     Value="11"/>
+            <Setter Property="FontSize"     Value="10"/>
             <Setter Property="FontWeight"   Value="Bold"/>
-            <Setter Property="Margin"       Value="0,0,0,6"/>
+            <Setter Property="LetterSpacing" Value="1"/>
+            <Setter Property="Margin"       Value="0,0,0,8"/>
         </Style>
 
         <!-- Knob numeric value label (sits between knob and name) -->
@@ -80,18 +81,18 @@
             <Setter Property="FontSize"            Value="9"/>
             <Setter Property="Foreground"          Value="#DDDDDD"/>
             <Setter Property="TextAlignment"       Value="Center"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="MinWidth"            Value="40"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment"   Value="Center"/>
         </Style>
 
         <!-- Knob parameter label -->
         <Style Selector="TextBlock.param-label">
-            <Setter Property="FontSize"          Value="9.5"/>
-            <Setter Property="Foreground"        Value="#AAAAAA"/>
-            <Setter Property="TextAlignment"     Value="Center"/>
-            <Setter Property="TextWrapping"      Value="Wrap"/>
-            <Setter Property="MaxWidth"          Value="68"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FontSize"            Value="9.5"/>
+            <Setter Property="Foreground"          Value="#AAAAAA"/>
+            <Setter Property="TextAlignment"       Value="Center"/>
+            <Setter Property="TextWrapping"        Value="Wrap"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment"   Value="Top"/>
         </Style>
 
         <!-- Dropdown (ComboBox) parameter -->
@@ -232,6 +233,14 @@
                               VerticalAlignment="Center"
                               Margin="4,0"
                               ToolTip.Tip="Experimental: animates the filter curve to simulate envelope and LFO modulation. Based on heuristics — behaviour may not match hardware exactly."/>
+                    <CheckBox x:Name="PatternSyncToggle"
+                              Content="Pattern Sync"
+                              Foreground="#AA6622"
+                              FontSize="9.5"
+                              VerticalAlignment="Center"
+                              Margin="4,0"
+                              IsEnabled="False"
+                              ToolTip.Tip="Experimental: auto-loads PRM data when switching patterns. Requires a PRM Folder. Files must exactly match the device — it is your responsibility to keep them in sync."/>
                     <TextBlock x:Name="StatusText"
                                Foreground="#555555"
                                VerticalAlignment="Center"
@@ -261,6 +270,15 @@
             </Grid>
         </Border>
 
+        <!-- ── Pattern grid (always visible, shared across tabs) ──────────── -->
+        <Border DockPanel.Dock="Bottom"
+                Background="#1C1C1C"
+                BorderBrush="#333333"
+                BorderThickness="0,1,0,0"
+                Padding="12,8,12,10">
+            <StackPanel x:Name="PatchGridContainer" IsEnabled="False"/>
+        </Border>
+
         <!-- ── Tabs ───────────────────────────────────────────────────────── -->
         <TabControl>
 
@@ -268,21 +286,12 @@
             <TabItem Header="Realtime Editor">
                 <DockPanel>
 
-                    <!-- Program change panel (bottom) -->
-                    <Border DockPanel.Dock="Bottom"
-                            Background="#1C1C1C"
-                            BorderBrush="#333333"
-                            BorderThickness="0,1,0,0"
-                            Padding="12,8,12,10">
-                        <StackPanel x:Name="PatchGridContainer" IsEnabled="False"/>
-                    </Border>
-
                     <!-- Editor sections -->
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                   VerticalScrollBarVisibility="Auto">
                         <Grid Margin="4"
                               ColumnDefinitions="*,*,*"
-                              RowDefinitions="Auto, Auto, *">
+                              RowDefinitions="Auto, Auto, Auto">
 
                             <!-- OSCILLATOR (col 0, all rows) -->
                             <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="3">
@@ -360,15 +369,32 @@
                             BorderBrush="#333333"
                             BorderThickness="0,0,0,1"
                             Padding="12,8">
-                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <Button x:Name="OpenPrmButton"
-                                    Classes="toolbar"
-                                    Content="Open PRM File"/>
-                            <TextBlock Foreground="#888888"
-                                       VerticalAlignment="Center"
-                                       FontSize="10"
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Button x:Name="OpenPrmButton"
+                                        Classes="toolbar"
+                                        Content="Open PRM File"/>
+                                <Border Width="1" Background="#2E2E2E" Margin="4,2"/>
+                                <TextBlock Text="PRM Folder"
+                                           Foreground="#666666"
+                                           VerticalAlignment="Center"
+                                           FontSize="10"/>
+                                <TextBox x:Name="PrmFolderBox"
+                                         Width="280"
+                                         FontSize="10"
+                                         IsReadOnly="True"
+                                         PlaceholderText="(not set — click Browse to choose)"
+                                         Background="#181818"
+                                         BorderBrush="#333333"
+                                         Foreground="#AAAAAA"/>
+                                <Button x:Name="BrowsePrmFolderButton"
+                                        Classes="toolbar"
+                                        Content="Browse…"/>
+                            </StackPanel>
+                            <TextBlock Foreground="#555555"
+                                       FontSize="9.5"
                                        TextWrapping="Wrap"
-                                       MaxWidth="620"
+                                       MaxWidth="860"
                                        Text="To access patch files on the S-1: connect USB, then hold PLAY while powering on. Files are in the BACKUP folder. To restore: copy files to RESTORE folder, eject, then press HOLD on the device."/>
                         </StackPanel>
                     </Border>

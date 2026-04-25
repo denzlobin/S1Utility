@@ -45,8 +45,11 @@ public partial class MainWindow : Window
     // Patch/pattern bank buttons (4 groups × 16 patterns = 64 program changes).
     private readonly List<Button> _patchButtons = new();
 
-    private bool _autoConnect;
-    private bool _filterModEnabled;
+    private bool   _autoConnect;
+    private bool   _filterModEnabled;
+    private bool   _patternSync;
+    private bool   _suppressPatternSyncToggle;
+    private string _prmFolder = "";
     private static readonly string SettingsPath =
         System.IO.Path.Combine(AppContext.BaseDirectory, "s1editor.settings.json");
 
@@ -150,13 +153,15 @@ public partial class MainWindow : Window
         BuildPrmViewerContent();
         ApplyInitPatch();
 
-        ConnectButton.Click  += OnConnectClicked;
-        SendAllButton.Click  += OnSendAllClicked;
-        SaveButton.Click     += OnSaveClicked;
-        LoadButton.Click     += OnLoadClicked;
-        OpenPrmButton.Click  += OnOpenPrmClicked;
+        ConnectButton.Click          += OnConnectClicked;
+        SendAllButton.Click          += OnSendAllClicked;
+        SaveButton.Click             += OnSaveClicked;
+        LoadButton.Click             += OnLoadClicked;
+        OpenPrmButton.Click          += OnOpenPrmClicked;
+        BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
 
         LoadSettings();
+        PrmFolderBox.Text = _prmFolder;
         AutoConnectToggle.IsChecked = _autoConnect;
         AutoConnectToggle.IsCheckedChanged += (_, _) =>
         {
@@ -170,6 +175,27 @@ public partial class MainWindow : Window
         {
             _filterModEnabled = FilterModToggle.IsChecked == true;
             if (!_filterModEnabled) { _filterModOffset = 0; _filterCurveUpdate?.Invoke(); _envelopeDotUpdate?.Invoke(); }
+            SaveSettings();
+        };
+
+        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prmFolder);
+        PatternSyncToggle.IsChecked = _patternSync;
+        PatternSyncToggle.IsCheckedChanged += async (_, _) =>
+        {
+            if (_suppressPatternSyncToggle) return;
+            bool enabling = PatternSyncToggle.IsChecked == true;
+            if (enabling && !_patternSync)
+            {
+                bool confirmed = await ShowPatternSyncWarningAsync();
+                if (!confirmed)
+                {
+                    _suppressPatternSyncToggle = true;
+                    PatternSyncToggle.IsChecked = false;
+                    _suppressPatternSyncToggle = false;
+                    return;
+                }
+            }
+            _patternSync = PatternSyncToggle.IsChecked == true;
             SaveSettings();
         };
 
@@ -214,22 +240,22 @@ public partial class MainWindow : Window
     private void BuildOscPanel()
     {
         // Row 1: level knobs
-        var knobRow1 = new WrapPanel();
+        var knobRow1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 19, 20, 21, 23 })
             knobRow1.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
         OscillatorPanel.Children.Add(knobRow1);
 
         // Row 2: modulation / tuning knobs
-        var knobRow2 = new WrapPanel();
+        var knobRow2 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 15, 13, 76, 18 })
             knobRow2.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
         OscillatorPanel.Children.Add(knobRow2);
 
-        // 2-col button grid: Range/NoiseMode row1, PWMSource/SubOctave row2
+        // 2-col button grid: Range/NoiseMode row0, PWMSource row1, SubOctave full-width row2
         var btnGrid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,*"),
-            RowDefinitions    = new RowDefinitions("Auto,Auto"),
+            RowDefinitions    = new RowDefinitions("Auto,Auto,Auto"),
         };
         var rangeBtn = MakeLedButtonGroup(_patch.GetByCC(14)!, OscAccent);
         var noiseBtn = MakeLedButtonGroup(_patch.GetByCC(78)!, OscAccent);
@@ -238,7 +264,7 @@ public partial class MainWindow : Window
         Grid.SetColumn(rangeBtn, 0); Grid.SetRow(rangeBtn, 0);
         Grid.SetColumn(noiseBtn, 1); Grid.SetRow(noiseBtn, 0);
         Grid.SetColumn(pwmBtn,   0); Grid.SetRow(pwmBtn,   1);
-        Grid.SetColumn(subBtn,   1); Grid.SetRow(subBtn,   1);
+        Grid.SetColumn(subBtn,   0); Grid.SetRow(subBtn,   2); Grid.SetColumnSpan(subBtn, 2);
         btnGrid.Children.Add(rangeBtn);
         btnGrid.Children.Add(noiseBtn);
         btnGrid.Children.Add(pwmBtn);
@@ -247,10 +273,10 @@ public partial class MainWindow : Window
 
         OscillatorPanel.Children.Add(MakeSubSectionHeader("DRAW · CHOP", OscAccent));
 
-        var dcKnobs = new WrapPanel();
+        var dcKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         dcKnobs.Children.Add(MakeKnob(_patch.GetByCC(102)!, OscAccent, minCcValue: 3));
         dcKnobs.Children.Add(MakeKnob(_patch.GetByCC(104)!, OscAccent, minCcValue: 3));
-        dcKnobs.Children.Add(MakeOvertoneSlider(_patch.GetByCC(103)!));
+        dcKnobs.Children.Add(MakeKnob(_patch.GetByCC(103)!, OscAccent));
         OscillatorPanel.Children.Add(dcKnobs);
 
         OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(107)!, OscAccent));
@@ -260,12 +286,12 @@ public partial class MainWindow : Window
     {
         FilterPanel.Children.Add(MakeFilterCurve(_patch.GetByCC(74)!, _patch.GetByCC(71)!));
 
-        var filtRow1 = new WrapPanel();
+        var filtRow1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 74, 71, 24 })
             filtRow1.Children.Add(MakeKnob(_patch.GetByCC(cc)!, FiltAccent));
         FilterPanel.Children.Add(filtRow1);
 
-        var filtRow2 = new WrapPanel();
+        var filtRow2 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 25, 26, 27 })
             filtRow2.Children.Add(MakeKnob(_patch.GetByCC(cc)!, FiltAccent));
         FilterPanel.Children.Add(filtRow2);
@@ -276,7 +302,7 @@ public partial class MainWindow : Window
         EnvelopePanel.Children.Add(MakeAdsrVisualizer(
             _patch.GetByCC(73)!, _patch.GetByCC(75)!, _patch.GetByCC(30)!, _patch.GetByCC(72)!));
 
-        var knobs = new WrapPanel();
+        var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 73, 75, 30, 72 })
             knobs.Children.Add(MakeKnob(_patch.GetByCC(cc)!, EnvAccent));
         EnvelopePanel.Children.Add(knobs);
@@ -291,7 +317,7 @@ public partial class MainWindow : Window
 
     private void BuildLfoPanel()
     {
-        var knobs = new WrapPanel();
+        var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         knobs.Children.Add(MakeLfoRateKnob());
         knobs.Children.Add(MakeKnob(_patch.GetByCC(17)!, LfoAccent));
         LfoPanel.Children.Add(knobs);
@@ -300,9 +326,10 @@ public partial class MainWindow : Window
 
         var modeRow = new StackPanel
         {
-            Orientation = Orientation.Horizontal,
-            Spacing     = 2,
-            Margin      = new Thickness(3, 1, 3, 2),
+            Orientation         = Orientation.Horizontal,
+            Spacing             = 2,
+            Margin              = new Thickness(3, 1, 3, 2),
+            HorizontalAlignment = HorizontalAlignment.Center,
         };
         modeRow.Children.Add(MakeLedButtonGroup(_patch.GetByCC(79)!,  LfoAccent));
         modeRow.Children.Add(MakeLedButtonGroup(_patch.GetByCC(106)!, LfoAccent));
@@ -312,8 +339,8 @@ public partial class MainWindow : Window
 
     private void BuildVoicePanel()
     {
-        var knobs = new WrapPanel();
-        foreach (int cc in new[] { 1, 11, 5, 10 })
+        var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+        foreach (int cc in new[] { 1, 11, 5, 10, 77 })
             knobs.Children.Add(MakeKnob(_patch.GetByCC(cc)!, VoiceAccent));
         VoicePanel.Children.Add(knobs);
 
@@ -343,8 +370,6 @@ public partial class MainWindow : Window
         UpdateChordEnabled(polyParam.Value);
         polyParam.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => UpdateChordEnabled(v));
 
-        VoicePanel.Children.Add(MakeSubSectionHeader("TRANSPOSE", VoiceAccent));
-        VoicePanel.Children.Add(MakeKeyShiftSlider(_patch.GetByCC(77)!));
     }
 
     // ── LED segmented button group (replaces ComboBox / CheckBox in Tab 1) ───────
@@ -377,7 +402,7 @@ public partial class MainWindow : Window
             }
         }
 
-        var row = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Left };
+        var row = new StackPanel { Orientation = Orientation.Horizontal };
 
         for (int i = 0; i < opts.Length; i++)
         {
@@ -424,16 +449,19 @@ public partial class MainWindow : Window
 
         return new StackPanel
         {
-            Margin   = new Thickness(3, 2, 3, 4),
+            Margin              = new Thickness(3, 2, 3, 4),
+            HorizontalAlignment = HorizontalAlignment.Center,
             Children =
             {
                 row,
                 new TextBlock
                 {
-                    Text       = param.Name,
-                    FontSize   = 9,
-                    Foreground = new SolidColorBrush(Color.Parse("#666666")),
-                    Margin     = new Thickness(1, 3, 0, 0),
+                    Text                = param.Name,
+                    FontSize            = 9,
+                    Foreground          = new SolidColorBrush(Color.Parse("#666666")),
+                    Margin              = new Thickness(0, 3, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment       = TextAlignment.Center,
                 },
             },
         };
@@ -648,7 +676,7 @@ public partial class MainWindow : Window
                     double rp = _envLevelAtRelease > 0.001
                         ? Math.Clamp(1.0 - lvl / _envLevelAtRelease, 0, 1) : 1.0;
                     dx = aT2 + dT2 + hw2 + rp * rT2;
-                    dy = H - lvl * (H - 3);   // Y from actual level, X from release progress
+                    dy = sL2 + rp * (H - sL2);
                     break;
                 default:
                     dot.IsVisible = false;
@@ -752,11 +780,12 @@ public partial class MainWindow : Window
 
         return new StackPanel
         {
-            Orientation       = Orientation.Horizontal,
-            Spacing           = 4,
-            Margin            = new Thickness(3, 2),
-            VerticalAlignment = VerticalAlignment.Center,
-            Children          = { lbl, toggle, slider, valLbl },
+            Orientation         = Orientation.Horizontal,
+            Spacing             = 4,
+            Margin              = new Thickness(3, 2),
+            VerticalAlignment   = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Children            = { lbl, toggle, slider, valLbl },
         };
     }
 
@@ -790,12 +819,13 @@ public partial class MainWindow : Window
 
         var btn = new Border
         {
-            BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(3),
-            Padding         = new Thickness(10, 4),
-            Margin          = new Thickness(3, 2),
-            Cursor          = new Cursor(StandardCursorType.Hand),
-            Child           = inner,
+            BorderThickness     = new Thickness(1),
+            CornerRadius        = new CornerRadius(3),
+            Padding             = new Thickness(10, 4),
+            Margin              = new Thickness(3, 2),
+            Cursor              = new Cursor(StandardCursorType.Hand),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child               = inner,
         };
         ToolTip.SetTip(btn, "Click to latch / release held notes");
 
@@ -859,9 +889,18 @@ public partial class MainWindow : Window
     private void OnPatchClicked(int program, Button btn)
     {
         _patch.SendProgramChange(program);
+        HighlightPatchButton(program);
+    }
+
+    private void HighlightPatchButton(int program)
+    {
         foreach (var b in _patchButtons)
             b.Classes.Remove("patch-btn-active");
-        btn.Classes.Add("patch-btn-active");
+        if ((uint)program < (uint)_patchButtons.Count)
+            _patchButtons[program].Classes.Add("patch-btn-active");
+
+        if (_patternSync && !string.IsNullOrEmpty(_prmFolder))
+            TryLoadPatternPrm(program);
     }
 
     private void PopulateSection(WrapPanel panel, IReadOnlyList<S1Parameter> parameters, IBrush accent)
@@ -886,6 +925,7 @@ public partial class MainWindow : Window
         return cc switch
         {
             76  => (val - 64).ToString(),
+            77  => FormatSemitone(val - 64),
             102 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}",
             103 => Math.Min(200, (int)Math.Round(val * 255.0 / 127)).ToString(),
             104 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}",
@@ -928,18 +968,21 @@ public partial class MainWindow : Window
                 valueLabel.Text = display;
             });
 
-        return new StackPanel
+        var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
+        var container = new Grid
         {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            =
-            {
-                knob,
-                valueLabel,
-                new TextBlock { Classes = { "param-label" }, Text = param.Name },
-            },
+            Width          = 68,
+            Margin         = new Thickness(3, 4),
+            RowDefinitions = new RowDefinitions("56,14,26"),
         };
+        knob.HorizontalAlignment = HorizontalAlignment.Center;
+        Grid.SetRow(knob,       0);
+        Grid.SetRow(valueLabel, 1);
+        Grid.SetRow(nameLabel,  2);
+        container.Children.Add(knob);
+        container.Children.Add(valueLabel);
+        container.Children.Add(nameLabel);
+        return container;
     }
 
     private static Control MakeDropdown(S1Parameter param)
@@ -1042,60 +1085,6 @@ public partial class MainWindow : Window
         };
     }
 
-    private static Control MakeOvertoneSlider(S1Parameter param)
-    {
-        static int ToDisplay(int cc)      => Math.Min(200, (int)Math.Round(cc * 255.0 / 127));
-        static int ToCcValue(int display) => (int)Math.Round(display * 127.0 / 255);
-
-        int initDisplay = Math.Min(ToDisplay(param.Value), 200);
-
-        var slider = new Slider
-        {
-            Minimum             = 0,
-            Maximum             = 200,
-            Value               = initDisplay,
-            IsSnapToTickEnabled = true,
-            TickFrequency       = 1,
-            Width               = 130,
-            Orientation         = Orientation.Horizontal,
-        };
-
-        var valueLabel = new TextBlock
-        {
-            Classes             = { "param-label" },
-            Text                = initDisplay.ToString(),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-
-        slider.ValueChanged += (_, e) =>
-        {
-            int d = (int)Math.Round(e.NewValue);
-            param.Value     = ToCcValue(d);
-            valueLabel.Text = d.ToString();
-        };
-
-        param.ValueChanged += (_, cc) =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                int d = ToDisplay(cc);
-                slider.Value    = d;
-                valueLabel.Text = d.ToString();
-            });
-
-        return new StackPanel
-        {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            =
-            {
-                slider,
-                valueLabel,
-                new TextBlock { Classes = { "param-label" }, Text = param.Name },
-            },
-        };
-    }
-
     private void BuildEffectsPanel()
     {
         // Reverb + Delay side by side
@@ -1106,7 +1095,7 @@ public partial class MainWindow : Window
         };
         var reverbCol = new StackPanel();
         reverbCol.Children.Add(MakeSubSectionHeader("REVERB", FxAccent));
-        var revKnobs = new WrapPanel();
+        var revKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         revKnobs.Children.Add(MakeKnob(_patch.GetByCC(91)!, FxAccent));
         revKnobs.Children.Add(MakeKnob(_patch.GetByCC(89)!, FxAccent));
         reverbCol.Children.Add(revKnobs);
@@ -1120,7 +1109,7 @@ public partial class MainWindow : Window
 
         var delayCol = new StackPanel();
         delayCol.Children.Add(MakeSubSectionHeader("DELAY", FxAccent));
-        var delKnobs = new WrapPanel();
+        var delKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         delKnobs.Children.Add(MakeKnob(_patch.GetByCC(92)!, FxAccent));
         delKnobs.Children.Add(BuildDelayTimeKnob());
         delayCol.Children.Add(delKnobs);
@@ -1170,18 +1159,21 @@ public partial class MainWindow : Window
         param.ValueChanged   += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = delaySw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
         delaySw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() => { knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value; Refresh(); });
 
-        return new StackPanel
+        var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
+        var container = new Grid
         {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            =
-            {
-                knob,
-                valueLabel,
-                new TextBlock { Classes = { "param-label" }, Text = param.Name },
-            },
+            Width          = 68,
+            Margin         = new Thickness(3, 4),
+            RowDefinitions = new RowDefinitions("56,14,26"),
         };
+        knob.HorizontalAlignment = HorizontalAlignment.Center;
+        Grid.SetRow(knob,       0);
+        Grid.SetRow(valueLabel, 1);
+        Grid.SetRow(nameLabel,  2);
+        container.Children.Add(knob);
+        container.Children.Add(valueLabel);
+        container.Children.Add(nameLabel);
+        return container;
     }
 
     // ── LFO Rate knob — context-aware: free 0-127 when sync off, 32 values when sync on ──
@@ -1216,18 +1208,21 @@ public partial class MainWindow : Window
         param.ValueChanged  += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = syncSw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
         syncSw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() => { knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value; Refresh(); });
 
-        return new StackPanel
+        var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
+        var container = new Grid
         {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            =
-            {
-                knob,
-                valueLabel,
-                new TextBlock { Classes = { "param-label" }, Text = param.Name },
-            },
+            Width          = 68,
+            Margin         = new Thickness(3, 4),
+            RowDefinitions = new RowDefinitions("56,14,26"),
         };
+        knob.HorizontalAlignment = HorizontalAlignment.Center;
+        Grid.SetRow(knob,       0);
+        Grid.SetRow(valueLabel, 1);
+        Grid.SetRow(nameLabel,  2);
+        container.Children.Add(knob);
+        container.Children.Add(valueLabel);
+        container.Children.Add(nameLabel);
+        return container;
     }
 
     // ── Tab 2: PRM Viewer ─────────────────────────────────────────────────────
@@ -1934,13 +1929,17 @@ public partial class MainWindow : Window
                 _autoConnect = el.GetBoolean();
             if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2))
                 _filterModEnabled = el2.GetBoolean();
+            if (doc.RootElement.TryGetProperty("prmFolder", out var el3))
+                _prmFolder = el3.GetString() ?? "";
+            if (doc.RootElement.TryGetProperty("patternSync", out var el4))
+                _patternSync = el4.GetBoolean();
         }
         catch { }
     }
 
     private void SaveSettings()
     {
-        try { System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new { autoConnect = _autoConnect, filterModEnabled = _filterModEnabled }, JsonOptions)); }
+        try { System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new { autoConnect = _autoConnect, filterModEnabled = _filterModEnabled, prmFolder = _prmFolder, patternSync = _patternSync }, JsonOptions)); }
         catch { }
     }
 
@@ -1959,6 +1958,9 @@ public partial class MainWindow : Window
                 break;
             case NoteOffEvent noteOff when (int)noteOff.Channel == MidiChannel - 1:
                 Dispatcher.UIThread.Post(OnNoteOff);
+                break;
+            case ProgramChangeEvent pc when (int)pc.Channel == MidiChannel - 1:
+                Dispatcher.UIThread.Post(() => HighlightPatchButton((int)pc.ProgramNumber));
                 break;
         }
     }
@@ -2045,6 +2047,128 @@ public partial class MainWindow : Window
 
         await _patch.SendAllAsync();
         SetStatus($"Loaded: {preset.Name}", "#70C870");
+    }
+
+    // ── Pattern Sync ──────────────────────────────────────────────────────────
+
+    private string PrmFileForProgram(int program)
+    {
+        int bank    = program / 16 + 1;
+        int pattern = program % 16 + 1;
+        return System.IO.Path.Combine(_prmFolder, $"S1_PTN{bank}-{pattern:D2}.PRM");
+    }
+
+    private void TryLoadPatternPrm(int program)
+    {
+        string path = PrmFileForProgram(program);
+        if (!System.IO.File.Exists(path))
+        {
+            SetStatus($"Pattern Sync: {System.IO.Path.GetFileName(path)} not found in PRM folder", "#F0A040");
+            return;
+        }
+
+        PrmFileData parsed;
+        try { parsed = PrmFileParser.Parse(path); }
+        catch (Exception ex)
+        {
+            SetStatus($"Pattern Sync: parse error — {ex.Message}", "#FF6B6B");
+            return;
+        }
+
+        ApplyPrmData(parsed);
+        SetStatus($"Pattern Sync: {System.IO.Path.GetFileName(path)}", "#888888");
+    }
+
+    private async Task<bool> ShowPatternSyncWarningAsync()
+    {
+        bool confirmed = false;
+
+        var yesBtn = new Button { Content = "Enable Pattern Sync", Classes = { "toolbar" } };
+        var noBtn  = new Button { Content = "Cancel",              Classes = { "toolbar" } };
+
+        var dlg = new Window
+        {
+            Title                 = "Pattern Sync — Safety Warning",
+            Width                 = 480,
+            SizeToContent         = SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background            = new SolidColorBrush(Color.Parse("#1C1C1C")),
+            Content = new StackPanel
+            {
+                Margin   = new Thickness(24, 20),
+                Spacing  = 14,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text       = "⚠  EXPERIMENTAL FEATURE",
+                        FontSize   = 13,
+                        FontWeight = FontWeight.Bold,
+                        Foreground = new SolidColorBrush(Color.Parse("#F0A040")),
+                    },
+                    new TextBlock
+                    {
+                        FontSize     = 11,
+                        Foreground   = new SolidColorBrush(Color.Parse("#CCCCCC")),
+                        TextWrapping = TextWrapping.Wrap,
+                        Text         =
+                            "When Pattern Sync is enabled, switching patterns — either by clicking " +
+                            "a pattern button in the editor or by pressing a pattern on the S-1 — " +
+                            "will automatically load the corresponding PRM file from your PRM Folder " +
+                            "and update all editor values and the PRM Viewer.\n\n" +
+                            "No values are sent back to the device during a pattern switch. " +
+                            "The editor is updated only.",
+                    },
+                    new Border
+                    {
+                        Height     = 1,
+                        Background = new SolidColorBrush(Color.Parse("#444444")),
+                    },
+                    new TextBlock
+                    {
+                        FontSize     = 10,
+                        Foreground   = new SolidColorBrush(Color.Parse("#FF8844")),
+                        TextWrapping = TextWrapping.Wrap,
+                        FontWeight   = FontWeight.SemiBold,
+                        Text         =
+                            "It is your responsibility to ensure your PRM folder is in sync with " +
+                            "the patterns stored on the device. If the files do not match what is " +
+                            "on the S-1, the editor will display incorrect values.",
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing     = 8,
+                        Children    = { yesBtn, noBtn },
+                    },
+                },
+            },
+        };
+
+        yesBtn.Click += (_, _) => { confirmed = true; dlg.Close(); };
+        noBtn.Click  += (_, _) => dlg.Close();
+
+        await dlg.ShowDialog(this);
+        return confirmed;
+    }
+
+    // ── PRM folder ────────────────────────────────────────────────────────────
+
+    private async void OnBrowsePrmFolderClicked(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title         = "Select PRM Files Folder",
+            AllowMultiple = false,
+        });
+
+        if (folders.Count == 0) return;
+
+        _prmFolder        = folders[0].TryGetLocalPath() ?? "";
+        PrmFolderBox.Text = _prmFolder;
+        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prmFolder);
+        SaveSettings();
     }
 
     // ── PRM file open ─────────────────────────────────────────────────────────
@@ -2201,7 +2325,7 @@ public partial class MainWindow : Window
                 _envLevel = sustainLvl;
                 break;
             case EnvPhase.Release:
-                _envLevel = Math.Max(0, _envLevel - dt * _envLevelAtRelease / releaseSecs);
+                _envLevel = Math.Max(0, _envLevel - dt / releaseSecs);
                 if (_envLevel <= 0) { _envLevel = 0; _envPhase = EnvPhase.Off; }
                 break;
         }
