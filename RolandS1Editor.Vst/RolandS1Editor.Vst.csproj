@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <!--
+            PublishAot produces a native DLL that exports GetPluginFactory directly.
+            Build: dotnet publish -c Release -r win-x64
+            Deploy: rename output to .vst3, place in
+                    %CommonProgramFiles%\VST3\RolandS1Editor.vst3\Contents\x86_64-win\
+        -->
+        <PublishAot>true</PublishAot>
+        <TrimmerRootDescriptor>Properties\rd.xml</TrimmerRootDescriptor>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\RolandS1Editor.Core\RolandS1Editor.Core.csproj" />
+    </ItemGroup>
+</Project>

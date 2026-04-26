@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Commons.Music.Midi;
 using static RolandS1Editor.S1ParameterType;
-using System.Text.Json;
 
 namespace RolandS1Editor;
 
@@ -12,7 +10,7 @@ namespace RolandS1Editor;
 // Parameters are stored in named groups matching the physical panel sections,
 // and also in a flat AllParameters list for easy iteration.
 //
-// Call ConnectAsync() to open a MIDI port. After that, any change to a
+// Call SetTransport() to wire a MIDI output. After that, any change to a
 // parameter's Value is automatically sent to the hardware — no extra steps needed.
 public class S1Patch : IDisposable
 {
@@ -129,7 +127,6 @@ public class S1Patch : IDisposable
                 new[] { "Off", "Type 1", "Type 2", "Type 3", "Type 4" }),
         };
 
-        // Build the flat list by concatenating every section in panel order.
         AllParameters = Controls
             .Concat(Lfo)
             .Concat(Voice)
@@ -140,64 +137,36 @@ public class S1Patch : IDisposable
             .ToList();
     }
 
-    // ── MIDI connection ──────────────────────────────────────────────────────
+    // ── MIDI transport ──────────────────────────────────────────────────────
 
-    private IMidiOutput? _output;
-    private byte _statusByte;   // pre-computed from the channel; changes only on reconnect
+    private IS1MidiTransport? _transport;
+    private int _channel = 3;
 
-    public bool IsConnected => _output != null;
+    public bool IsConnected => _transport != null;
 
-    // Opens the specified MIDI output port and starts auto-sending CC messages
-    // whenever any parameter value changes.
-    //
-    // access  – MidiAccessManager.Default (passed in so S1Patch stays testable)
-    // portId  – IMidiPortDetails.Id of the chosen output port
-    // channel – MIDI channel 1–16; Roland S-1 defaults to channel 3
-#pragma warning disable CS0618  // IMidiAccess is obsolete but IMidiAccess2 is not implemented by WinMM
-    public async Task ConnectAsync(IMidiAccess access, string portId, int channel = 3)
-#pragma warning restore CS0618
+    // Wires a transport and channel. Disposes the previous transport if it is IDisposable.
+    // Pass null to disconnect.
+    public void SetTransport(IS1MidiTransport? transport, int channel = 3)
     {
-        Disconnect();   // close any previous connection first
-
-        _output     = await access.OpenOutputAsync(portId);
-        _statusByte = (byte)(0xB0 | (channel - 1));
-
-        // Wire every parameter so that changing its Value calls SendOne automatically.
+        if (_transport is IDisposable d) d.Dispose();
+        _transport = transport;
+        _channel   = channel;
         foreach (var param in AllParameters)
-            param._onSend = SendOne;
+            param._onSend = transport != null ? SendOne : null;
     }
 
-    // Closes the MIDI output port and unwires the auto-send callbacks.
-    public void Disconnect()
-    {
-        if (_output == null) return;
+    public void Disconnect() => SetTransport(null);
 
-        foreach (var param in AllParameters)
-            param._onSend = null;
-
-        _output.Dispose();
-        _output = null;
-    }
-
-    // Called by MainWindow when a CC arrives from the hardware.
+    // Called by the host when a CC arrives from the hardware.
     // Routes it to the right parameter without echoing back to the output.
     public void HandleIncomingCC(int ccNumber, int value) =>
         GetByCC(ccNumber)?.UpdateFromMidi(value);
 
-    // Sends a single CC message for one parameter. Called automatically on value change.
-    private void SendOne(S1Parameter param)
-    {
-        // If somehow called while disconnected, do nothing.
-        if (_output == null) return;
-
-        _output.Send(
-            new[] { _statusByte, (byte)param.CcNumber, (byte)param.Value },
-            offset: 0, length: 3, timestamp: 0);
-    }
+    private void SendOne(S1Parameter param) =>
+        _transport?.SendCC(_channel, param.CcNumber, param.Value);
 
     // ── Preset save / load ───────────────────────────────────────────────────
 
-    // Snapshot all 54 current values into a serialisable preset object.
     public S1PresetFile ToPreset(string name) => new()
     {
         Name       = name,
@@ -206,9 +175,6 @@ public class S1Patch : IDisposable
             .ToList(),
     };
 
-    // Apply a loaded preset to the model and notify the UI.
-    // Uses UpdateFromMidi so values are not immediately echoed back to the hardware
-    // — the caller should follow up with SendAllAsync() to sync the hardware.
     public void LoadPreset(S1PresetFile preset)
     {
         foreach (var entry in preset.Parameters)
@@ -217,22 +183,18 @@ public class S1Patch : IDisposable
 
     // ── Lookup helpers ───────────────────────────────────────────────────────
 
-    // Find a parameter by its CC number (returns null if not found).
     public S1Parameter? GetByCC(int ccNumber) =>
         AllParameters.FirstOrDefault(p => p.CcNumber == ccNumber);
 
     // ── Bulk send ────────────────────────────────────────────────────────────
 
-    // Sends every parameter's current value to the hardware in one go.
-    // Useful after loading a saved patch to sync the hardware to the editor state.
-    // A small delay between messages avoids overwhelming the S-1's MIDI buffer.
-    // CCs that are never bulk-sent to hardware — they are physical controllers
-    // whose position on the device should not be overridden by the editor.
+    // CCs excluded from bulk send — physical controllers whose hardware position
+    // should not be overridden by the editor.
     private static readonly HashSet<int> _noBulkSend = new() { 1, 11, 64 };
 
     public async Task SendAllAsync()
     {
-        if (_output == null) return;
+        if (_transport == null) return;
 
         foreach (var param in AllParameters)
         {
@@ -244,13 +206,8 @@ public class S1Patch : IDisposable
 
     // Sends a MIDI Program Change on the connected channel.
     // The S-1 maps its 64 patterns as programs 0–63 (group × 16 + pattern_index).
-    public void SendProgramChange(int program)
-    {
-        if (_output == null) return;
-        byte ch = (byte)(_statusByte & 0x0F);
-        _output.Send(new[] { (byte)(0xC0 | ch), (byte)Math.Clamp(program, 0, 127) },
-            offset: 0, length: 2, timestamp: 0);
-    }
+    public void SendProgramChange(int program) =>
+        _transport?.SendProgramChange(_channel, Math.Clamp(program, 0, 127));
 
     public void Dispose() => Disconnect();
 }

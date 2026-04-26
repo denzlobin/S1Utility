@@ -120,6 +120,44 @@ public partial class MainWindow : Window
         "128", "64t", "128d", "1_64", "32t", "64d", "1_32", "16t",
         "32d", "1_16", "8t", "16d", "1_8", "4t", "8d", "1_4" });
 
+    // OSC chop PRM-only
+    private readonly PrmParameter _prmChopType     = new("Chop Type",  "OSC_CHOP_TYPE",      prmMax: 7);
+    private readonly PrmParameter _prmChopCombType = new("Comb Type",  "OSC_CHOP_COMB_TYPE", prmMax: 7);
+
+    // Pattern globals
+    private readonly PrmParameter _prmLeng      = new("Length",     "LENG",       prmMax: 64);
+    private readonly PrmParameter _prmShuffle   = new("Shuffle",    "SHUFFLE",    prmMax: 50);
+    private readonly PrmParameter _prmLevel     = new("Level",      "LEVEL",      prmMax: 127);
+    private readonly PrmParameter _prmScale     = new("Scale",      "SCALE",      prmMax: 7);
+    private readonly PrmParameter _prmTempoSync = new("Tempo Sync", "TEMPO_SYNC", options: new[] { "Off", "On" });
+
+    // Arpeggiator
+    private readonly PrmParameter _prmArpType = new("Type", "ARP_TYPE", options: new[] {
+        "Off", "Up", "Down", "Up/Down", "Random", "Order" });
+    private readonly PrmParameter _prmArpRate = new("Rate", "ARP_RATE", prmMax: 7);
+
+    // Riser
+    private readonly PrmParameter _prmRiserSw    = new("Riser",     "RISER_SW",    options: new[] { "Off", "On" });
+    private readonly PrmParameter _prmRiserMode  = new("Mode",      "RISER_MODE",  options: new[] { "Normal", "Rise", "Fall", "Rise+Fall" });
+    private readonly PrmParameter _prmRiserCtrl  = new("Target",    "RISER_CTRL",  prmMax: 127);
+    private readonly PrmParameter _prmRiserBeat  = new("Beat",      "RISER_BEAT",  prmMax: 15);
+    private readonly PrmParameter _prmRiserShape = new("Shape",     "RISER_SHAPE", prmMax: 7);
+    private readonly PrmParameter _prmRiserReso  = new("Resonance", "RISER_RESO",  prmMax: 100);
+    private readonly PrmParameter _prmRiserLevel = new("Level",     "RISER_LEVEL", prmMax: 100);
+
+    // D-Motion
+    private readonly PrmParameter _prmDmAssignX   = new("X Assign",   "DM_ASSIGN_X",   prmMax: 15);
+    private readonly PrmParameter _prmDmAssignY   = new("Y Assign",   "DM_ASSIGN_Y",   prmMax: 15);
+    private readonly PrmParameter _prmDmAssignTap = new("Tap Assign", "DM_ASSIGN_TAP", prmMax: 15);
+    private readonly PrmParameter _prmDmAssignFf  = new("FF Assign",  "DM_ASSIGN_FF",  prmMax: 15);
+    private readonly PrmParameter _prmDmSensX     = new("X Sens",     "DM_SENS_X",     prmMax: 10);
+    private readonly PrmParameter _prmDmSensY     = new("Y Sens",     "DM_SENS_Y",     prmMax: 10);
+
+    // Labels for values that need special formatting (tempo as BPM, signed transpose, motion CC names)
+    private readonly TextBlock   _tempoLabel     = new() { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
+    private readonly TextBlock   _transposeLabel = new() { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
+    private readonly TextBlock[] _motionCcLabels = new TextBlock[8];
+
     // 31 synced LFO rate values, indexed by CC 0–30 (slowest → fastest).
     private static readonly string[] s_lfoSyncValues =
     {
@@ -139,6 +177,7 @@ public partial class MainWindow : Window
     private static readonly IBrush LfoAccent   = new SolidColorBrush(Color.Parse("#B070D8"));
     private static readonly IBrush VoiceAccent = new SolidColorBrush(Color.Parse("#F07840"));
     private static readonly IBrush FxAccent    = new SolidColorBrush(Color.Parse("#40C8A8"));
+    private static readonly IBrush DmAccent    = new SolidColorBrush(Color.Parse("#60A8E0"));
 
     public MainWindow()
     {
@@ -146,6 +185,9 @@ public partial class MainWindow : Window
         _prmReverbMain = BuildPrmReverbMain();
         _prmDelayAdv   = BuildPrmDelayAdv();
         _prmReverbAdv  = BuildPrmReverbAdv();
+
+        for (int i = 0; i < 8; i++)
+            _motionCcLabels[i] = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
 
         InitializeComponent();
         PopulateDeviceLists();
@@ -370,6 +412,12 @@ public partial class MainWindow : Window
         UpdateChordEnabled(polyParam.Value);
         polyParam.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => UpdateChordEnabled(v));
 
+        var portModeParam = _patch.GetByCC(31)!;
+        var portOnParam   = _patch.GetByCC(65)!;
+        void SyncPortamentoOn(int modeVal) =>
+            portOnParam.Value = modeVal > 0 ? 127 : 0;
+        SyncPortamentoOn(portModeParam.Value);
+        portModeParam.ValueChanged += (_, v) => SyncPortamentoOn(v);
     }
 
     // ── LED segmented button group (replaces ComboBox / CheckBox in Tab 1) ───────
@@ -939,7 +987,13 @@ public partial class MainWindow : Window
         if (p.Options is not null)
             return p.Value < p.Options.Length ? p.Options[p.Value] : p.Value.ToString();
         int v = p.ToPrm();
-        return p.PrmKey == "REVERB_PRE_DELAY" ? $"{v}ms" : v.ToString();
+        return p.PrmKey switch
+        {
+            "REVERB_PRE_DELAY"              => $"{v}ms",
+            "LENG"                          => $"{v} steps",
+            "RISER_RESO" or "RISER_LEVEL"   => $"{v}%",
+            _                               => v.ToString(),
+        };
     }
 
     private static Control MakeKnob(S1Parameter param, IBrush accent, int minCcValue = 0)
@@ -1246,17 +1300,56 @@ public partial class MainWindow : Window
         oscContent.Children.Add(MakeSubSectionHeader("OSC CHOP", OscAccent));
         oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(103)!));  // Chop Overtone
         oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(104)!));  // Chop Comb
+        oscContent.Children.Add(MakePrmInfoRow(_prmChopType));
+        oscContent.Children.Add(MakePrmInfoRow(_prmChopCombType));
         oscContent.Children.Add(MakeChopPatternControl());
 
-        Grid.SetColumn(oscCard, 0); Grid.SetRow(oscCard, 0); Grid.SetRowSpan(oscCard, 3);
-        PrmViewerGrid.Children.Add(oscCard);
+        var riserCard = MakeSectionCard("RISER", FxAccent, out var riserContent);
+        riserContent.Children.Add(MakePrmInfoRow(_prmRiserSw));
+        riserContent.Children.Add(MakePrmInfoRow(_prmRiserMode));
+        riserContent.Children.Add(MakePrmInfoRow(_prmRiserCtrl));
+        riserContent.Children.Add(MakePrmInfoRow(_prmRiserBeat));
+        riserContent.Children.Add(MakePrmInfoRow(_prmRiserShape));
+        riserContent.Children.Add(MakePrmInfoRow(_prmRiserReso));
+        riserContent.Children.Add(MakePrmInfoRow(_prmRiserLevel));
+
+        var col0Stack = new StackPanel { Spacing = 4 };
+        col0Stack.Children.Add(oscCard);
+        col0Stack.Children.Add(riserCard);
+        Grid.SetColumn(col0Stack, 0); Grid.SetRow(col0Stack, 0); Grid.SetRowSpan(col0Stack, 3);
+        PrmViewerGrid.Children.Add(col0Stack);
 
         // ── Column 1: FILTER / ENVELOPE / LFO ────────────────────────────
         var filterCard = MakeSectionCard("FILTER", FiltAccent, out var filterContent);
-        foreach (var p in _patch.Filter)
-            filterContent.Children.Add(MakePrmViewerCcRow(p));
-        Grid.SetColumn(filterCard, 1); Grid.SetRow(filterCard, 0);
-        PrmViewerGrid.Children.Add(filterCard);
+        var filterParams = _patch.Filter.ToList();
+        var filterGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*, *"),
+            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("Auto", (filterParams.Count + 1) / 2))),
+            RowSpacing        = 2,
+        };
+        for (int i = 0; i < filterParams.Count; i++)
+        {
+            var ctrl = MakePrmViewerCcRowCompact(filterParams[i]);
+            Grid.SetRow(ctrl, i / 2);
+            Grid.SetColumn(ctrl, i % 2);
+            filterGrid.Children.Add(ctrl);
+        }
+        filterContent.Children.Add(filterGrid);
+
+        var dmCard = MakeSectionCard("D-MOTION", DmAccent, out var dmContent);
+        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignX));
+        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignY));
+        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignTap));
+        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignFf));
+        dmContent.Children.Add(MakePrmInfoRow(_prmDmSensX));
+        dmContent.Children.Add(MakePrmInfoRow(_prmDmSensY));
+
+        var col1Row0Stack = new StackPanel { Spacing = 4 };
+        col1Row0Stack.Children.Add(filterCard);
+        col1Row0Stack.Children.Add(dmCard);
+        Grid.SetColumn(col1Row0Stack, 1); Grid.SetRow(col1Row0Stack, 0);
+        PrmViewerGrid.Children.Add(col1Row0Stack);
 
         var envCard = MakeSectionCard("ENVELOPE", EnvAccent, out var envContent);
         foreach (var p in _patch.Envelope)
@@ -1297,12 +1390,50 @@ public partial class MainWindow : Window
         var voiceCard = MakeSectionCard("VOICE", VoiceAccent, out var voiceContent);
         foreach (var p in _patch.Controls) voiceContent.Children.Add(MakePrmViewerCcRow(p));
         foreach (var p in _patch.Voice)    voiceContent.Children.Add(MakePrmViewerCcRow(p));
+
         Grid.SetColumn(voiceCard, 2); Grid.SetRow(voiceCard, 1); Grid.SetRowSpan(voiceCard, 2);
         PrmViewerGrid.Children.Add(voiceCard);
 
         // ── Row 3: SEQUENCER (full width) ────────────────────────────────
         var seqCard = MakeSectionCard("SEQUENCER", SeqAccent, out var seqContent);
+
+        // PATTERN / ARPEGGIATOR / MOTION ASSIGN as three side-by-side columns
+        var seqMetaGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto, Auto, *"),
+            Margin            = new Thickness(0, 0, 0, 4),
+        };
+
+        var patCol = new StackPanel { Spacing = 2, Margin = new Thickness(0, 0, 20, 0) };
+        patCol.Children.Add(MakeSubSectionHeader("PATTERN", SeqAccent));
+        patCol.Children.Add(MakeInfoRow("Tempo:",     _tempoLabel));
+        patCol.Children.Add(MakeInfoRow("Transpose:", _transposeLabel));
+        patCol.Children.Add(MakePrmInfoRow(_prmLeng));
+        patCol.Children.Add(MakePrmInfoRow(_prmShuffle));
+        patCol.Children.Add(MakePrmInfoRow(_prmLevel));
+        patCol.Children.Add(MakePrmInfoRow(_prmScale));
+        patCol.Children.Add(MakePrmInfoRow(_prmTempoSync));
+        Grid.SetColumn(patCol, 0);
+        seqMetaGrid.Children.Add(patCol);
+
+        var arpCol = new StackPanel { Spacing = 2, Margin = new Thickness(0, 0, 20, 0) };
+        arpCol.Children.Add(MakeSubSectionHeader("ARPEGGIATOR", SeqAccent));
+        arpCol.Children.Add(MakePrmInfoRow(_prmArpType));
+        arpCol.Children.Add(MakePrmInfoRow(_prmArpRate));
+        Grid.SetColumn(arpCol, 1);
+        seqMetaGrid.Children.Add(arpCol);
+
+        var motCol = new StackPanel { Spacing = 2 };
+        motCol.Children.Add(MakeSubSectionHeader("MOTION ASSIGN", SeqAccent));
+        for (int i = 0; i < 8; i++)
+            motCol.Children.Add(MakeInfoRow($"Lane {i + 1}:", _motionCcLabels[i]));
+        Grid.SetColumn(motCol, 2);
+        seqMetaGrid.Children.Add(motCol);
+
+        seqContent.Children.Add(seqMetaGrid);
+        seqContent.Children.Add(MakeSubSectionHeader("STEPS", SeqAccent));
         seqContent.Children.Add(MakeSequencerControl());
+
         Grid.SetColumn(seqCard, 0); Grid.SetRow(seqCard, 3); Grid.SetColumnSpan(seqCard, 3);
         PrmViewerGrid.Children.Add(seqCard);
     }
@@ -1400,10 +1531,11 @@ public partial class MainWindow : Window
     private Panel MakeDrawBarsControl()
     {
         const double CellH = 22.0;
-        const double BarW  =  9.0;
+        const double BarW  = 18.75;
 
-        var posBars = new Border[16];
-        var negBars = new Border[16];
+        var posBars   = new Border[16];
+        var negBars   = new Border[16];
+        var valLabels = new TextBlock[16];
 
         void UpdateBars()
         {
@@ -1421,11 +1553,13 @@ public partial class MainWindow : Window
                     int v   = pads[b];
                     posBars[idx].Height = v > 0 ? Math.Max(1, v  / 100.0 * CellH) : 0;
                     negBars[idx].Height = v < 0 ? Math.Max(1, -v / 100.0 * CellH) : 0;
+                    valLabels[idx].Text = v.ToString();
                 }
             }
         }
 
-        var barsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+        var barsRow   = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+        var labelsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(0, 2, 0, 0) };
 
         for (int i = 0; i < 16; i++)
         {
@@ -1451,12 +1585,23 @@ public partial class MainWindow : Window
                     negCell,
                 },
             });
+
+            var lbl = new TextBlock
+            {
+                FontSize      = 8,
+                Width         = BarW,
+                Foreground    = new SolidColorBrush(Color.Parse("#AAAAAA")),
+                Text          = "0",
+                TextAlignment = TextAlignment.Center,
+            };
+            valLabels[i] = lbl;
+            labelsRow.Children.Add(lbl);
         }
 
         UpdateBars();
         _drawWave.PointsChanged += (_, _) => Dispatcher.UIThread.Post(UpdateBars);
 
-        return barsRow;
+        return new StackPanel { Children = { barsRow, labelsRow } };
     }
 
     // Chop step-pattern grid display.
@@ -1823,7 +1968,7 @@ public partial class MainWindow : Window
 
     // ── Shared info-row helpers ───────────────────────────────────────────────
 
-    private static StackPanel MakeInfoRow(string label, TextBlock valueLabel) => new()
+    private static StackPanel MakeInfoRow(string label, TextBlock valueLabel, double labelMinWidth = 130) => new()
     {
         Orientation = Orientation.Horizontal,
         Spacing     = 6,
@@ -1834,7 +1979,7 @@ public partial class MainWindow : Window
                 Text       = label,
                 FontSize   = 10,
                 Foreground = new SolidColorBrush(Color.Parse("#777777")),
-                MinWidth   = 130,
+                MinWidth   = labelMinWidth,
             },
             valueLabel,
         },
@@ -1850,6 +1995,18 @@ public partial class MainWindow : Window
         };
         p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() => lbl.Text = GetPrmDisplayString(p));
         return MakeInfoRow(p.Name + ":", lbl);
+    }
+
+    private static Control MakePrmViewerCcRowCompact(S1Parameter param)
+    {
+        var lbl = new TextBlock
+        {
+            FontSize   = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
+            Text       = GetPrmViewerCcValue(param),
+        };
+        param.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() => lbl.Text = GetPrmViewerCcValue(param));
+        return MakeInfoRow(param.Name + ":", lbl, labelMinWidth: 80);
     }
 
     // ── Toolbar actions ───────────────────────────────────────────────────────
@@ -1869,7 +2026,8 @@ public partial class MainWindow : Window
 
         try
         {
-            await _patch.ConnectAsync(_midi, outPort.Id, channel: MidiChannel);
+            var output = await _midi.OpenOutputAsync(outPort.Id);
+            _patch.SetTransport(new ManagedMidiTransport(output), channel: MidiChannel);
         }
         catch (Exception ex)
         {
@@ -2254,6 +2412,39 @@ public partial class MainWindow : Window
         _drawWave.LoadAll(drawPts);
 
         _sequence.LoadFromPrm(data);
+
+        // OSC chop extras
+        LoadPrmOnly(data, new[] { _prmChopType, _prmChopCombType });
+
+        // Pattern / Arpeggiator / Riser / D-Motion
+        LoadPrmOnly(data, new[] { _prmLeng, _prmShuffle, _prmLevel, _prmScale, _prmTempoSync,
+                                   _prmArpType, _prmArpRate });
+        LoadPrmOnly(data, new[] { _prmRiserSw, _prmRiserMode, _prmRiserCtrl, _prmRiserBeat,
+                                   _prmRiserShape, _prmRiserReso, _prmRiserLevel });
+        LoadPrmOnly(data, new[] { _prmDmAssignX, _prmDmAssignY, _prmDmAssignTap, _prmDmAssignFf,
+                                   _prmDmSensX, _prmDmSensY });
+
+        // Tempo: stored as integer × 100 (e.g. 10000 = 100.0 BPM)
+        _tempoLabel.Text = data.Parameters.TryGetValue("TEMPO", out var tempoRaw)
+                           && int.TryParse(tempoRaw, out int tempoVal)
+            ? $"{tempoVal / 100.0:F1} BPM"
+            : "—";
+
+        // Transpose: signed semitones
+        _transposeLabel.Text = data.Parameters.TryGetValue("TRANSPOSE", out var trRaw)
+                               && int.TryParse(trRaw, out int trVal)
+            ? (trVal > 0 ? $"+{trVal}" : trVal.ToString())
+            : "0";
+
+        // Motion CC assignments (−1 = unassigned, else a CC number)
+        for (int i = 0; i < 8; i++)
+        {
+            string key = $"MOTION_CC{i + 1}";
+            _motionCcLabels[i].Text = data.Parameters.TryGetValue(key, out var mcRaw)
+                                      && int.TryParse(mcRaw, out int mcVal) && mcVal >= 0
+                ? (_patch.GetByCC(mcVal)?.Name is { } n ? $"CC{mcVal}  {n}" : $"CC {mcVal}")
+                : "—";
+        }
     }
 
     private static void LoadPrmOnly(PrmFileData data, IEnumerable<PrmParameter> prms)
@@ -2268,7 +2459,14 @@ public partial class MainWindow : Window
 
     private IEnumerable<PrmParameter> AllPrmOnlyParams() =>
         _prmDelayMain.Concat(_prmDelayAdv).Concat(new[] { _delayTempo })
-                     .Concat(_prmReverbMain).Concat(_prmReverbAdv);
+                     .Concat(_prmReverbMain).Concat(_prmReverbAdv)
+                     .Concat(new[] { _prmChopType, _prmChopCombType,
+                                     _prmLeng, _prmShuffle, _prmLevel, _prmScale, _prmTempoSync,
+                                     _prmArpType, _prmArpRate,
+                                     _prmRiserSw, _prmRiserMode, _prmRiserCtrl, _prmRiserBeat,
+                                     _prmRiserShape, _prmRiserReso, _prmRiserLevel,
+                                     _prmDmAssignX, _prmDmAssignY, _prmDmAssignTap, _prmDmAssignFf,
+                                     _prmDmSensX, _prmDmSensY });
 
     private void SetStatus(string message, string hexColour)
     {
