@@ -99,6 +99,7 @@
             <Setter Property="Foreground"          Value="#E0E0E8"/>
             <Setter Property="TextAlignment"       Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Margin"              Value="0,4,0,0"/>
         </Style>
 
         <!-- Knob parameter label (muted, smaller) -->
@@ -324,7 +325,7 @@
 
                         <!-- FILTER -->
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="0">
-                            <StackPanel VerticalAlignment="Center">
+                            <StackPanel VerticalAlignment="Top">
                                 <TextBlock Classes="section-title"
                                            Text="FILTER"
                                            Foreground="#40AAEE"/>
@@ -335,7 +336,7 @@
 
                         <!-- ENVELOPE -->
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
-                            <StackPanel VerticalAlignment="Center">
+                            <StackPanel VerticalAlignment="Top">
                                 <TextBlock Classes="section-title"
                                            Text="ENVELOPE"
                                            Foreground="#60CC70"/>
@@ -346,7 +347,7 @@
 
                         <!-- LFO (last row — stretches to fill remaining height) -->
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="2">
-                            <StackPanel VerticalAlignment="Center">
+                            <StackPanel VerticalAlignment="Top">
                                 <TextBlock Classes="section-title"
                                            Text="LFO"
                                            Foreground="#B06ED8"/>
@@ -368,7 +369,7 @@
 
                         <!-- VOICE (stretches into * row) -->
                         <Border Classes="section-card" Grid.Column="2" Grid.Row="1" Grid.RowSpan="2">
-                            <StackPanel VerticalAlignment="Center">
+                            <StackPanel VerticalAlignment="Top">
                                 <TextBlock Classes="section-title"
                                            Text="VOICE"
                                            Foreground="#F07040"/>

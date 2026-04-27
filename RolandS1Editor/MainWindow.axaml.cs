@@ -294,25 +294,11 @@ public partial class MainWindow : Window
             knobRow2.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
         OscillatorPanel.Children.Add(knobRow2);
 
-        // 2-col button grid: Range/NoiseMode row0, PWMSource row1, SubOctave full-width row2
-        var btnGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*"),
-            RowDefinitions    = new RowDefinitions("Auto,Auto,Auto"),
-        };
-        var rangeBtn = MakeLedButtonGroup(_patch.GetByCC(14)!, OscAccent);
-        var noiseBtn = MakeLedButtonGroup(_patch.GetByCC(78)!, OscAccent);
-        var pwmBtn   = MakeLedButtonGroup(_patch.GetByCC(16)!, OscAccent);
-        var subBtn   = MakeLedButtonGroup(_patch.GetByCC(22)!, OscAccent);
-        Grid.SetColumn(rangeBtn, 0); Grid.SetRow(rangeBtn, 0);
-        Grid.SetColumn(noiseBtn, 1); Grid.SetRow(noiseBtn, 0);
-        Grid.SetColumn(pwmBtn,   0); Grid.SetRow(pwmBtn,   1);
-        Grid.SetColumn(subBtn,   0); Grid.SetRow(subBtn,   2); Grid.SetColumnSpan(subBtn, 2);
-        btnGrid.Children.Add(rangeBtn);
-        btnGrid.Children.Add(noiseBtn);
-        btnGrid.Children.Add(pwmBtn);
-        btnGrid.Children.Add(subBtn);
-        OscillatorPanel.Children.Add(btnGrid);
+        // Button strips stacked vertically — all full-width, uniform button cells per strip
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(14)!, OscAccent));  // Range
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(78)!, OscAccent));  // Noise Mode
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(16)!, OscAccent));  // PWM Source
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(22)!, OscAccent));  // Sub Octave
 
         OscillatorPanel.Children.Add(MakeSubSectionHeader("DRAW · CHOP", OscAccent));
 
@@ -497,7 +483,7 @@ public partial class MainWindow : Window
         return new StackPanel
         {
             Margin              = new Thickness(3, 2, 3, 4),
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Children =
             {
                 row,
@@ -560,34 +546,37 @@ public partial class MainWindow : Window
             double rN = resParam.Value / 127.0;
             double xC = 8 + fN * (W - 16);
 
+            const double flatTop = 3.0;
+            const double flatBot = H - 2.0;
+            const double slope   = 52.0;
+            double h     = flatBot - flatTop;
+            double peakY = Math.Max(0.5, flatTop - rN * h * 0.35);
+
             void Stroke(StreamGeometryContext ctx)
             {
-                // Fixed geometry — shape is identical at all cutoff positions.
-                // xC just translates it horizontally.
-                const double flatTop   = 3.0;
-                const double flatBot   = H - 2.0;
-                const double slopeSpan = 64.0;
-
-                // Resonance peak rises above passband; clamped to canvas top.
-                double peakY = Math.Max(1.0, flatTop - rN * 12.0);
-                double x2    = xC + slopeSpan * 0.70;
-
                 ctx.BeginFigure(new Point(0, flatTop), false);
 
-                // Single smooth cubic from left edge to resonance peak.
-                // CP1 at 80% of xC holds flat; CP2 just before xC curls into peak.
-                ctx.CubicBezierTo(
-                    new Point(xC * 0.80, flatTop),
-                    new Point(xC - 8.0,  peakY),
-                    new Point(xC,        peakY));
+                // ① Flat passband to just before cutoff
+                double passEnd = Math.Max(0, xC - 8);
+                if (passEnd > 0)
+                    ctx.LineTo(new Point(passEnd, flatTop));
 
-                // Rolloff: steep initial drop, flattens into stopband.
+                // ② Resonance spike — rises above flatTop, arrives pointing straight down.
+                //    When rN=0: peakY=flatTop → spike invisible, smooth join to rolloff.
                 ctx.CubicBezierTo(
-                    new Point(xC + (x2 - xC) * 0.15, flatBot),
-                    new Point(xC + (x2 - xC) * 0.55, flatBot),
-                    new Point(x2,                      flatBot));
+                    new Point(xC - 4, peakY),
+                    new Point(xC,     peakY),
+                    new Point(xC,     flatTop + h * 0.05));
 
-                if (x2 < W)
+                // ③ Convex quarter-arc rolloff — starts vertical, arrives horizontal.
+                //    CP1 continues straight down (G1 smooth with ②).
+                //    CP2 pulls hard left at flatBot → no S-curve, guaranteed convex.
+                ctx.CubicBezierTo(
+                    new Point(xC,              flatTop + h * 0.55),
+                    new Point(xC + slope * 0.45, flatBot),
+                    new Point(xC + slope,        flatBot));
+
+                if (xC + slope < W)
                     ctx.LineTo(new Point(W, flatBot));
                 ctx.EndFigure(false);
             }
@@ -600,7 +589,7 @@ public partial class MainWindow : Window
             using (var ctx = fillSg.Open())
             {
                 Stroke(ctx);
-                ctx.LineTo(new Point(0, H - 2.0));
+                ctx.LineTo(new Point(0, H));
                 ctx.EndFigure(true);
             }
             fillPath.Data = fillSg;
@@ -1038,8 +1027,8 @@ public partial class MainWindow : Window
             Width          = containerWidth,
             Margin         = new Thickness(small ? 2 : 3, 4),
             RowDefinitions = small
-                ? new RowDefinitions("44,14,22")
-                : new RowDefinitions("56,14,26"),
+                ? new RowDefinitions("40,16,22")
+                : new RowDefinitions("50,16,28"),
         };
         knob.HorizontalAlignment = HorizontalAlignment.Center;
         Grid.SetRow(knob,       0);
@@ -1307,7 +1296,13 @@ public partial class MainWindow : Window
         oscContent.Children.Add(MakeSubSectionHeader("OSC DRAW", OscAccent));
         oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(102)!));  // Draw Multiply
         oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(107)!));  // Draw Step/Slope
-        oscContent.Children.Add(new Border { Margin = new Thickness(0, 4, 0, 4), Child = MakeDrawBarsControl() });
+        oscContent.Children.Add(new Viewbox
+        {
+            Stretch   = Stretch.Uniform,
+            MaxHeight = 60,
+            Margin    = new Thickness(0, 4, 0, 4),
+            Child     = MakeDrawBarsControl(),
+        });
 
         oscContent.Children.Add(MakeSubSectionHeader("OSC CHOP", OscAccent));
         oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(103)!));  // Chop Overtone
@@ -1327,7 +1322,6 @@ public partial class MainWindow : Window
 
         var col0Stack = new StackPanel { Spacing = 4 };
         col0Stack.Children.Add(oscCard);
-        col0Stack.Children.Add(riserCard);
         Grid.SetColumn(col0Stack, 0); Grid.SetRow(col0Stack, 0); Grid.SetRowSpan(col0Stack, 3);
         PrmViewerGrid.Children.Add(col0Stack);
 
@@ -1349,19 +1343,8 @@ public partial class MainWindow : Window
         }
         filterContent.Children.Add(filterGrid);
 
-        var dmCard = MakeSectionCard("D-MOTION", DmAccent, out var dmContent);
-        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignX));
-        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignY));
-        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignTap));
-        dmContent.Children.Add(MakePrmInfoRow(_prmDmAssignFf));
-        dmContent.Children.Add(MakePrmInfoRow(_prmDmSensX));
-        dmContent.Children.Add(MakePrmInfoRow(_prmDmSensY));
-
-        var col1Row0Stack = new StackPanel { Spacing = 4 };
-        col1Row0Stack.Children.Add(filterCard);
-        col1Row0Stack.Children.Add(dmCard);
-        Grid.SetColumn(col1Row0Stack, 1); Grid.SetRow(col1Row0Stack, 0);
-        PrmViewerGrid.Children.Add(col1Row0Stack);
+        Grid.SetColumn(filterCard, 1); Grid.SetRow(filterCard, 0);
+        PrmViewerGrid.Children.Add(filterCard);
 
         var envCard = MakeSectionCard("ENVELOPE", EnvAccent, out var envContent);
         foreach (var p in _patch.Envelope)
@@ -1372,8 +1355,11 @@ public partial class MainWindow : Window
         var lfoCard = MakeSectionCard("LFO", LfoAccent, out var lfoContent);
         foreach (var p in _patch.Lfo)
             lfoContent.Children.Add(MakePrmViewerCcRow(p));
-        Grid.SetColumn(lfoCard, 1); Grid.SetRow(lfoCard, 2);
-        PrmViewerGrid.Children.Add(lfoCard);
+        var col1Row2Stack = new StackPanel { Spacing = 4 };
+        col1Row2Stack.Children.Add(lfoCard);
+        col1Row2Stack.Children.Add(riserCard);
+        Grid.SetColumn(col1Row2Stack, 1); Grid.SetRow(col1Row2Stack, 2);
+        PrmViewerGrid.Children.Add(col1Row2Stack);
 
         // ── Column 2: EFFECTS / VOICE ─────────────────────────────────────
         var fxCard = MakeSectionCard("EFFECTS", FxAccent, out var fxContent);
@@ -1412,7 +1398,7 @@ public partial class MainWindow : Window
         // PATTERN / ARPEGGIATOR / MOTION ASSIGN as three side-by-side columns
         var seqMetaGrid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto, Auto, *"),
+            ColumnDefinitions = new ColumnDefinitions("Auto, Auto, *, Auto"),
             Margin            = new Thickness(0, 0, 0, 4),
         };
 
@@ -1441,6 +1427,17 @@ public partial class MainWindow : Window
             motCol.Children.Add(MakeInfoRow($"Lane {i + 1}:", _motionCcLabels[i]));
         Grid.SetColumn(motCol, 2);
         seqMetaGrid.Children.Add(motCol);
+
+        var dmCol = new StackPanel { Spacing = 2, Margin = new Thickness(20, 0, 0, 0) };
+        dmCol.Children.Add(MakeSubSectionHeader("D-MOTION", DmAccent));
+        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignX));
+        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignY));
+        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignTap));
+        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignFf));
+        dmCol.Children.Add(MakePrmInfoRow(_prmDmSensX));
+        dmCol.Children.Add(MakePrmInfoRow(_prmDmSensY));
+        Grid.SetColumn(dmCol, 3);
+        seqMetaGrid.Children.Add(dmCol);
 
         seqContent.Children.Add(seqMetaGrid);
         seqContent.Children.Add(MakeSubSectionHeader("STEPS", SeqAccent));
