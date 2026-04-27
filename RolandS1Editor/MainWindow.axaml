@@ -7,19 +7,41 @@
         Width="1100" Height="755">
 
     <Window.Resources>
-        <!-- Tab strip background / border -->
-        <SolidColorBrush x:Key="TabControlHeaderBackground">#1A1A1A</SolidColorBrush>
-        <SolidColorBrush x:Key="TabControlHeaderBorderBrush">#2A2A2A</SolidColorBrush>
+        <!-- ── Background scale ──────────────────────────────────────────── -->
+        <SolidColorBrush x:Key="BgBase">#111113</SolidColorBrush>
+        <SolidColorBrush x:Key="BgRaised">#1A1A1E</SolidColorBrush>
+        <SolidColorBrush x:Key="BgSurface">#222228</SolidColorBrush>
+        <SolidColorBrush x:Key="BgElevated">#2A2A32</SolidColorBrush>
+        <!-- ── Borders ────────────────────────────────────────────────────── -->
+        <SolidColorBrush x:Key="BorderSub">#2C2C36</SolidColorBrush>
+        <SolidColorBrush x:Key="BorderMid">#3A3A46</SolidColorBrush>
+        <!-- ── Text ──────────────────────────────────────────────────────── -->
+        <SolidColorBrush x:Key="TextPrimary">#E0E0E8</SolidColorBrush>
+        <SolidColorBrush x:Key="TextSecondary">#9090A8</SolidColorBrush>
+        <SolidColorBrush x:Key="TextMuted">#555566</SolidColorBrush>
+        <SolidColorBrush x:Key="TextLabel">#7878A0</SolidColorBrush>
+        <!-- ── Section accents ───────────────────────────────────────────── -->
+        <SolidColorBrush x:Key="AccentOsc">#F0A040</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentFilter">#40AAEE</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentEnv">#60CC70</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentLfo">#B06ED8</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentFx">#3EC8A8</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentVoice">#F07040</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentWarn">#D0702A</SolidColorBrush>
 
-        <!-- TabItem — LED toggle-button style with glow on active -->
+        <!-- Tab strip background / border -->
+        <SolidColorBrush x:Key="TabControlHeaderBackground">#1A1A1E</SolidColorBrush>
+        <SolidColorBrush x:Key="TabControlHeaderBorderBrush">#2C2C36</SolidColorBrush>
+
+        <!-- TabItem theme -->
         <ControlTheme x:Key="{x:Type TabItem}" TargetType="TabItem">
-            <Setter Property="Background"      Value="#191919"/>
-            <Setter Property="Foreground"      Value="#4A4A4A"/>
-            <Setter Property="BorderBrush"     Value="#303030"/>
+            <Setter Property="Background"      Value="#1A1A1E"/>
+            <Setter Property="Foreground"      Value="#404050"/>
+            <Setter Property="BorderBrush"     Value="#2C2C36"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius"    Value="3"/>
             <Setter Property="Padding"         Value="18,6"/>
-            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontSize"        Value="11"/>
             <Setter Property="Margin"          Value="3,4,3,4"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -40,106 +62,103 @@
                 </ControlTemplate>
             </Setter>
             <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
-                <Setter Property="Background"  Value="#262626"/>
-                <Setter Property="BorderBrush" Value="#888888"/>
-                <Setter Property="BoxShadow"   Value="0 0 8 0 #55888888"/>
+                <Setter Property="Background"  Value="#252530"/>
+                <Setter Property="BorderBrush" Value="#7070A0"/>
+                <Setter Property="BoxShadow"   Value="0 0 8 0 #447070A0"/>
             </Style>
             <Style Selector="^:selected /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Foreground"  Value="#CCCCCC"/>
-            </Style>
-            <Style Selector="^:pointerover:not(:selected) /template/ Border#PART_LayoutRoot">
-                <Setter Property="Background"  Value="#212121"/>
-                <Setter Property="BorderBrush" Value="#484848"/>
-            </Style>
-            <Style Selector="^:pointerover:not(:selected) /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Foreground"  Value="#888888"/>
+                <Setter Property="Foreground"  Value="#C8C8D8"/>
             </Style>
         </ControlTheme>
     </Window.Resources>
 
     <Window.Styles>
-        <!-- Section card border -->
+        <!-- Section card: raised surface with subtle top-highlight -->
         <Style Selector="Border.section-card">
-            <Setter Property="Background"       Value="#222222"/>
-            <Setter Property="BorderBrush"      Value="#333333"/>
+            <Setter Property="Background"       Value="#222228"/>
+            <Setter Property="BorderBrush"      Value="#2C2C36"/>
             <Setter Property="BorderThickness"  Value="1"/>
             <Setter Property="CornerRadius"     Value="5"/>
-            <Setter Property="Padding"          Value="9"/>
+            <Setter Property="Padding"          Value="12"/>
             <Setter Property="Margin"           Value="3"/>
+            <Setter Property="BoxShadow"        Value="inset 0 1 0 0 #FFFFFF0A"/>
         </Style>
 
-        <!-- Section title label -->
+        <!-- Section title: wider letter-spacing, accent separator added in XAML -->
         <Style Selector="TextBlock.section-title">
-            <Setter Property="FontSize"     Value="10"/>
-            <Setter Property="FontWeight"   Value="Bold"/>
-            <Setter Property="LetterSpacing" Value="1"/>
-            <Setter Property="Margin"       Value="0,0,0,8"/>
+            <Setter Property="FontSize"      Value="10.5"/>
+            <Setter Property="FontWeight"    Value="Bold"/>
+            <Setter Property="LetterSpacing" Value="2"/>
+            <Setter Property="Margin"        Value="0,0,0,10"/>
         </Style>
 
-        <!-- Knob numeric value label (sits between knob and name) -->
+        <!-- Knob numeric value label (mono, bright) -->
         <Style Selector="TextBlock.param-value-label">
-            <Setter Property="FontSize"            Value="9"/>
-            <Setter Property="Foreground"          Value="#DDDDDD"/>
+            <Setter Property="FontSize"            Value="10"/>
+            <Setter Property="FontFamily"          Value="Cascadia Mono,Consolas,monospace"/>
+            <Setter Property="Foreground"          Value="#E0E0E8"/>
             <Setter Property="TextAlignment"       Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="VerticalAlignment"   Value="Center"/>
         </Style>
 
-        <!-- Knob parameter label -->
+        <!-- Knob parameter label (muted, smaller) -->
         <Style Selector="TextBlock.param-label">
-            <Setter Property="FontSize"            Value="9.5"/>
-            <Setter Property="Foreground"          Value="#AAAAAA"/>
+            <Setter Property="FontSize"            Value="9"/>
+            <Setter Property="Foreground"          Value="#7878A0"/>
             <Setter Property="TextAlignment"       Value="Center"/>
             <Setter Property="TextWrapping"        Value="Wrap"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="VerticalAlignment"   Value="Top"/>
         </Style>
 
-        <!-- Dropdown (ComboBox) parameter -->
+        <!-- ComboBox param -->
         <Style Selector="ComboBox.param-combo">
-            <Setter Property="MinWidth"  Value="90"/>
-            <Setter Property="MaxWidth"  Value="120"/>
-            <Setter Property="FontSize"  Value="10"/>
-            <Setter Property="Padding"   Value="4,2"/>
+            <Setter Property="MinWidth"    Value="90"/>
+            <Setter Property="MaxWidth"    Value="120"/>
+            <Setter Property="Height"      Value="26"/>
+            <Setter Property="FontSize"    Value="10"/>
+            <Setter Property="Padding"     Value="6,3"/>
+            <Setter Property="Background"  Value="#1E1E28"/>
+            <Setter Property="BorderBrush" Value="#3A3A46"/>
         </Style>
 
         <!-- Toggle (CheckBox) parameter -->
         <Style Selector="CheckBox.param-toggle">
-            <Setter Property="Foreground"   Value="#CCCCCC"/>
-            <Setter Property="FontSize"     Value="10"/>
-            <Setter Property="Margin"       Value="4,6"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize"   Value="10"/>
+            <Setter Property="Margin"     Value="4,6"/>
         </Style>
 
-        <!-- Top-bar button -->
+        <!-- Toolbar button -->
         <Style Selector="Button.toolbar">
-            <Setter Property="Padding"      Value="10,3"/>
+            <Setter Property="Padding"      Value="10,4"/>
             <Setter Property="FontSize"     Value="10"/>
-            <Setter Property="Background"   Value="#282828"/>
-            <Setter Property="Foreground"   Value="#BBBBBB"/>
-            <Setter Property="BorderBrush"  Value="#383838"/>
+            <Setter Property="Background"   Value="#252530"/>
+            <Setter Property="Foreground"   Value="#BBBBCC"/>
+            <Setter Property="BorderBrush"  Value="#383848"/>
             <Setter Property="CornerRadius" Value="3"/>
         </Style>
         <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#282828"/>
+            <Setter Property="Background" Value="#252530"/>
         </Style>
         <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#363636"/>
+            <Setter Property="Background" Value="#303040"/>
         </Style>
         <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#1E1E1E"/>
+            <Setter Property="Background" Value="#1A1A24"/>
         </Style>
 
-        <!-- Patch bank buttons (program change grid) -->
+        <!-- Patch bank buttons -->
         <Style Selector="Button.patch-btn">
             <Setter Property="Width"                      Value="30"/>
             <Setter Property="Height"                     Value="22"/>
             <Setter Property="FontSize"                   Value="9"/>
+            <Setter Property="FontFamily"                 Value="Cascadia Mono,Consolas,monospace"/>
             <Setter Property="Padding"                    Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment"   Value="Center"/>
-            <Setter Property="Background"                 Value="#242424"/>
-            <Setter Property="Foreground"                 Value="#606060"/>
-            <Setter Property="BorderBrush"                Value="#383838"/>
+            <Setter Property="Background"                 Value="#1E1E28"/>
+            <Setter Property="Foreground"                 Value="#606078"/>
+            <Setter Property="BorderBrush"                Value="#404050"/>
             <Setter Property="CornerRadius"               Value="2"/>
         </Style>
         <Style Selector="Button.patch-btn-active">
@@ -159,31 +178,32 @@
 
         <!-- ── Plugin title bar ─────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
-                Background="#161616"
-                BorderBrush="#2A2A2A"
+                Background="#111113"
+                BorderBrush="#2C2C36"
                 BorderThickness="0,0,0,1"
-                Padding="12,4"
-                Height="28">
+                Padding="12,0"
+                Height="30">
             <Grid>
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Border Width="8" Height="8" CornerRadius="4"
                             Background="#F0A040"
-                            BoxShadow="0 0 6 2 #88F0A040"/>
+                            BoxShadow="0 0 8 2 #88F0A040"/>
                     <TextBlock Text="ROLAND S-1 EDITOR"
                                FontSize="11" FontWeight="SemiBold"
-                               Foreground="#DDDDDD" LetterSpacing="1"/>
+                               Foreground="#D8D8E8" LetterSpacing="1.5"/>
                 </StackPanel>
-                <TextBlock Text="v1.0" FontSize="9.5" Foreground="#444444"
+                <TextBlock Text="v1.0" FontSize="9" Foreground="#404050"
                            HorizontalAlignment="Right" VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
         <!-- ── Top bar (always visible) ──────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
-                Background="#1A1A1A"
-                BorderBrush="#2A2A2A"
+                Background="#1A1A1E"
+                BorderBrush="#2C2C36"
                 BorderThickness="0,0,0,1"
-                Padding="10,4">
+                Padding="10,0"
+                Height="40">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -191,28 +211,23 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Left: MIDI device selection -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <TextBlock Text="Out"
-                               Foreground="#666666"
-                               VerticalAlignment="Center"
-                               FontSize="10"/>
+                <!-- Left: MIDI device selection + toggles -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                     <ComboBox x:Name="DeviceCombo"
-                              Width="160" FontSize="10"
-                              PlaceholderText="— output —"/>
-                    <TextBlock Text="In"
-                               Foreground="#666666"
-                               VerticalAlignment="Center"
-                               FontSize="10"/>
+                              Width="130" Height="26" FontSize="10"
+                              PlaceholderText="MIDI Out…"
+                              Background="#1E1E28" BorderBrush="#3A3A46"/>
                     <ComboBox x:Name="InputCombo"
-                              Width="160" FontSize="10"
-                              PlaceholderText="— input —"/>
+                              Width="130" Height="26" FontSize="10"
+                              PlaceholderText="MIDI In…"
+                              Background="#1E1E28" BorderBrush="#3A3A46"/>
                     <TextBlock Text="Ch"
-                               Foreground="#666666"
+                               Foreground="#555566"
                                VerticalAlignment="Center"
                                FontSize="10"/>
                     <ComboBox x:Name="ChannelCombo"
-                              Width="62" FontSize="10"/>
+                              Width="50" Height="26" FontSize="10"
+                              Background="#1E1E28" BorderBrush="#3A3A46"/>
                     <Button x:Name="ConnectButton"
                             Classes="toolbar"
                             Content="Connect"/>
@@ -220,45 +235,51 @@
                             Classes="toolbar"
                             Content="Send All"
                             IsEnabled="False"/>
+
+                    <!-- Separator before toggles -->
+                    <Border Width="1" Height="16" Background="#2C2C36" Margin="4,0"/>
+
                     <CheckBox x:Name="AutoConnectToggle"
                               Content="Auto S-1"
-                              Foreground="#555555"
+                              Foreground="#888898"
                               FontSize="9.5"
-                              VerticalAlignment="Center"
-                              Margin="4,0"/>
+                              VerticalAlignment="Center"/>
                     <CheckBox x:Name="FilterModToggle"
                               Content="Filter Mod"
-                              Foreground="#555555"
+                              Foreground="#888898"
                               FontSize="9.5"
                               VerticalAlignment="Center"
-                              Margin="4,0"
                               ToolTip.Tip="Experimental: animates the filter curve to simulate envelope and LFO modulation. Based on heuristics — behaviour may not match hardware exactly."/>
                     <CheckBox x:Name="PatternSyncToggle"
                               Content="Pattern Sync"
-                              Foreground="#AA6622"
+                              Foreground="#D0702A"
                               FontSize="9.5"
                               VerticalAlignment="Center"
-                              Margin="4,0"
                               IsEnabled="False"
                               ToolTip.Tip="Experimental: auto-loads PRM data when switching patterns. Requires a PRM Folder. Files must exactly match the device — it is your responsibility to keep them in sync."/>
                     <TextBlock x:Name="StatusText"
-                               Foreground="#555555"
+                               Foreground="#555566"
+                               Opacity="0.8"
                                VerticalAlignment="Center"
-                               Margin="4,0,0,0"
+                               Margin="6,0,0,0"
+                               MaxWidth="80"
+                               TextTrimming="CharacterEllipsis"
                                FontSize="9.5"
-                               FontStyle="Italic"/>
+                               FontStyle="Italic"
+                               ToolTip.Tip="{Binding #StatusText.Text}"/>
                 </StackPanel>
 
                 <!-- Right: Preset management -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <TextBlock Text="Preset"
-                               Foreground="#666666"
-                               VerticalAlignment="Center"
-                               FontSize="10"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <Border Width="1" Height="16" Background="#2C2C36" Margin="0,0,4,0"/>
                     <TextBox x:Name="PresetNameBox"
-                             Width="150" FontSize="10"
+                             Width="110" Height="26" FontSize="10"
                              Text="Untitled"
-                             PlaceholderText="name…"/>
+                             PlaceholderText="Preset name…"
+                             Background="#1A1A24"
+                             BorderBrush="#333344"
+                             Foreground="#C0C0D0"
+                             CornerRadius="3"/>
                     <Button x:Name="SaveButton"
                             Classes="toolbar"
                             Content="Save"/>
@@ -272,8 +293,8 @@
 
         <!-- ── Pattern grid (always visible, shared across tabs) ──────────── -->
         <Border DockPanel.Dock="Bottom"
-                Background="#1C1C1C"
-                BorderBrush="#333333"
+                Background="#1C1C22"
+                BorderBrush="#2C2C36"
                 BorderThickness="0,1,0,0"
                 Padding="12,8,12,10">
             <StackPanel x:Name="PatchGridContainer" IsEnabled="False"/>
@@ -284,115 +305,119 @@
 
             <!-- ── Tab 1: Realtime Editor ──────────────────────────────── -->
             <TabItem Header="Realtime Editor">
-                <DockPanel>
+                <Grid Margin="4"
+                          ColumnDefinitions="*,*,*"
+                          RowDefinitions="Auto,Auto,*"
+                          ColumnSpacing="4"
+                          RowSpacing="4">
 
-                    <!-- Editor sections -->
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Auto">
-                        <Grid Margin="4"
-                              ColumnDefinitions="*,*,*"
-                              RowDefinitions="Auto, Auto, Auto">
+                        <!-- OSCILLATOR (col 0, all rows) -->
+                        <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="3">
+                            <StackPanel>
+                                <TextBlock Classes="section-title"
+                                           Text="OSCILLATOR"
+                                           Foreground="#F0A040"/>
+                                <Border Height="1" Background="#F0A04033" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="OscillatorPanel"/>
+                            </StackPanel>
+                        </Border>
 
-                            <!-- OSCILLATOR (col 0, all rows) -->
-                            <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="3">
-                                <StackPanel>
-                                    <TextBlock Classes="section-title"
-                                               Text="OSCILLATOR"
-                                               Foreground="#F0A040"/>
-                                    <StackPanel x:Name="OscillatorPanel"/>
-                                </StackPanel>
-                            </Border>
+                        <!-- FILTER -->
+                        <Border Classes="section-card" Grid.Column="1" Grid.Row="0">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Classes="section-title"
+                                           Text="FILTER"
+                                           Foreground="#40AAEE"/>
+                                <Border Height="1" Background="#40AAEE33" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="FilterPanel"/>
+                            </StackPanel>
+                        </Border>
 
-                            <!-- FILTER -->
-                            <Border Classes="section-card" Grid.Column="1" Grid.Row="0">
-                                <StackPanel>
-                                    <TextBlock Classes="section-title"
-                                               Text="FILTER"
-                                               Foreground="#40B0F0"/>
-                                    <StackPanel x:Name="FilterPanel"/>
-                                </StackPanel>
-                            </Border>
+                        <!-- ENVELOPE -->
+                        <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Classes="section-title"
+                                           Text="ENVELOPE"
+                                           Foreground="#60CC70"/>
+                                <Border Height="1" Background="#60CC7033" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="EnvelopePanel"/>
+                            </StackPanel>
+                        </Border>
 
-                            <!-- ENVELOPE -->
-                            <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
-                                <StackPanel>
-                                    <TextBlock Classes="section-title"
-                                               Text="ENVELOPE"
-                                               Foreground="#70C870"/>
-                                    <StackPanel x:Name="EnvelopePanel"/>
-                                </StackPanel>
-                            </Border>
+                        <!-- LFO (last row — stretches to fill remaining height) -->
+                        <Border Classes="section-card" Grid.Column="1" Grid.Row="2">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Classes="section-title"
+                                           Text="LFO"
+                                           Foreground="#B06ED8"/>
+                                <Border Height="1" Background="#B06ED833" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="LfoPanel"/>
+                            </StackPanel>
+                        </Border>
 
-                            <!-- LFO -->
-                            <Border Classes="section-card" Grid.Column="1" Grid.Row="2">
-                                <StackPanel>
-                                    <TextBlock Classes="section-title"
-                                               Text="LFO"
-                                               Foreground="#B070D8"/>
-                                    <StackPanel x:Name="LfoPanel"/>
-                                </StackPanel>
-                            </Border>
+                        <!-- EFFECTS -->
+                        <Border Classes="section-card" Grid.Column="2" Grid.Row="0">
+                            <StackPanel x:Name="EffectsStack" VerticalAlignment="Center">
+                                <TextBlock Classes="section-title"
+                                           Text="EFFECTS"
+                                           Foreground="#3EC8A8"/>
+                                <Border Height="1" Background="#3EC8A833" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="EffectsPanel"/>
+                            </StackPanel>
+                        </Border>
 
-                            <!-- EFFECTS -->
-                            <Border Classes="section-card" Grid.Column="2" Grid.Row="0">
-                                <StackPanel x:Name="EffectsStack">
-                                    <TextBlock Classes="section-title"
-                                               Text="EFFECTS"
-                                               Foreground="#40C8A8"/>
-                                    <StackPanel x:Name="EffectsPanel"/>
-                                </StackPanel>
-                            </Border>
+                        <!-- VOICE (stretches into * row) -->
+                        <Border Classes="section-card" Grid.Column="2" Grid.Row="1" Grid.RowSpan="2">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Classes="section-title"
+                                           Text="VOICE"
+                                           Foreground="#F07040"/>
+                                <Border Height="1" Background="#F0704033" Margin="0,0,0,10"/>
+                                <StackPanel x:Name="VoicePanel"/>
+                            </StackPanel>
+                        </Border>
 
-                            <!-- VOICE -->
-                            <Border Classes="section-card" Grid.Column="2" Grid.Row="1" Grid.RowSpan="2">
-                                <StackPanel>
-                                    <TextBlock Classes="section-title"
-                                               Text="VOICE"
-                                               Foreground="#F07840"/>
-                                    <StackPanel x:Name="VoicePanel"/>
-                                </StackPanel>
-                            </Border>
+                </Grid>
 
-                        </Grid>
-                    </ScrollViewer>
-
-                </DockPanel>
             </TabItem>
 
             <!-- ── Tab 2: PRM Viewer ────────────────────────────────────── -->
             <TabItem Header="PRM Viewer">
                 <DockPanel>
 
-                    <!-- Open PRM row -->
+                    <!-- PRM toolbar row -->
                     <Border DockPanel.Dock="Top"
-                            Background="#1E1E1E"
-                            BorderBrush="#333333"
+                            Background="#1A1A1E"
+                            BorderBrush="#2C2C36"
                             BorderThickness="0,0,0,1"
-                            Padding="12,8">
-                        <StackPanel Spacing="6">
+                            Padding="12,10">
+                        <StackPanel Spacing="8">
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button x:Name="OpenPrmButton"
                                         Classes="toolbar"
                                         Content="Open PRM File"/>
-                                <Border Width="1" Background="#2E2E2E" Margin="4,2"/>
+                                <Border Width="1" Height="16" Background="#2C2C36" Margin="4,0"/>
                                 <TextBlock Text="PRM Folder"
-                                           Foreground="#666666"
+                                           Foreground="#555566"
                                            VerticalAlignment="Center"
                                            FontSize="10"/>
                                 <TextBox x:Name="PrmFolderBox"
                                          Width="280"
+                                         Height="26"
                                          FontSize="10"
                                          IsReadOnly="True"
                                          PlaceholderText="(not set — click Browse to choose)"
-                                         Background="#181818"
-                                         BorderBrush="#333333"
-                                         Foreground="#AAAAAA"/>
+                                         Background="#1A1A24"
+                                         BorderBrush="#333344"
+                                         Foreground="#9090A8"
+                                         CornerRadius="3"/>
                                 <Button x:Name="BrowsePrmFolderButton"
                                         Classes="toolbar"
                                         Content="Browse…"/>
                             </StackPanel>
-                            <TextBlock Foreground="#555555"
+                            <TextBlock Foreground="#555566"
                                        FontSize="9.5"
+                                       FontStyle="Italic"
                                        TextWrapping="Wrap"
                                        MaxWidth="860"
                                        Text="To access patch files on the S-1: connect USB, then hold PLAY while powering on. Files are in the BACKUP folder. To restore: copy files to RESTORE folder, eject, then press HOLD on the device."/>
@@ -400,13 +425,12 @@
                     </Border>
 
                     <!-- PRM viewer sections (populated by code) -->
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Auto">
-                        <Grid x:Name="PrmViewerGrid"
-                              Margin="4"
-                              ColumnDefinitions="*,*,*"
-                              RowDefinitions="Auto, Auto, Auto, Auto"/>
-                    </ScrollViewer>
+                    <Grid x:Name="PrmViewerGrid"
+                          Margin="4"
+                          ColumnDefinitions="*,*,*"
+                          RowDefinitions="Auto,Auto,Auto,*"
+                          ColumnSpacing="4"
+                          RowSpacing="4"/>
 
                 </DockPanel>
             </TabItem>

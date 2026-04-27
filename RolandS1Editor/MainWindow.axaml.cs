@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -381,17 +382,15 @@ public partial class MainWindow : Window
 
     private void BuildVoicePanel()
     {
+        // 5 knobs × 56px = 280px + margins ≈ 300px — fits the column without overflow
         var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 1, 11, 5, 10, 77 })
-            knobs.Children.Add(MakeKnob(_patch.GetByCC(cc)!, VoiceAccent));
+            knobs.Children.Add(MakeKnob(_patch.GetByCC(cc)!, VoiceAccent, containerWidth: 56));
         VoicePanel.Children.Add(knobs);
 
-        var btnGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
-        var portMode = MakeLedButtonGroup(_patch.GetByCC(31)!, VoiceAccent);
-        var polyBtn  = MakeLedButtonGroup(_patch.GetByCC(80)!, VoiceAccent);
-        Grid.SetColumn(portMode, 0); Grid.SetColumn(polyBtn, 1);
-        btnGrid.Children.Add(portMode); btnGrid.Children.Add(polyBtn);
-        VoicePanel.Children.Add(btnGrid);
+        // Portamento and Polyphony stacked vertically — side-by-side caused overflow with 6-option strip
+        VoicePanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(31)!, VoiceAccent));
+        VoicePanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(80)!, VoiceAccent));
 
         VoicePanel.Children.Add(MakeDroneButton(_patch.GetByCC(64)!, VoiceAccent));
 
@@ -450,7 +449,7 @@ public partial class MainWindow : Window
             }
         }
 
-        var row = new StackPanel { Orientation = Orientation.Horizontal };
+        var row = new UniformGrid { Rows = 1 };
 
         for (int i = 0; i < opts.Length; i++)
         {
@@ -557,29 +556,39 @@ public partial class MainWindow : Window
 
         void Update()
         {
-            double fN    = Math.Clamp(freqParam.Value / 127.0 + _filterModOffset, 0.0, 1.0);
-            double rN    = resParam.Value  / 127.0;
-            double xC    = 8 + fN * (W - 16);
-            double flatY  = 4.0 + rN * (H * 0.60 - 4.0);  // rises with resonance; res=0 → near top
-            double peak   = rN * (flatY - 2);
-            double startY = flatY - peak;
+            double fN = Math.Clamp(freqParam.Value / 127.0 + _filterModOffset, 0.0, 1.0);
+            double rN = resParam.Value / 127.0;
+            double xC = 8 + fN * (W - 16);
 
             void Stroke(StreamGeometryContext ctx)
             {
-                ctx.BeginFigure(new Point(0, flatY), false);
-                ctx.LineTo(new Point(Math.Max(0, xC - 18), flatY));    // flat passband
-                ctx.CubicBezierTo(                                       // S-curve up to peak
-                    new Point(xC - 8, flatY),
-                    new Point(xC - 2, Math.Min(startY + 2, flatY)),
-                    new Point(xC,     startY));
-                // Fixed-width rolloff — 24dB/oct steep drop then flat
-                double slopeW = Math.Min(W - xC - 1, 80.0);
+                // Fixed geometry — shape is identical at all cutoff positions.
+                // xC just translates it horizontally.
+                const double flatTop   = 3.0;
+                const double flatBot   = H - 2.0;
+                const double slopeSpan = 64.0;
+
+                // Resonance peak rises above passband; clamped to canvas top.
+                double peakY = Math.Max(1.0, flatTop - rN * 12.0);
+                double x2    = xC + slopeSpan * 0.70;
+
+                ctx.BeginFigure(new Point(0, flatTop), false);
+
+                // Single smooth cubic from left edge to resonance peak.
+                // CP1 at 80% of xC holds flat; CP2 just before xC curls into peak.
                 ctx.CubicBezierTo(
-                    new Point(xC + slopeW * 0.08, startY + (H - startY) * 0.75),
-                    new Point(xC + slopeW * 0.45, H),
-                    new Point(xC + slopeW,        H));
-                if (xC + slopeW < W)
-                    ctx.LineTo(new Point(W, H));
+                    new Point(xC * 0.80, flatTop),
+                    new Point(xC - 8.0,  peakY),
+                    new Point(xC,        peakY));
+
+                // Rolloff: steep initial drop, flattens into stopband.
+                ctx.CubicBezierTo(
+                    new Point(xC + (x2 - xC) * 0.15, flatBot),
+                    new Point(xC + (x2 - xC) * 0.55, flatBot),
+                    new Point(x2,                      flatBot));
+
+                if (x2 < W)
+                    ctx.LineTo(new Point(W, flatBot));
                 ctx.EndFigure(false);
             }
 
@@ -591,7 +600,7 @@ public partial class MainWindow : Window
             using (var ctx = fillSg.Open())
             {
                 Stroke(ctx);
-                ctx.LineTo(new Point(0, H));
+                ctx.LineTo(new Point(0, H - 2.0));
                 ctx.EndFigure(true);
             }
             fillPath.Data = fillSg;
@@ -996,7 +1005,7 @@ public partial class MainWindow : Window
         };
     }
 
-    private static Control MakeKnob(S1Parameter param, IBrush accent, int minCcValue = 0)
+    private static Control MakeKnob(S1Parameter param, IBrush accent, int minCcValue = 0, double containerWidth = 68)
     {
         string initDisplay = GetKnobDisplayValue(param);
 
@@ -1023,11 +1032,14 @@ public partial class MainWindow : Window
             });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
+        bool small = containerWidth <= 58;
         var container = new Grid
         {
-            Width          = 68,
-            Margin         = new Thickness(3, 4),
-            RowDefinitions = new RowDefinitions("56,14,26"),
+            Width          = containerWidth,
+            Margin         = new Thickness(small ? 2 : 3, 4),
+            RowDefinitions = small
+                ? new RowDefinitions("44,14,22")
+                : new RowDefinitions("56,14,26"),
         };
         knob.HorizontalAlignment = HorizontalAlignment.Center;
         Grid.SetRow(knob,       0);
