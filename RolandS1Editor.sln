@@ -4,8 +4,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RolandS1Editor", "RolandS1E
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RolandS1Editor.Core", "RolandS1Editor.Core\RolandS1Editor.Core.csproj", "{2A3B4C5D-6E7F-8A9B-C0D1-E2F3A4B5C6D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RolandS1Editor.Vst", "RolandS1Editor.Vst\RolandS1Editor.Vst.csproj", "{3B4C5D6E-7F8A-9B0C-D1E2-F3A4B5C6D7E8}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,9 +18,5 @@ Global
 		{2A3B4C5D-6E7F-8A9B-C0D1-E2F3A4B5C6D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2A3B4C5D-6E7F-8A9B-C0D1-E2F3A4B5C6D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2A3B4C5D-6E7F-8A9B-C0D1-E2F3A4B5C6D7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3B4C5D6E-7F8A-9B0C-D1E2-F3A4B5C6D7E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3B4C5D6E-7F8A-9B0C-D1E2-F3A4B5C6D7E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3B4C5D6E-7F8A-9B0C-D1E2-F3A4B5C6D7E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3B4C5D6E-7F8A-9B0C-D1E2-F3A4B5C6D7E8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
