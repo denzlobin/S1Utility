@@ -535,61 +535,57 @@ public partial class MainWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(0x40, 0x40, 0xB0, 0xF0)),
         };
 
-        var canvas = new Canvas { Width = W, Height = H, Margin = new Thickness(4, 0, 2, 3) };
+        var canvas = new Canvas { Width = W, Height = H, Margin = new Thickness(4, 0, 2, 3), ClipToBounds = true };
         canvas.Children.Add(fillPath);
         canvas.Children.Add(linePath);
         canvas.Children.Add(marker);
 
         void Update()
         {
-            double fN = Math.Clamp(freqParam.Value / 127.0 + _filterModOffset, 0.0, 1.0);
-            double rN = resParam.Value / 127.0;
-            double xC = 8 + fN * (W - 16);
+            const double logMin = 1.30103; // log10(20 Hz)
+            const double logMax = 4.30103; // log10(20 kHz)
+            const int    N      = 200;
+            const double sigma  = 0.15;    // gaussian width in omega space
 
-            const double flatTop = 3.0;
-            const double flatBot = H - 2.0;
-            const double slope   = 52.0;
-            double h     = flatBot - flatTop;
-            double peakY = Math.Max(0.5, flatTop - rN * h * 0.35);
+            double fN          = Math.Clamp(freqParam.Value / 127.0 + _filterModOffset, 0.0, 1.0);
+            double rN          = resParam.Value / 127.0;
+            double cutoffFreq  = Math.Pow(10, logMin + fN * (logMax - logMin));
+            double xC          = fN * W;
 
-            void Stroke(StreamGeometryContext ctx)
+            // Normalise so the resonance peak always touches the canvas top; passband droops as rN rises.
+            // At ω=1 the raw peak = rolloff(1) + rN = 0.7071 + rN; below rN≈0.29 that is < 1 so the
+            // passband stays flat and the ceiling stays 1.0.
+            double maxRaw = Math.Max(1.0, 0.707107 + rN);
+
+            double AmplToY(double amp) => (H - 2) - Math.Clamp(amp, 0.0, 1.0) * (H - 4);
+
+            var pts = new Point[N];
+            for (int i = 0; i < N; i++)
             {
-                ctx.BeginFigure(new Point(0, flatTop), false);
-
-                // ① Flat passband to just before cutoff
-                double passEnd = Math.Max(0, xC - 8);
-                if (passEnd > 0)
-                    ctx.LineTo(new Point(passEnd, flatTop));
-
-                // ② Resonance spike — rises above flatTop, arrives pointing straight down.
-                //    When rN=0: peakY=flatTop → spike invisible, smooth join to rolloff.
-                ctx.CubicBezierTo(
-                    new Point(xC - 4, peakY),
-                    new Point(xC,     peakY),
-                    new Point(xC,     flatTop + h * 0.05));
-
-                // ③ Convex quarter-arc rolloff — starts vertical, arrives horizontal.
-                //    CP1 continues straight down (G1 smooth with ②).
-                //    CP2 pulls hard left at flatBot → no S-curve, guaranteed convex.
-                ctx.CubicBezierTo(
-                    new Point(xC,              flatTop + h * 0.55),
-                    new Point(xC + slope * 0.45, flatBot),
-                    new Point(xC + slope,        flatBot));
-
-                if (xC + slope < W)
-                    ctx.LineTo(new Point(W, flatBot));
-                ctx.EndFigure(false);
+                double frac    = i / (double)(N - 1);
+                double freq    = Math.Pow(10, logMin + frac * (logMax - logMin));
+                double omega   = freq / cutoffFreq;
+                double rawPeak = Math.Exp(-((omega - 1.0) * (omega - 1.0)) / (2 * sigma * sigma));
+                double rolloff = 1.0 / Math.Sqrt(1 + Math.Pow(omega, 8)); // 4-pole ~24 dB/oct
+                pts[i] = new Point(frac * W, AmplToY((rolloff + rN * rawPeak) / maxRaw));
             }
 
             var sg = new StreamGeometry();
-            using (var ctx = sg.Open()) Stroke(ctx);
+            using (var ctx = sg.Open())
+            {
+                ctx.BeginFigure(pts[0], false);
+                for (int i = 1; i < N; i++) ctx.LineTo(pts[i]);
+                ctx.EndFigure(false);
+            }
             linePath.Data = sg;
 
             var fillSg = new StreamGeometry();
             using (var ctx = fillSg.Open())
             {
-                Stroke(ctx);
-                ctx.LineTo(new Point(0, H));
+                ctx.BeginFigure(new Point(0, H), false);
+                ctx.LineTo(pts[0]);
+                for (int i = 1; i < N; i++) ctx.LineTo(pts[i]);
+                ctx.LineTo(new Point(W, H));
                 ctx.EndFigure(true);
             }
             fillPath.Data = fillSg;
@@ -1027,8 +1023,8 @@ public partial class MainWindow : Window
             Width          = containerWidth,
             Margin         = new Thickness(small ? 2 : 3, 4),
             RowDefinitions = small
-                ? new RowDefinitions("40,16,22")
-                : new RowDefinitions("50,16,28"),
+                ? new RowDefinitions("56,14,20")
+                : new RowDefinitions("56,14,26"),
         };
         knob.HorizontalAlignment = HorizontalAlignment.Center;
         Grid.SetRow(knob,       0);
