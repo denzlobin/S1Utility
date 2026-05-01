@@ -3,8 +3,8 @@
         x:Class="RolandS1Editor.MainWindow"
         Title="Roland S-1 Editor"
         Background="#1A1A1A"
-        MinWidth="1100" MinHeight="755"
-        Width="1100" Height="755">
+        Width="1100" Height="1200"
+        MinWidth="550" MinHeight="600">
 
     <Window.Resources>
         <!-- ── Background scale ──────────────────────────────────────────── -->
@@ -176,7 +176,8 @@
         </Style>
     </Window.Styles>
 
-    <DockPanel>
+    <Viewbox Stretch="Uniform">
+        <DockPanel Width="1100" Height="1200">
 
         <!-- ── Plugin title bar ─────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
@@ -473,5 +474,6 @@
 
         </TabControl>
 
-    </DockPanel>
+        </DockPanel>
+    </Viewbox>
 </Window>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
@@ -76,6 +77,16 @@ public partial class MainWindow : Window
     private static readonly IBrush MidiDotActive = new SolidColorBrush(Color.Parse("#F0A040"));
     private static readonly IBrush MidiDotIdle   = new SolidColorBrush(Color.Parse("#2C2C3A"));
     private readonly DispatcherTimer _modTimer = new();
+
+    // ── Aspect-ratio scaling ──────────────────────────────────────────────────
+    private const  double DesignWidth  = 1100;
+    private const  double DesignHeight = 1200;
+    private const  double AspectRatio  = DesignWidth / DesignHeight;
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    private WndProcDelegate? _arWndProcDelegate;
+    private IntPtr           _arOldWndProc;
 
     // Brushes reused across all 64 step buttons.
     private static readonly IBrush s_chopOnBrush  = new SolidColorBrush(Color.Parse("#CC2222"));
@@ -198,6 +209,14 @@ public partial class MainWindow : Window
             _motionCcLabels[i] = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
 
         InitializeComponent();
+
+        Opened += (_, _) =>
+        {
+            FitToScreen();
+            if (OperatingSystem.IsWindows())
+                HookAspectRatio();
+        };
+
         PopulateDeviceLists();
         BuildRealtimeEditorPanels();
         BuildPrmViewerContent();
@@ -2122,6 +2141,14 @@ public partial class MainWindow : Window
 
     private async void OnConnectClicked(object? sender, RoutedEventArgs e) => await PerformConnectAsync();
 
+    private void OnDeviceDisconnected()
+    {
+        PatchGridContainer.IsEnabled = false;
+        SendAllButton.IsEnabled      = false;
+        ConnectButton.Content        = "Reconnect";
+        SetStatus("Device disconnected.", "#FF6B6B");
+    }
+
     private async Task PerformConnectAsync()
     {
         if (DeviceCombo.SelectedIndex < 0)
@@ -2136,7 +2163,9 @@ public partial class MainWindow : Window
         try
         {
             var output = await _midi.OpenOutputAsync(outPort.Id);
-            _patch.SetTransport(new ManagedMidiTransport(output), channel: MidiChannel);
+            var transport = new ManagedMidiTransport(output,
+                onDisconnect: () => Avalonia.Threading.Dispatcher.UIThread.Post(OnDeviceDisconnected));
+            _patch.SetTransport(transport, channel: MidiChannel);
         }
         catch (Exception ex)
         {
@@ -2706,6 +2735,75 @@ public partial class MainWindow : Window
     };
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
+
+    // ── Aspect-ratio enforcement (Win32 WM_SIZING hook) ──────────────────────
+
+    private const int  GWLP_WNDPROC      = -4;
+    private const uint WM_SIZING         = 0x0214;
+    private const int  WMSZ_LEFT         = 1, WMSZ_RIGHT        = 2;
+    private const int  WMSZ_TOP          = 3, WMSZ_TOPLEFT      = 4, WMSZ_TOPRIGHT    = 5;
+    private const int  WMSZ_BOTTOM       = 6, WMSZ_BOTTOMLEFT   = 7, WMSZ_BOTTOMRIGHT = 8;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Win32Rect { public int Left, Top, Right, Bottom; }
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", ExactSpelling = true)]
+    private static extern IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr newLong);
+
+    [DllImport("user32.dll", EntryPoint = "CallWindowProcW", ExactSpelling = true)]
+    private static extern IntPtr CallWindowProcW(IntPtr proc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    private void FitToScreen()
+    {
+        var screen = Screens.Primary;
+        if (screen is null) return;
+        double maxW = screen.WorkingArea.Width  / screen.Scaling;
+        double maxH = screen.WorkingArea.Height / screen.Scaling;
+        if (Width > maxW || Height > maxH)
+        {
+            double scale = Math.Min(maxW / DesignWidth, maxH / DesignHeight);
+            Width  = Math.Round(DesignWidth  * scale);
+            Height = Math.Round(DesignHeight * scale);
+        }
+    }
+
+    private void HookAspectRatio()
+    {
+        var handle = TryGetPlatformHandle();
+        if (handle is null) return;
+        _arWndProcDelegate = WndProcHook;
+        _arOldWndProc = SetWindowLongPtrW(handle.Handle, GWLP_WNDPROC,
+                            Marshal.GetFunctionPointerForDelegate(_arWndProcDelegate));
+    }
+
+    private IntPtr WndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (msg == WM_SIZING)
+        {
+            var rect = Marshal.PtrToStructure<Win32Rect>(lParam);
+            int edge = (int)wParam;
+            int w    = rect.Right  - rect.Left;
+            int h    = rect.Bottom - rect.Top;
+
+            // Pure top/bottom drag: lock height, adjust width rightward.
+            // All other edges (including corners): lock width, adjust height.
+            bool pureVertical = edge is WMSZ_TOP or WMSZ_BOTTOM;
+            if (pureVertical)
+            {
+                rect.Right = rect.Left + (int)Math.Round(h * AspectRatio);
+            }
+            else
+            {
+                int newH = (int)Math.Round(w / AspectRatio);
+                bool topDriven = edge is WMSZ_TOP or WMSZ_TOPLEFT or WMSZ_TOPRIGHT;
+                if (topDriven) rect.Top    = rect.Bottom - newH;
+                else           rect.Bottom = rect.Top    + newH;
+            }
+
+            Marshal.StructureToPtr(rect, lParam, false);
+        }
+        return CallWindowProcW(_arOldWndProc, hWnd, msg, wParam, lParam);
+    }
 
     protected override void OnClosed(EventArgs e)
     {
