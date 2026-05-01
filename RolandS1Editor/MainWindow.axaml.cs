@@ -71,6 +71,10 @@ public partial class MainWindow : Window
     private double   _lfoPhase;
     private double   _lfoRandom;
     private DateTime _lastModTick;
+    private DateTime _lastMidiActivity = DateTime.MinValue;
+    private bool     _midiDotLit;
+    private static readonly IBrush MidiDotActive = new SolidColorBrush(Color.Parse("#F0A040"));
+    private static readonly IBrush MidiDotIdle   = new SolidColorBrush(Color.Parse("#2C2C3A"));
     private readonly DispatcherTimer _modTimer = new();
 
     // Brushes reused across all 64 step buttons.
@@ -179,7 +183,7 @@ public partial class MainWindow : Window
     private static readonly IBrush FiltAccent  = new SolidColorBrush(Color.Parse("#40B0F0"));
     private static readonly IBrush EnvAccent   = new SolidColorBrush(Color.Parse("#70C870"));
     private static readonly IBrush LfoAccent   = new SolidColorBrush(Color.Parse("#B070D8"));
-    private static readonly IBrush VoiceAccent = new SolidColorBrush(Color.Parse("#F07840"));
+    private static readonly IBrush VoiceAccent = new SolidColorBrush(Color.Parse("#C05878"));
     private static readonly IBrush FxAccent    = new SolidColorBrush(Color.Parse("#40C8A8"));
     private static readonly IBrush DmAccent    = new SolidColorBrush(Color.Parse("#60A8E0"));
 
@@ -200,10 +204,12 @@ public partial class MainWindow : Window
         ApplyInitPatch();
 
         ConnectButton.Click          += OnConnectClicked;
+        RefreshDevicesButton.Click   += async (_, _) => await RefreshDevicesAsync();
         SendAllButton.Click          += OnSendAllClicked;
         SaveButton.Click             += OnSaveClicked;
         LoadButton.Click             += OnLoadClicked;
         OpenPrmButton.Click          += OnOpenPrmClicked;
+        PrmInfoToggle.Click          += (_, _) => PrmInfoText.IsVisible = !PrmInfoText.IsVisible;
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
 
         LoadSettings();
@@ -275,6 +281,51 @@ public partial class MainWindow : Window
 
         if (DeviceCombo.Items.Count > 0) DeviceCombo.SelectedIndex = 0;
         if (InputCombo.Items.Count  > 0) InputCombo.SelectedIndex  = 0;
+    }
+
+    private Task RefreshDevicesAsync()
+    {
+        string? prevOut = DeviceCombo.SelectedIndex >= 0
+            ? DeviceCombo.Items[DeviceCombo.SelectedIndex] as string : null;
+        string? prevIn = _activeInput?.Name;
+
+        _activeInput?.StopEventsListening();
+        _activeInput = null;
+        foreach (var d in _inputDevices) d.Dispose();
+        _inputDevices.Clear();
+
+        DeviceCombo.Items.Clear();
+        foreach (var port in _midi.Outputs)
+            DeviceCombo.Items.Add(port.Name);
+
+        InputCombo.Items.Clear();
+        _inputDevices.AddRange(InputDevice.GetAll());
+        foreach (var device in _inputDevices)
+            InputCombo.Items.Add(device.Name);
+
+        // Restore previous selections by name
+        if (prevOut != null)
+        {
+            int idx = DeviceCombo.Items.Cast<string>().ToList().IndexOf(prevOut);
+            DeviceCombo.SelectedIndex = idx >= 0 ? idx : (DeviceCombo.Items.Count > 0 ? 0 : -1);
+        }
+        else if (DeviceCombo.Items.Count > 0)
+            DeviceCombo.SelectedIndex = 0;
+
+        if (prevIn != null)
+        {
+            int idx = _inputDevices.FindIndex(d => d.Name == prevIn);
+            if (idx >= 0) InputCombo.SelectedIndex = idx;
+        }
+        else if (InputCombo.Items.Count > 0)
+            InputCombo.SelectedIndex = 0;
+
+        if (_autoConnect)
+            TryAutoConnect();
+        else
+            SetStatus("Devices refreshed.", "#A0A0B8");
+
+        return Task.CompletedTask;
     }
 
     // ── Tab 1: Realtime editor ────────────────────────────────────────────────
@@ -490,6 +541,16 @@ public partial class MainWindow : Window
         Refresh(param.Value);
         param.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => Refresh(v));
 
+        var valueLbl = new TextBlock
+        {
+            Text                = opts[GetIndex(param.Value)],
+            FontSize            = 8.5,
+            Foreground          = accent,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            TextAlignment       = TextAlignment.Center,
+        };
+        param.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => valueLbl.Text = opts[GetIndex(v)]);
+
         return new StackPanel
         {
             Margin              = new Thickness(3, 2, 3, 4),
@@ -506,6 +567,7 @@ public partial class MainWindow : Window
                     HorizontalAlignment = HorizontalAlignment.Center,
                     TextAlignment       = TextAlignment.Center,
                 },
+                valueLbl,
             },
         };
     }
@@ -1296,8 +1358,8 @@ public partial class MainWindow : Window
         var mainOscForViewer = _patch.Oscillator
             .Where(p => p.CcNumber != 102 && p.CcNumber != 103 && p.CcNumber != 104 && p.CcNumber != 107)
             .ToList();
-        foreach (var p in mainOscForViewer)
-            oscContent.Children.Add(MakePrmViewerCcRow(p));
+        oscContent.Children.Add(MakeTwoColumnGrid(
+            mainOscForViewer.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
 
         oscContent.Children.Add(MakeSubSectionHeader("OSC DRAW", OscAccent));
         oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(102)!));  // Draw Multiply
@@ -1329,10 +1391,8 @@ public partial class MainWindow : Window
             MakePrmInfoRow(_prmRiserLevel, compact: true),
         }));
 
-        var col0Stack = new StackPanel { Spacing = 4 };
-        col0Stack.Children.Add(oscCard);
-        Grid.SetColumn(col0Stack, 0); Grid.SetRow(col0Stack, 0); Grid.SetRowSpan(col0Stack, 3);
-        PrmViewerGrid.Children.Add(col0Stack);
+        Grid.SetColumn(oscCard, 0); Grid.SetRow(oscCard, 0); Grid.SetRowSpan(oscCard, 3);
+        PrmViewerGrid.Children.Add(oscCard);
 
         // ── Column 1: FILTER / ENVELOPE / LFO ────────────────────────────
         var filterCard = MakeSectionCard("FILTER", FiltAccent, out var filterContent);
@@ -1400,26 +1460,31 @@ public partial class MainWindow : Window
         fxContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(93)!));  // Chorus Type
 
         var voiceCard = MakeSectionCard("VOICE", VoiceAccent, out var voiceContent);
-        foreach (var p in _patch.Controls) voiceContent.Children.Add(MakePrmViewerCcRow(p));
-        foreach (var p in _patch.Voice)    voiceContent.Children.Add(MakePrmViewerCcRow(p));
+        var voiceItems = _patch.Controls.Concat(_patch.Voice)
+            .Where(p => p.CcNumber != 65)
+            .Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList();
+        voiceContent.Children.Add(MakeTwoColumnGrid(voiceItems));
 
-        var col2Stack = new StackPanel { Spacing = 4 };
-        col2Stack.Children.Add(fxCard);
-        col2Stack.Children.Add(voiceCard);
-        Grid.SetColumn(col2Stack, 2); Grid.SetRow(col2Stack, 0); Grid.SetRowSpan(col2Stack, 3);
-        PrmViewerGrid.Children.Add(col2Stack);
+        var col2Grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), RowSpacing = 4 };
+        Grid.SetRow(fxCard, 0);
+        Grid.SetRow(voiceCard, 1);
+        col2Grid.Children.Add(fxCard);
+        col2Grid.Children.Add(voiceCard);
+        Grid.SetColumn(col2Grid, 2); Grid.SetRow(col2Grid, 0); Grid.SetRowSpan(col2Grid, 3);
+        PrmViewerGrid.Children.Add(col2Grid);
 
         // ── Row 3: SEQUENCER (full width) ────────────────────────────────
         var seqCard = MakeSectionCard("SEQUENCER", SeqAccent, out var seqContent);
 
-        // PATTERN / ARPEGGIATOR / MOTION ASSIGN as three side-by-side columns
+        // PATTERN / ARPEGGIATOR / AUTOMATION / D-MOTION as four equal columns
         var seqMetaGrid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto, Auto, *, Auto"),
+            ColumnDefinitions = new ColumnDefinitions("*,*,*,*"),
+            ColumnSpacing     = 20,
             Margin            = new Thickness(0, 0, 0, 4),
         };
 
-        var patCol = new StackPanel { Spacing = 2, Margin = new Thickness(0, 0, 20, 0) };
+        var patCol = new StackPanel { Spacing = 2 };
         patCol.Children.Add(MakeSubSectionHeader("PATTERN", SeqAccent));
         patCol.Children.Add(MakeInfoRow("Tempo:",     _tempoLabel));
         patCol.Children.Add(MakeInfoRow("Transpose:", _transposeLabel));
@@ -1431,7 +1496,7 @@ public partial class MainWindow : Window
         Grid.SetColumn(patCol, 0);
         seqMetaGrid.Children.Add(patCol);
 
-        var arpCol = new StackPanel { Spacing = 2, Margin = new Thickness(0, 0, 20, 0) };
+        var arpCol = new StackPanel { Spacing = 2 };
         arpCol.Children.Add(MakeSubSectionHeader("ARPEGGIATOR", SeqAccent));
         arpCol.Children.Add(MakePrmInfoRow(_prmArpType));
         arpCol.Children.Add(MakePrmInfoRow(_prmArpRate));
@@ -1439,13 +1504,13 @@ public partial class MainWindow : Window
         seqMetaGrid.Children.Add(arpCol);
 
         var motCol = new StackPanel { Spacing = 2 };
-        motCol.Children.Add(MakeSubSectionHeader("MOTION ASSIGN", SeqAccent));
+        motCol.Children.Add(MakeSubSectionHeader("AUTOMATION", SeqAccent));
         for (int i = 0; i < 8; i++)
             motCol.Children.Add(MakeInfoRow($"Lane {i + 1}:", _motionCcLabels[i]));
         Grid.SetColumn(motCol, 2);
         seqMetaGrid.Children.Add(motCol);
 
-        var dmCol = new StackPanel { Spacing = 2, Margin = new Thickness(20, 0, 0, 0) };
+        var dmCol = new StackPanel { Spacing = 2 };
         dmCol.Children.Add(MakeSubSectionHeader("D-MOTION", DmAccent));
         dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignX));
         dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignY));
@@ -2156,6 +2221,7 @@ public partial class MainWindow : Window
 
     private void OnMidiEventReceived(object? sender, MidiEventReceivedEventArgs e)
     {
+        _lastMidiActivity = DateTime.UtcNow;
         switch (e.Event)
         {
             case ControlChangeEvent cc when (int)cc.Channel == MidiChannel - 1:
@@ -2495,7 +2561,7 @@ public partial class MainWindow : Window
             string key = $"MOTION_CC{i + 1}";
             _motionCcLabels[i].Text = data.Parameters.TryGetValue(key, out var mcRaw)
                                       && int.TryParse(mcRaw, out int mcVal) && mcVal >= 0
-                ? (_patch.GetByCC(mcVal)?.Name is { } n ? $"CC{mcVal}  {n}" : $"CC {mcVal}")
+                ? (_patch.GetByCC(mcVal)?.Name ?? $"CC{mcVal}")
                 : "—";
         }
     }
@@ -2543,6 +2609,8 @@ public partial class MainWindow : Window
         _noteCount = Math.Max(0, _noteCount - 1);
         if (_noteCount == 0)
         {
+            if (_envPhase == EnvPhase.Decay)
+                _envLevel = _patch.GetByCC(30)!.Value / 127.0; // snap to sustain level
             _envLevelAtRelease = _envLevel;
             _envPhase = EnvPhase.Release;
         }
@@ -2555,6 +2623,10 @@ public partial class MainWindow : Window
         var now = DateTime.UtcNow;
         double dt = Math.Min((now - _lastModTick).TotalSeconds, 0.1);
         _lastModTick = now;
+
+        // ── MIDI activity dot ─────────────────────────────────────────────
+        bool midiLit = (now - _lastMidiActivity).TotalMilliseconds < 150;
+        if (midiLit != _midiDotLit) { _midiDotLit = midiLit; MidiActivityDot.Background = midiLit ? MidiDotActive : MidiDotIdle; }
 
         // ── Envelope ──────────────────────────────────────────────────────
         double attackSecs  = ModEnvTime(_patch.GetByCC(73)!.Value);
@@ -2570,7 +2642,8 @@ public partial class MainWindow : Window
                 break;
             case EnvPhase.Decay:
                 _envLevel = Math.Max(sustainLvl, _envLevel - dt * (1.0 - sustainLvl) / decaySecs);
-                if (_envLevel <= sustainLvl) _envPhase = EnvPhase.Sustain;
+                if (_envLevel <= sustainLvl)
+                    _envPhase = (_patch.GetByCC(29)!.Value == 0 && _noteCount > 0) ? EnvPhase.Attack : EnvPhase.Sustain;
                 break;
             case EnvPhase.Sustain:
                 _envLevel = sustainLvl;
@@ -2588,7 +2661,14 @@ public partial class MainWindow : Window
         double prevPhase = _lfoPhase;
         _lfoPhase = (_lfoPhase + lfoHz * dt) % 1.0;
         if (_lfoPhase < prevPhase)
+        {
             _lfoRandom = Random.Shared.NextDouble() * 2.0 - 1.0;
+            if (_patch.GetByCC(29)!.Value == 0 && _noteCount > 0) // Trigger Mode = LFO, key held
+            {
+                _envPhase = EnvPhase.Attack;
+                _envLevel = 0;
+            }
+        }
 
         double lfoVal = ModLfoValue(_patch.GetByCC(12)!.Value, _lfoPhase, _lfoRandom);
 

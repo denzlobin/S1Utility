@@ -26,7 +26,7 @@
         <SolidColorBrush x:Key="AccentEnv">#60CC70</SolidColorBrush>
         <SolidColorBrush x:Key="AccentLfo">#B06ED8</SolidColorBrush>
         <SolidColorBrush x:Key="AccentFx">#3EC8A8</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentVoice">#F07040</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentVoice">#C05878</SolidColorBrush>
         <SolidColorBrush x:Key="AccentWarn">#D0702A</SolidColorBrush>
 
         <!-- Tab strip background / border -->
@@ -187,9 +187,9 @@
                 Height="30">
             <Grid>
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Border Width="8" Height="8" CornerRadius="4"
-                            Background="#F0A040"
-                            BoxShadow="0 0 8 2 #88F0A040"/>
+                    <Border Width="6" Height="6" CornerRadius="3"
+                            Background="#C8C8D8"
+                            BoxShadow="0 0 4 1 #30C8C8D8"/>
                     <TextBlock Text="ROLAND S-1 EDITOR"
                                FontSize="11" FontWeight="SemiBold"
                                Foreground="#D8D8E8" LetterSpacing="1.5"/>
@@ -215,6 +215,11 @@
 
                 <!-- Left: MIDI device selection -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <Button x:Name="RefreshDevicesButton"
+                            Classes="toolbar"
+                            Content="↻"
+                            Padding="7,4"
+                            ToolTip.Tip="Refresh device list"/>
                     <ComboBox x:Name="DeviceCombo"
                               Width="130" Height="26" FontSize="10"
                               PlaceholderText="MIDI Out…"
@@ -232,14 +237,19 @@
                             IsEnabled="False"/>
                     <Border Width="1" Height="16" Background="#2C2C36" Margin="4,0"/>
                     <TextBlock x:Name="StatusText"
-                               Foreground="#555566"
-                               Opacity="0.8"
+                               Foreground="#9090A8"
                                VerticalAlignment="Center"
-                               MaxWidth="120"
+                               MaxWidth="240"
                                TextTrimming="CharacterEllipsis"
                                FontSize="9.5"
-                               FontStyle="Italic"
                                ToolTip.Tip="{Binding #StatusText.Text}"/>
+                    <Border x:Name="MidiActivityDot"
+                            Width="5" Height="5"
+                            CornerRadius="3"
+                            Background="#2C2C3A"
+                            VerticalAlignment="Center"
+                            Margin="4,0,0,0"
+                            ToolTip.Tip="MIDI activity"/>
                 </StackPanel>
 
                 <!-- Right: Preset management -->
@@ -276,10 +286,10 @@
 
                 <Border Grid.Column="1" Width="1" Background="#2C2C36" Margin="14,0"/>
 
-                <StackPanel Grid.Column="2" Spacing="7" VerticalAlignment="Center" Margin="14,0,0,0">
+                <StackPanel Grid.Column="2" Spacing="5" VerticalAlignment="Center" Margin="14,0,0,0">
 
                     <!-- Toggles -->
-                    <StackPanel Orientation="Horizontal" Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
                         <CheckBox x:Name="AutoConnectToggle"
                                   Content="Auto S-1"
                                   Foreground="#888898"
@@ -295,7 +305,14 @@
                                   FontSize="9.5"
                                   IsEnabled="False"
                                   ToolTip.Tip="Experimental: auto-loads PRM data when switching patterns. Requires a PRM Folder. Files must exactly match the device — it is your responsibility to keep them in sync."/>
+                        <TextBlock Text="⚠"
+                                   Foreground="#D0702A"
+                                   FontSize="10"
+                                   VerticalAlignment="Center"
+                                   ToolTip.Tip="Files must exactly match the device — it is your responsibility to keep them in sync."/>
                     </StackPanel>
+
+                    <Border Height="1" Background="#2C2C36" Margin="0,1"/>
 
                     <!-- Channels -->
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -348,7 +365,7 @@
                                 <TextBlock Classes="section-title"
                                            Text="OSCILLATOR"
                                            Foreground="#F0A040"/>
-                                <Border Height="1" Background="#F0A04033" Margin="0,0,0,10"/>
+                                <Border Height="1" Background="#F0A04055" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="OscillatorPanel"/>
                             </StackPanel>
                         </Border>
@@ -359,7 +376,7 @@
                                 <TextBlock Classes="section-title"
                                            Text="FILTER"
                                            Foreground="#40AAEE"/>
-                                <Border Height="1" Background="#40AAEE33" Margin="0,0,0,10"/>
+                                <Border Height="1" Background="#40AAEE55" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="FilterPanel"/>
                             </StackPanel>
                         </Border>
@@ -370,7 +387,7 @@
                                 <TextBlock Classes="section-title"
                                            Text="ENVELOPE"
                                            Foreground="#60CC70"/>
-                                <Border Height="1" Background="#60CC7033" Margin="0,0,0,10"/>
+                                <Border Height="1" Background="#60CC7055" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="EnvelopePanel"/>
                             </StackPanel>
                         </Border>
@@ -381,7 +398,7 @@
                                 <TextBlock Classes="section-title"
                                            Text="LFO"
                                            Foreground="#B06ED8"/>
-                                <Border Height="1" Background="#B06ED833" Margin="0,0,0,10"/>
+                                <Border Height="1" Background="#B06ED855" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="LfoPanel"/>
                             </StackPanel>
                         </Border>
@@ -392,7 +409,7 @@
                                 <TextBlock Classes="section-title"
                                            Text="EFFECTS"
                                            Foreground="#3EC8A8"/>
-                                <Border Height="1" Background="#3EC8A833" Margin="0,0,0,10"/>
+                                <Border Height="1" Background="#3EC8A855" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="EffectsPanel"/>
                             </StackPanel>
                         </Border>
@@ -402,8 +419,8 @@
                             <StackPanel VerticalAlignment="Top">
                                 <TextBlock Classes="section-title"
                                            Text="VOICE"
-                                           Foreground="#F07040"/>
-                                <Border Height="1" Background="#F0704033" Margin="0,0,0,10"/>
+                                           Foreground="#C05878"/>
+                                <Border Height="1" Background="#C0587855" Margin="0,0,0,10"/>
                                 <StackPanel x:Name="VoicePanel"/>
                             </StackPanel>
                         </Border>
@@ -412,8 +429,8 @@
 
             </TabItem>
 
-            <!-- ── Tab 2: PRM Viewer ────────────────────────────────────── -->
-            <TabItem Header="PRM Viewer">
+            <!-- ── Tab 2: Patch Inspector ──────────────────────────────── -->
+            <TabItem Header="Patch Inspector">
                 <DockPanel>
 
                     <!-- PRM toolbar row -->
@@ -422,14 +439,21 @@
                             BorderBrush="#2C2C36"
                             BorderThickness="0,0,0,1"
                             Padding="12,10">
-                        <StackPanel Spacing="8">
-                            <Button x:Name="OpenPrmButton"
-                                    Classes="toolbar"
-                                    Content="Open PRM File"
-                                    HorizontalAlignment="Left"/>
-                            <TextBlock Foreground="#555566"
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Button x:Name="OpenPrmButton"
+                                        Classes="toolbar"
+                                        Content="Open PRM File"/>
+                                <Button x:Name="PrmInfoToggle"
+                                        Classes="toolbar"
+                                        Content="ⓘ"
+                                        Padding="6,4"
+                                        ToolTip.Tip="Show / hide file access instructions"/>
+                            </StackPanel>
+                            <TextBlock x:Name="PrmInfoText"
+                                       IsVisible="False"
+                                       Foreground="#7878A0"
                                        FontSize="9.5"
-                                       FontStyle="Italic"
                                        TextWrapping="Wrap"
                                        MaxWidth="860"
                                        Text="To access patch files on the S-1: connect USB, then hold PLAY while powering on. Files are in the BACKUP folder. To restore: copy files to RESTORE folder, eject, then press HOLD on the device."/>
