@@ -59,7 +59,7 @@ public class S1Patch : IDisposable
             new("Portamento Mode",        cc: 31, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Off", "Auto", "On" }),
             new("Portamento",             cc: 65, S1Section.Voice, initialValue: 0,  Toggle),
-            new("Keyboard Transpose",     cc: 77, S1Section.Voice, initialValue: 64),
+            new("Transpose",     cc: 77, S1Section.Voice, initialValue: 64),
             new("Polyphony Mode",         cc: 80, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Mono", "Unison", "Poly", "Chord" }),
             new("Chord Voice 2 On/Off",   cc: 81, S1Section.Voice, initialValue: 0,  Toggle),
@@ -208,6 +208,9 @@ public class S1Patch : IDisposable
     // The S-1 maps its 64 patterns as programs 0–63 (group × 16 + pattern_index).
     public void SendProgramChange(int program) =>
         _transport?.SendProgramChange(_channel, Math.Clamp(program, 0, 127));
+
+    public void SendProgramChange(int program, int channel) =>
+        _transport?.SendProgramChange(Math.Clamp(channel, 1, 16), Math.Clamp(program, 0, 127));
 
     public void Dispose() => Disconnect();
 }

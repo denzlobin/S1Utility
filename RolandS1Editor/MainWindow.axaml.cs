@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly List<InputDevice> _inputDevices = new();
     private InputDevice? _activeInput;
     private int MidiChannel => ChannelCombo.SelectedIndex >= 0 ? ChannelCombo.SelectedIndex + 1 : 3;
+    private int PcChannel   => ProgramChangeChannelCombo.SelectedIndex >= 0 ? ProgramChangeChannelCombo.SelectedIndex + 1 : 16;
 
     // Chop step-pattern model (4 waveforms × 16 steps, PRM-only).
     private readonly ChopPattern _chopPattern = new();
@@ -50,7 +51,9 @@ public partial class MainWindow : Window
     private bool   _filterModEnabled;
     private bool   _patternSync;
     private bool   _suppressPatternSyncToggle;
-    private string _prmFolder = "";
+    private string _prmFolder    = "";
+    private int    _midiChannel  = 3;
+    private int    _pcChannel    = 3;
     private static readonly string SettingsPath =
         System.IO.Path.Combine(AppContext.BaseDirectory, "s1editor.settings.json");
 
@@ -88,28 +91,28 @@ public partial class MainWindow : Window
 
     private static List<PrmParameter> BuildPrmDelayMain() => new()
     {
-        new("Delay Sync", "DELAY_SW", options: new[] { "Off", "Sync to Tempo" }),
+        new("Sync", "DELAY_SW", options: new[] { "Off", "Sync to Tempo" }),
     };
 
     private static List<PrmParameter> BuildPrmReverbMain() => new()
     {
-        new("Reverb Type", "REVERB_TYPE", options: new[] {
+        new("Type", "REVERB_TYPE", options: new[] {
             "Ambience","Room","Hall 1","Hall 2","Plate","Spring","Modulate" }),
     };
 
     private static List<PrmParameter> BuildPrmDelayAdv() => new()
     {
-        new("Delay Feedback", "DELAY_FEEDBACK", prmMax: 255),
-        new("Delay Low Cut",  "DELAY_LOW_CUT",  options: s_lowCutOpts),
-        new("Delay High Cut", "DELAY_HIGH_CUT", options: s_highCutOpts),
+        new("Feedback", "DELAY_FEEDBACK", prmMax: 255),
+        new("Low Cut",  "DELAY_LOW_CUT",  options: s_lowCutOpts),
+        new("High Cut", "DELAY_HIGH_CUT", options: s_highCutOpts),
     };
 
     private static List<PrmParameter> BuildPrmReverbAdv() => new()
     {
-        new("Reverb Pre-Delay", "REVERB_PRE_DELAY", prmMax: 100),
-        new("Reverb Density",   "REVERB_DENSITY",   prmMax: 10),
-        new("Reverb Low Cut",   "REVERB_LOW_CUT",   options: s_lowCutOpts),
-        new("Reverb High Cut",  "REVERB_HIGH_CUT",  options: s_highCutOpts),
+        new("Pre-Delay", "REVERB_PRE_DELAY", prmMax: 100),
+        new("Density",   "REVERB_DENSITY",   prmMax: 10),
+        new("Low Cut",   "REVERB_LOW_CUT",   options: s_lowCutOpts),
+        new("High Cut",  "REVERB_HIGH_CUT",  options: s_highCutOpts),
     };
 
     private readonly List<PrmParameter> _prmDelayMain;
@@ -117,7 +120,7 @@ public partial class MainWindow : Window
     private readonly List<PrmParameter> _prmDelayAdv;
     private readonly List<PrmParameter> _prmReverbAdv;
 
-    private readonly PrmParameter _delayTempo = new("Delay Tempo", "DELAY_TEMPO", options: new[] {
+    private readonly PrmParameter _delayTempo = new("Tempo", "DELAY_TEMPO", options: new[] {
         "128", "64t", "128d", "1_64", "32t", "64d", "1_32", "16t",
         "32d", "1_16", "8t", "16d", "1_8", "4t", "8d", "1_4" });
 
@@ -260,8 +263,15 @@ public partial class MainWindow : Window
             InputCombo.Items.Add(device.Name);
 
         for (int ch = 1; ch <= 16; ch++)
+        {
             ChannelCombo.Items.Add(ch.ToString());
-        ChannelCombo.SelectedIndex = 2;
+            ProgramChangeChannelCombo.Items.Add(ch.ToString());
+        }
+        ChannelCombo.SelectedIndex              = _midiChannel - 1;
+        ProgramChangeChannelCombo.SelectedIndex = _pcChannel   - 1;
+
+        ChannelCombo.SelectionChanged += (_, _) => SaveSettings();
+        ProgramChangeChannelCombo.SelectionChanged += (_, _) => SaveSettings();
 
         if (DeviceCombo.Items.Count > 0) DeviceCombo.SelectedIndex = 0;
         if (InputCombo.Items.Count  > 0) InputCombo.SelectedIndex  = 0;
@@ -930,7 +940,7 @@ public partial class MainWindow : Window
 
     private void OnPatchClicked(int program, Button btn)
     {
-        _patch.SendProgramChange(program);
+        _patch.SendProgramChange(program, PcChannel);
         HighlightPatchButton(program);
     }
 
@@ -1308,13 +1318,16 @@ public partial class MainWindow : Window
         oscContent.Children.Add(MakeChopPatternControl());
 
         var riserCard = MakeSectionCard("RISER", FxAccent, out var riserContent);
-        riserContent.Children.Add(MakePrmInfoRow(_prmRiserSw));
-        riserContent.Children.Add(MakePrmInfoRow(_prmRiserMode));
-        riserContent.Children.Add(MakePrmInfoRow(_prmRiserCtrl));
-        riserContent.Children.Add(MakePrmInfoRow(_prmRiserBeat));
-        riserContent.Children.Add(MakePrmInfoRow(_prmRiserShape));
-        riserContent.Children.Add(MakePrmInfoRow(_prmRiserReso));
-        riserContent.Children.Add(MakePrmInfoRow(_prmRiserLevel));
+        riserContent.Children.Add(MakeTwoColumnGrid(new List<Control>
+        {
+            MakePrmInfoRow(_prmRiserSw,    compact: true),
+            MakePrmInfoRow(_prmRiserMode,  compact: true),
+            MakePrmInfoRow(_prmRiserCtrl,  compact: true),
+            MakePrmInfoRow(_prmRiserBeat,  compact: true),
+            MakePrmInfoRow(_prmRiserShape, compact: true),
+            MakePrmInfoRow(_prmRiserReso,  compact: true),
+            MakePrmInfoRow(_prmRiserLevel, compact: true),
+        }));
 
         var col0Stack = new StackPanel { Spacing = 4 };
         col0Stack.Children.Add(oscCard);
@@ -1339,54 +1352,62 @@ public partial class MainWindow : Window
         }
         filterContent.Children.Add(filterGrid);
 
-        Grid.SetColumn(filterCard, 1); Grid.SetRow(filterCard, 0);
-        PrmViewerGrid.Children.Add(filterCard);
-
         var envCard = MakeSectionCard("ENVELOPE", EnvAccent, out var envContent);
-        foreach (var p in _patch.Envelope)
-            envContent.Children.Add(MakePrmViewerCcRow(p));
-        Grid.SetColumn(envCard, 1); Grid.SetRow(envCard, 1);
-        PrmViewerGrid.Children.Add(envCard);
+        envContent.Children.Add(MakeTwoColumnGrid(
+            _patch.Envelope.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
 
         var lfoCard = MakeSectionCard("LFO", LfoAccent, out var lfoContent);
-        foreach (var p in _patch.Lfo)
-            lfoContent.Children.Add(MakePrmViewerCcRow(p));
+        lfoContent.Children.Add(MakeTwoColumnGrid(
+            _patch.Lfo.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
         var col1Row2Stack = new StackPanel { Spacing = 4 };
         col1Row2Stack.Children.Add(lfoCard);
         col1Row2Stack.Children.Add(riserCard);
-        Grid.SetColumn(col1Row2Stack, 1); Grid.SetRow(col1Row2Stack, 2);
-        PrmViewerGrid.Children.Add(col1Row2Stack);
+
+        var col1Stack = new StackPanel { Spacing = 4 };
+        col1Stack.Children.Add(filterCard);
+        col1Stack.Children.Add(envCard);
+        col1Stack.Children.Add(col1Row2Stack);
+        Grid.SetColumn(col1Stack, 1); Grid.SetRow(col1Stack, 0); Grid.SetRowSpan(col1Stack, 3);
+        PrmViewerGrid.Children.Add(col1Stack);
 
         // ── Column 2: EFFECTS / VOICE ─────────────────────────────────────
-        var fxCard = MakeSectionCard("EFFECTS", FxAccent, out var fxContent);
+        var fxCard = MakeSectionCard("REVERB", FxAccent, out var fxContent);
 
-        // Reverb
-        fxContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(91)!));  // Reverb Level
-        fxContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(89)!));  // Reverb Time
-        foreach (var p in _prmReverbMain) fxContent.Children.Add(MakePrmInfoRow(p));
-        foreach (var p in _prmReverbAdv)  fxContent.Children.Add(MakePrmInfoRow(p));
+        // Reverb — 2-column compact grid
+        var revItems = new List<Control>
+        {
+            MakePrmViewerCcRowCompact(_patch.GetByCC(91)!),  // Level
+            MakePrmViewerCcRowCompact(_patch.GetByCC(89)!),  // Time
+        };
+        foreach (var p in _prmReverbMain) revItems.Add(MakePrmInfoRow(p, compact: true));
+        foreach (var p in _prmReverbAdv)  revItems.Add(MakePrmInfoRow(p, compact: true));
+        fxContent.Children.Add(MakeTwoColumnGrid(revItems));
 
-        // Delay
+        // Delay — 2-column compact grid
         fxContent.Children.Add(MakeSubSectionHeader("DELAY", FxAccent));
-        fxContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(92)!));  // Delay Level
-        fxContent.Children.Add(MakeDelayTimeViewerRow());
-        foreach (var p in _prmDelayMain) fxContent.Children.Add(MakePrmInfoRow(p));
-        fxContent.Children.Add(MakePrmInfoRow(_delayTempo));
-        foreach (var p in _prmDelayAdv)  fxContent.Children.Add(MakePrmInfoRow(p));
+        var delItems = new List<Control>
+        {
+            MakePrmViewerCcRowCompact(_patch.GetByCC(92)!),  // Level
+            MakeDelayTimeViewerRow(),
+        };
+        foreach (var p in _prmDelayMain) delItems.Add(MakePrmInfoRow(p, compact: true));
+        delItems.Add(MakePrmInfoRow(_delayTempo, compact: true));
+        foreach (var p in _prmDelayAdv)  delItems.Add(MakePrmInfoRow(p, compact: true));
+        fxContent.Children.Add(MakeTwoColumnGrid(delItems));
 
         // Chorus
         fxContent.Children.Add(MakeSubSectionHeader("CHORUS", FxAccent));
         fxContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(93)!));  // Chorus Type
 
-        Grid.SetColumn(fxCard, 2); Grid.SetRow(fxCard, 0);
-        PrmViewerGrid.Children.Add(fxCard);
-
         var voiceCard = MakeSectionCard("VOICE", VoiceAccent, out var voiceContent);
         foreach (var p in _patch.Controls) voiceContent.Children.Add(MakePrmViewerCcRow(p));
         foreach (var p in _patch.Voice)    voiceContent.Children.Add(MakePrmViewerCcRow(p));
 
-        Grid.SetColumn(voiceCard, 2); Grid.SetRow(voiceCard, 1); Grid.SetRowSpan(voiceCard, 2);
-        PrmViewerGrid.Children.Add(voiceCard);
+        var col2Stack = new StackPanel { Spacing = 4 };
+        col2Stack.Children.Add(fxCard);
+        col2Stack.Children.Add(voiceCard);
+        Grid.SetColumn(col2Stack, 2); Grid.SetRow(col2Stack, 0); Grid.SetRowSpan(col2Stack, 3);
+        PrmViewerGrid.Children.Add(col2Stack);
 
         // ── Row 3: SEQUENCER (full width) ────────────────────────────────
         var seqCard = MakeSectionCard("SEQUENCER", SeqAccent, out var seqContent);
@@ -1529,7 +1550,7 @@ public partial class MainWindow : Window
         delayTimeCC.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
         _delayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
 
-        return MakeInfoRow("Delay Time:", lbl);
+        return MakeInfoRow("Time:", lbl, labelMinWidth: 80);
     }
 
     // 16-bar bipolar draw waveform display (lo byte first, then hi byte per PRM value).
@@ -1990,7 +2011,7 @@ public partial class MainWindow : Window
         },
     };
 
-    private static StackPanel MakePrmInfoRow(PrmParameter p)
+    private static StackPanel MakePrmInfoRow(PrmParameter p, bool compact = false)
     {
         var lbl = new TextBlock
         {
@@ -1999,7 +2020,25 @@ public partial class MainWindow : Window
             Text       = GetPrmDisplayString(p),
         };
         p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() => lbl.Text = GetPrmDisplayString(p));
-        return MakeInfoRow(p.Name + ":", lbl);
+        return MakeInfoRow(p.Name + ":", lbl, labelMinWidth: compact ? 80 : 130);
+    }
+
+    private static Grid MakeTwoColumnGrid(IList<Control> items)
+    {
+        int rows = (items.Count + 1) / 2;
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*, *"),
+            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("Auto", rows))),
+            RowSpacing        = 2,
+        };
+        for (int i = 0; i < items.Count; i++)
+        {
+            Grid.SetRow(items[i], i / 2);
+            Grid.SetColumn(items[i], i % 2);
+            grid.Children.Add(items[i]);
+        }
+        return grid;
     }
 
     private static Control MakePrmViewerCcRowCompact(S1Parameter param)
@@ -2088,21 +2127,30 @@ public partial class MainWindow : Window
         {
             if (!System.IO.File.Exists(SettingsPath)) return;
             using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(SettingsPath));
-            if (doc.RootElement.TryGetProperty("autoConnect", out var el))
-                _autoConnect = el.GetBoolean();
-            if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2))
-                _filterModEnabled = el2.GetBoolean();
-            if (doc.RootElement.TryGetProperty("prmFolder", out var el3))
-                _prmFolder = el3.GetString() ?? "";
-            if (doc.RootElement.TryGetProperty("patternSync", out var el4))
-                _patternSync = el4.GetBoolean();
+            if (doc.RootElement.TryGetProperty("autoConnect",      out var el))  _autoConnect      = el.GetBoolean();
+            if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2)) _filterModEnabled = el2.GetBoolean();
+            if (doc.RootElement.TryGetProperty("prmFolder",        out var el3)) _prmFolder        = el3.GetString() ?? "";
+            if (doc.RootElement.TryGetProperty("patternSync",      out var el4)) _patternSync      = el4.GetBoolean();
+            if (doc.RootElement.TryGetProperty("midiChannel",      out var el5)) _midiChannel      = Math.Clamp(el5.GetInt32(), 1, 16);
+            if (doc.RootElement.TryGetProperty("pcChannel",        out var el6)) _pcChannel        = Math.Clamp(el6.GetInt32(), 1, 16);
         }
         catch { }
     }
 
     private void SaveSettings()
     {
-        try { System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new { autoConnect = _autoConnect, filterModEnabled = _filterModEnabled, prmFolder = _prmFolder, patternSync = _patternSync }, JsonOptions)); }
+        try
+        {
+            System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new
+            {
+                autoConnect      = _autoConnect,
+                filterModEnabled = _filterModEnabled,
+                prmFolder        = _prmFolder,
+                patternSync      = _patternSync,
+                midiChannel      = MidiChannel,
+                pcChannel        = PcChannel,
+            }, JsonOptions));
+        }
         catch { }
     }
 

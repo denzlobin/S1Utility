@@ -109,6 +109,7 @@
             <Setter Property="TextAlignment"       Value="Center"/>
             <Setter Property="TextWrapping"        Value="Wrap"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Margin"              Value="0,4,0,0"/>
         </Style>
 
         <!-- ComboBox param -->
@@ -212,7 +213,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Left: MIDI device selection + toggles -->
+                <!-- Left: MIDI device selection -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                     <ComboBox x:Name="DeviceCombo"
                               Width="130" Height="26" FontSize="10"
@@ -222,13 +223,6 @@
                               Width="130" Height="26" FontSize="10"
                               PlaceholderText="MIDI In…"
                               Background="#1E1E28" BorderBrush="#3A3A46"/>
-                    <TextBlock Text="Ch"
-                               Foreground="#555566"
-                               VerticalAlignment="Center"
-                               FontSize="10"/>
-                    <ComboBox x:Name="ChannelCombo"
-                              Width="50" Height="26" FontSize="10"
-                              Background="#1E1E28" BorderBrush="#3A3A46"/>
                     <Button x:Name="ConnectButton"
                             Classes="toolbar"
                             Content="Connect"/>
@@ -236,34 +230,12 @@
                             Classes="toolbar"
                             Content="Send All"
                             IsEnabled="False"/>
-
-                    <!-- Separator before toggles -->
                     <Border Width="1" Height="16" Background="#2C2C36" Margin="4,0"/>
-
-                    <CheckBox x:Name="AutoConnectToggle"
-                              Content="Auto S-1"
-                              Foreground="#888898"
-                              FontSize="9.5"
-                              VerticalAlignment="Center"/>
-                    <CheckBox x:Name="FilterModToggle"
-                              Content="Filter Mod"
-                              Foreground="#888898"
-                              FontSize="9.5"
-                              VerticalAlignment="Center"
-                              ToolTip.Tip="Experimental: animates the filter curve to simulate envelope and LFO modulation. Based on heuristics — behaviour may not match hardware exactly."/>
-                    <CheckBox x:Name="PatternSyncToggle"
-                              Content="Pattern Sync"
-                              Foreground="#D0702A"
-                              FontSize="9.5"
-                              VerticalAlignment="Center"
-                              IsEnabled="False"
-                              ToolTip.Tip="Experimental: auto-loads PRM data when switching patterns. Requires a PRM Folder. Files must exactly match the device — it is your responsibility to keep them in sync."/>
                     <TextBlock x:Name="StatusText"
                                Foreground="#555566"
                                Opacity="0.8"
                                VerticalAlignment="Center"
-                               Margin="6,0,0,0"
-                               MaxWidth="80"
+                               MaxWidth="120"
                                TextTrimming="CharacterEllipsis"
                                FontSize="9.5"
                                FontStyle="Italic"
@@ -292,13 +264,71 @@
             </Grid>
         </Border>
 
-        <!-- ── Pattern grid (always visible, shared across tabs) ──────────── -->
+        <!-- ── Pattern grid + settings (always visible) ─────────────────── -->
         <Border DockPanel.Dock="Bottom"
                 Background="#1C1C22"
                 BorderBrush="#2C2C36"
                 BorderThickness="0,1,0,0"
                 Padding="12,8,12,10">
-            <StackPanel x:Name="PatchGridContainer" IsEnabled="False"/>
+            <Grid ColumnDefinitions="*,Auto,Auto">
+
+                <StackPanel x:Name="PatchGridContainer" IsEnabled="False" Grid.Column="0"/>
+
+                <Border Grid.Column="1" Width="1" Background="#2C2C36" Margin="14,0"/>
+
+                <StackPanel Grid.Column="2" Spacing="7" VerticalAlignment="Center" Margin="14,0,0,0">
+
+                    <!-- Toggles -->
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <CheckBox x:Name="AutoConnectToggle"
+                                  Content="Auto S-1"
+                                  Foreground="#888898"
+                                  FontSize="9.5"/>
+                        <CheckBox x:Name="FilterModToggle"
+                                  Content="Filter Mod"
+                                  Foreground="#888898"
+                                  FontSize="9.5"
+                                  ToolTip.Tip="Experimental: animates the filter curve to simulate envelope and LFO modulation. Based on heuristics — behaviour may not match hardware exactly."/>
+                        <CheckBox x:Name="PatternSyncToggle"
+                                  Content="Pattern Sync"
+                                  Foreground="#D0702A"
+                                  FontSize="9.5"
+                                  IsEnabled="False"
+                                  ToolTip.Tip="Experimental: auto-loads PRM data when switching patterns. Requires a PRM Folder. Files must exactly match the device — it is your responsibility to keep them in sync."/>
+                    </StackPanel>
+
+                    <!-- Channels -->
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="MIDI Ch" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="ChannelCombo"
+                                  Width="52" Height="24" FontSize="10"
+                                  Background="#1E1E28" BorderBrush="#3A3A46"/>
+                        <Border Width="1" Height="14" Background="#2C2C36" Margin="4,0"/>
+                        <TextBlock Text="PC Ch" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="ProgramChangeChannelCombo"
+                                  Width="52" Height="24" FontSize="10"
+                                  Background="#1E1E28" BorderBrush="#3A3A46"/>
+                    </StackPanel>
+
+                    <!-- PRM Folder -->
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="PRM Folder" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
+                        <TextBox x:Name="PrmFolderBox"
+                                 Width="160" Height="24" FontSize="10"
+                                 IsReadOnly="True"
+                                 PlaceholderText="(not set)"
+                                 Background="#1A1A24"
+                                 BorderBrush="#333344"
+                                 Foreground="#9090A8"
+                                 CornerRadius="3"/>
+                        <Button x:Name="BrowsePrmFolderButton"
+                                Classes="toolbar"
+                                Content="Browse…"/>
+                    </StackPanel>
+
+                </StackPanel>
+
+            </Grid>
         </Border>
 
         <!-- ── Tabs ───────────────────────────────────────────────────────── -->
@@ -358,7 +388,7 @@
 
                         <!-- EFFECTS -->
                         <Border Classes="section-card" Grid.Column="2" Grid.Row="0">
-                            <StackPanel x:Name="EffectsStack" VerticalAlignment="Center">
+                            <StackPanel x:Name="EffectsStack" VerticalAlignment="Top">
                                 <TextBlock Classes="section-title"
                                            Text="EFFECTS"
                                            Foreground="#3EC8A8"/>
@@ -393,29 +423,10 @@
                             BorderThickness="0,0,0,1"
                             Padding="12,10">
                         <StackPanel Spacing="8">
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button x:Name="OpenPrmButton"
-                                        Classes="toolbar"
-                                        Content="Open PRM File"/>
-                                <Border Width="1" Height="16" Background="#2C2C36" Margin="4,0"/>
-                                <TextBlock Text="PRM Folder"
-                                           Foreground="#555566"
-                                           VerticalAlignment="Center"
-                                           FontSize="10"/>
-                                <TextBox x:Name="PrmFolderBox"
-                                         Width="280"
-                                         Height="26"
-                                         FontSize="10"
-                                         IsReadOnly="True"
-                                         PlaceholderText="(not set — click Browse to choose)"
-                                         Background="#1A1A24"
-                                         BorderBrush="#333344"
-                                         Foreground="#9090A8"
-                                         CornerRadius="3"/>
-                                <Button x:Name="BrowsePrmFolderButton"
-                                        Classes="toolbar"
-                                        Content="Browse…"/>
-                            </StackPanel>
+                            <Button x:Name="OpenPrmButton"
+                                    Classes="toolbar"
+                                    Content="Open PRM File"
+                                    HorizontalAlignment="Left"/>
                             <TextBlock Foreground="#555566"
                                        FontSize="9.5"
                                        FontStyle="Italic"
