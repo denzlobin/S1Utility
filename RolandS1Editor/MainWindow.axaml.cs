@@ -14,29 +14,18 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using Commons.Music.Midi;
-using Melanchall.DryWetMidi.Core;
-using Melanchall.DryWetMidi.Multimedia;
 using RolandS1Editor.Controls;
 
 namespace RolandS1Editor;
 
 public partial class MainWindow : Window
 {
-#pragma warning disable CS0618  // IMidiAccess is obsolete but IMidiAccess2 is not implemented by WinMM
-    private readonly IMidiAccess _midi = MidiAccessManager.Default;
-#pragma warning restore CS0618
+    private readonly S1Patch      _patch = new();
+    private readonly MidiManager  _midiMgr;
+    private readonly PrmFileManager _prm;
 
-    private readonly S1Patch _patch = new();
-
-    // DryWetMidi is used for MIDI input — managed-midi's WinMM input callback
-    // doesn't work on .NET 10 (MMSYSERR_INVALPARAM / error 11).
-    private readonly List<InputDevice> _inputDevices = new();
-    private InputDevice? _activeInput;
     private int MidiChannel => ChannelCombo.SelectedIndex >= 0 ? ChannelCombo.SelectedIndex + 1 : 3;
     private int PcChannel   => ProgramChangeChannelCombo.SelectedIndex >= 0 ? ProgramChangeChannelCombo.SelectedIndex + 1 : 16;
-
-    private readonly PrmFileManager _prm;
 
     // Patch/pattern bank buttons (4 groups × 16 patterns = 64 program changes).
     private readonly List<Button> _patchButtons = new();
@@ -107,9 +96,16 @@ public partial class MainWindow : Window
     {
         _viewModel = new S1EditorViewModel(_patch);
         _prm       = new PrmFileManager(_patch);
+        _midiMgr   = new MidiManager(_patch);
 
         _prm.MetaLoaded    += OnPrmMetaLoaded;
         _prm.StatusChanged += (_, args) => SetStatus(args.Message, args.Color);
+
+        _midiMgr.Disconnected         += (_, _) => Dispatcher.UIThread.Post(OnDeviceDisconnected);
+        _midiMgr.NoteOnReceived       += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOn);
+        _midiMgr.NoteOffReceived      += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOff);
+        _midiMgr.ProgramChangeReceived += (_, prog) => Dispatcher.UIThread.Post(() => HighlightPatchButton(prog));
+        _midiMgr.ActivityReceived     += (_, _) => _lastMidiActivity = DateTime.UtcNow;
 
         for (int i = 0; i < 8; i++)
             _motionCcLabels[i] = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
@@ -186,12 +182,11 @@ public partial class MainWindow : Window
 
     private void PopulateDeviceLists()
     {
-        foreach (var port in _midi.Outputs)
+        foreach (var port in _midiMgr.OutputPorts)
             DeviceCombo.Items.Add(port.Name);
 
-        _inputDevices.AddRange(InputDevice.GetAll());
-        foreach (var device in _inputDevices)
-            InputCombo.Items.Add(device.Name);
+        foreach (var name in _midiMgr.InputDeviceNames)
+            InputCombo.Items.Add(name);
 
         for (int ch = 1; ch <= 16; ch++)
         {
@@ -212,21 +207,20 @@ public partial class MainWindow : Window
     {
         string? prevOut = DeviceCombo.SelectedIndex >= 0
             ? DeviceCombo.Items[DeviceCombo.SelectedIndex] as string : null;
-        string? prevIn = _activeInput?.Name;
+        string? prevIn = _midiMgr.InputDeviceNames.Count > 0
+            ? (InputCombo.SelectedIndex >= 0
+                ? _midiMgr.InputDeviceNames[InputCombo.SelectedIndex] : null)
+            : null;
 
-        _activeInput?.StopEventsListening();
-        _activeInput = null;
-        foreach (var d in _inputDevices) d.Dispose();
-        _inputDevices.Clear();
+        _midiMgr.EnumerateDevices();
 
         DeviceCombo.Items.Clear();
-        foreach (var port in _midi.Outputs)
+        foreach (var port in _midiMgr.OutputPorts)
             DeviceCombo.Items.Add(port.Name);
 
         InputCombo.Items.Clear();
-        _inputDevices.AddRange(InputDevice.GetAll());
-        foreach (var device in _inputDevices)
-            InputCombo.Items.Add(device.Name);
+        foreach (var name in _midiMgr.InputDeviceNames)
+            InputCombo.Items.Add(name);
 
         // Restore previous selections by name
         if (prevOut != null)
@@ -239,7 +233,7 @@ public partial class MainWindow : Window
 
         if (prevIn != null)
         {
-            int idx = _inputDevices.FindIndex(d => d.Name == prevIn);
+            int idx = _midiMgr.FindInputIndex(n => n == prevIn);
             if (idx >= 0) InputCombo.SelectedIndex = idx;
         }
         else if (InputCombo.Items.Count > 0)
@@ -2063,25 +2057,18 @@ public partial class MainWindow : Window
 
     private async Task PerformConnectAsync()
     {
-        if (DeviceCombo.SelectedIndex < 0)
+        if (DeviceCombo.SelectedIndex < 0 || DeviceCombo.SelectedIndex >= _midiMgr.OutputPorts.Count)
         {
             SetStatus("Select a MIDI output device first.", "#FF6B6B");
             return;
         }
 
-        var outPorts = new List<IMidiPortDetails>(_midi.Outputs);
-        var outPort  = outPorts[DeviceCombo.SelectedIndex];
+        var (outputOk, outName, inName, inputError) = await _midiMgr.ConnectAsync(
+            DeviceCombo.SelectedIndex, InputCombo.SelectedIndex, MidiChannel);
 
-        try
+        if (!outputOk)
         {
-            var output = await _midi.OpenOutputAsync(outPort.Id);
-            var transport = new ManagedMidiTransport(output,
-                onDisconnect: () => Avalonia.Threading.Dispatcher.UIThread.Post(OnDeviceDisconnected));
-            _patch.SetTransport(transport, channel: MidiChannel);
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"Output error: {ex.Message}", "#FF6B6B");
+            SetStatus($"Output error: {inputError}", "#FF6B6B");
             return;
         }
 
@@ -2089,40 +2076,24 @@ public partial class MainWindow : Window
         SendAllButton.IsEnabled      = true;
         PatchGridContainer.IsEnabled = true;
 
-        if (InputCombo.SelectedIndex < 0 || InputCombo.SelectedIndex >= _inputDevices.Count)
-        {
-            SetStatus($"→ {outPort.Name}  (no input selected)", "#70C870");
-            return;
-        }
-
-        try
-        {
-            _activeInput?.StopEventsListening();
-            _activeInput = _inputDevices[InputCombo.SelectedIndex];
-            _activeInput.EventReceived += OnMidiEventReceived;
-            _activeInput.StartEventsListening();
-            SetStatus($"↔ {outPort.Name}  |  listening on {_activeInput.Name}", "#70C870");
-        }
-        catch (Exception ex)
-        {
-            if (_activeInput != null)
-                _activeInput.EventReceived -= OnMidiEventReceived;
-            _activeInput = null;
-            SetStatus($"→ {outPort.Name}  (input unavailable: {ex.Message})", "#F0A040");
-        }
+        if (inputError != null)
+            SetStatus($"→ {outName}  (input unavailable: {inputError})", "#F0A040");
+        else if (inName != null)
+            SetStatus($"↔ {outName}  |  listening on {inName}", "#70C870");
+        else
+            SetStatus($"→ {outName}  (no input selected)", "#70C870");
     }
 
     private async void TryAutoConnect()
     {
-        var outPorts = new List<IMidiPortDetails>(_midi.Outputs);
-        int outIdx   = outPorts.FindIndex(p => p.Name.Contains("S-1", StringComparison.OrdinalIgnoreCase));
+        int outIdx = _midiMgr.FindOutputIndex(n => n.Contains("S-1", StringComparison.OrdinalIgnoreCase));
         if (outIdx < 0)
         {
             SetStatus("Auto-connect: S-1 output not found.", "#F0A040");
             return;
         }
 
-        int inIdx = _inputDevices.FindIndex(d => d.Name.Contains("S-1", StringComparison.OrdinalIgnoreCase));
+        int inIdx = _midiMgr.FindInputIndex(n => n.Contains("S-1", StringComparison.OrdinalIgnoreCase));
 
         DeviceCombo.SelectedIndex = outIdx;
         if (inIdx >= 0) InputCombo.SelectedIndex = inIdx;
@@ -2168,29 +2139,6 @@ public partial class MainWindow : Window
         {
             System.Diagnostics.Debug.WriteLine($"[Settings] Save failed: {ex.Message}");
             SetStatus("Settings could not be saved.", "#F0A040");
-        }
-    }
-
-    private void OnMidiEventReceived(object? sender, MidiEventReceivedEventArgs e)
-    {
-        _lastMidiActivity = DateTime.UtcNow;
-        switch (e.Event)
-        {
-            case ControlChangeEvent cc when (int)cc.Channel == MidiChannel - 1:
-                _patch.HandleIncomingCC((int)cc.ControlNumber, (int)cc.ControlValue);
-                break;
-            case NoteOnEvent noteOn when (int)noteOn.Channel == MidiChannel - 1:
-                if (noteOn.Velocity > 0)
-                    Dispatcher.UIThread.Post(_viewModel.NoteOn);
-                else
-                    Dispatcher.UIThread.Post(_viewModel.NoteOff);
-                break;
-            case NoteOffEvent noteOff when (int)noteOff.Channel == MidiChannel - 1:
-                Dispatcher.UIThread.Post(_viewModel.NoteOff);
-                break;
-            case ProgramChangeEvent pc when (int)pc.Channel == MidiChannel - 1:
-                Dispatcher.UIThread.Post(() => HighlightPatchButton((int)pc.ProgramNumber));
-                break;
         }
     }
 
@@ -2511,8 +2459,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _modTimer.Stop();
-        _activeInput?.StopEventsListening();
-        foreach (var d in _inputDevices) d.Dispose();
+        _midiMgr.Dispose();
         _patch.Dispose();
         base.OnClosed(e);
     }
