@@ -19,7 +19,7 @@ public class ChopPattern
     ];
 
     // Fires with the waveform index whenever a waveform's pattern is replaced by LoadFromPrm.
-    public event Action<int>? PatternChanged;
+    public event EventHandler<int>? PatternChanged;
 
     public bool GetStep(int waveform, int step) => _steps[waveform][step];
 
@@ -28,6 +28,6 @@ public class ChopPattern
     {
         for (int s = 0; s < Steps; s++)
             _steps[waveform][s] = ((rawValue >> s) & 1) == 1;
-        PatternChanged?.Invoke(waveform);
+        PatternChanged?.Invoke(this, waveform);
     }
 }

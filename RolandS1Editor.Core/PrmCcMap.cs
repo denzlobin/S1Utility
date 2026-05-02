@@ -91,8 +91,8 @@ public static class PrmCcMap
             { "VCF_CUTOFF",             P(74,  0,   255) },   // init=255 → CC127 (fully open)
 
             // ── Envelope ─────────────────────────────────────────────────────
-            { "VCA_ENV_MODE",           P(28,  0,   127) },   // 0=Envelope, 1=Gate
-            { "ENV_TRG_MODE",           P(29,  0,   127) },   // 0=Legato, 1=Retrigger, 2=Multi
+            { "VCA_ENV_MODE",           P(28,  0,   127) },
+            { "ENV_TRG_MODE",           P(29,  0,   127) },
             { "ENV_SUSTAIN",            P(30,  0,   255) },
             { "ENV_RELEASE",            P(72,  0,   255) },
             { "ENV_ATTACK",             P(73,  0,   255) },

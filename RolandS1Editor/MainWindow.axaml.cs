@@ -119,6 +119,7 @@ public partial class MainWindow : Window
                 HookAspectRatio();
         };
 
+        LoadSettings();
         PopulateDeviceLists();
         BuildRealtimeEditorPanels();
         BuildPrmViewerContent();
@@ -133,7 +134,6 @@ public partial class MainWindow : Window
         PrmInfoToggle.Click          += (_, _) => PrmInfoText.IsVisible = !PrmInfoText.IsVisible;
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
 
-        LoadSettings();
         PrmFolderBox.Text = _prm.PrmFolder;
         AutoConnectToggle.IsChecked = _autoConnect;
         AutoConnectToggle.IsCheckedChanged += (_, _) =>
@@ -620,26 +620,29 @@ public partial class MainWindow : Window
         canvas.Children.Add(lblS);
         canvas.Children.Add(lblR);
 
-        void Update()
+        // Segment widths are proportional to normalised param values; sustain height = sL.
+        (double aT, double dT, double hw, double rT, double sL) ComputeAdsrLayout()
         {
-            // All four segments share the canvas proportionally by their normalized values.
-            // Sustain width scales with its level (same value drives both height and width).
-            // Shape always fills W exactly.
             const double minSeg  = 5;
-            const double varPool = W - 4 * minSeg;  // 232px variable pool
-
+            const double varPool = W - 4 * minSeg;
             double aN = attackP.Value  / 127.0;
             double dN = decayP.Value   / 127.0;
             double sN = sustainP.Value / 127.0;
             double rN = releaseP.Value / 127.0;
             double sum = aN + dN + sN + rN;
             if (sum < 0.01) { aN = dN = sN = rN = 0.25; sum = 1.0; }
+            return (
+                minSeg + (aN / sum) * varPool,
+                minSeg + (dN / sum) * varPool,
+                minSeg + (sN / sum) * varPool,
+                minSeg + (rN / sum) * varPool,
+                H - (sustainP.Value / 127.0) * (H - 5)
+            );
+        }
 
-            double aT = minSeg + (aN / sum) * varPool;
-            double dT = minSeg + (dN / sum) * varPool;
-            double hw = minSeg + (sN / sum) * varPool;
-            double rT = minSeg + (rN / sum) * varPool;
-            double sL = H - (sustainP.Value / 127.0) * (H - 5);
+        void Update()
+        {
+            var (aT, dT, hw, rT, sL) = ComputeAdsrLayout();
 
             var pts = new[]
             {
@@ -676,20 +679,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Re-derive segment layout from current param values (mirrors Update() logic).
-            double aN2  = attackP.Value  / 127.0;
-            double dN2  = decayP.Value   / 127.0;
-            double sN2  = sustainP.Value / 127.0;
-            double rN2  = releaseP.Value / 127.0;
-            double sum2 = aN2 + dN2 + sN2 + rN2;
-            if (sum2 < 0.01) { aN2 = dN2 = sN2 = rN2 = 0.25; sum2 = 1.0; }
-            const double minSeg2  = 5;
-            const double varPool2 = W - 4 * minSeg2;
-            double aT2 = minSeg2 + (aN2 / sum2) * varPool2;
-            double dT2 = minSeg2 + (dN2 / sum2) * varPool2;
-            double hw2 = minSeg2 + (sN2 / sum2) * varPool2;
-            double rT2 = minSeg2 + (rN2 / sum2) * varPool2;
-            double sL2 = H - sN2 * (H - 5);
+            var (aT2, dT2, hw2, rT2, sL2) = ComputeAdsrLayout();
             double lvl  = _viewModel.EnvLevel;
 
             double dx, dy;
@@ -700,8 +690,9 @@ public partial class MainWindow : Window
                     dy = H - lvl * (H - 3);
                     break;
                 case EnvPhase.Decay:
-                    double dd = 1.0 - sN2 > 0.001
-                        ? Math.Clamp((1.0 - lvl) / (1.0 - sN2), 0, 1) : 1.0;
+                    double sN = sustainP.Value / 127.0;
+                    double dd = 1.0 - sN > 0.001
+                        ? Math.Clamp((1.0 - lvl) / (1.0 - sN), 0, 1) : 1.0;
                     dx = aT2 + dd * dT2;
                     dy = 3 + dd * (sL2 - 3);
                     break;
@@ -938,20 +929,6 @@ public partial class MainWindow : Window
 
         if (_prm.PatternSync && !string.IsNullOrEmpty(_prm.PrmFolder))
             _prm.TryLoadPatternPrm(program);
-    }
-
-    private void PopulateSection(WrapPanel panel, IReadOnlyList<S1Parameter> parameters, IBrush accent)
-    {
-        foreach (var param in parameters)
-        {
-            panel.Children.Add(param.ParameterType switch
-            {
-                S1ParameterType.Toggle        => MakeToggle(param),
-                S1ParameterType.Dropdown      => MakeDropdown(param),
-                S1ParameterType.BipolarSlider => MakeKeyShiftSlider(param),
-                _                             => MakeKnob(param, accent),
-            });
-        }
     }
 
     private static string GetKnobDisplayValue(S1Parameter param)
@@ -1558,6 +1535,7 @@ public partial class MainWindow : Window
             for (int pt = 0; pt < DrawWave.Points; pt++)
             {
                 int signed = _prm.DrawWave.GetPoint(pt);
+                // Re-encode as uint16 to split the two signed pad bytes (lo = pad 0, hi = pad 1).
                 int raw    = signed < 0 ? signed + 65536 : signed;
                 int lo     = raw & 0xFF;
                 int hi     = (raw >> 8) & 0xFF;
@@ -1656,7 +1634,7 @@ public partial class MainWindow : Window
                 row.Children.Add(sq);
             }
 
-            _prm.ChopPattern.PatternChanged += changedWaveform =>
+            _prm.ChopPattern.PatternChanged += (_, changedWaveform) =>
             {
                 if (changedWaveform != waveform) return;
                 Dispatcher.UIThread.Post(() =>

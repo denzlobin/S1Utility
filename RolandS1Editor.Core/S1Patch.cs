@@ -27,6 +27,8 @@ public class S1Patch : IDisposable
     // Flat list of all 54 parameters — handy for sending, saving, loading.
     public IReadOnlyList<S1Parameter> AllParameters { get; }
 
+    private readonly Dictionary<int, S1Parameter> _byCC;
+
     // ── Constructor ─────────────────────────────────────────────────────────
 
     public S1Patch()
@@ -135,6 +137,8 @@ public class S1Patch : IDisposable
             .Concat(Envelope)
             .Concat(Effects)
             .ToList();
+
+        _byCC = AllParameters.ToDictionary(p => p.CcNumber);
     }
 
     // ── MIDI transport ──────────────────────────────────────────────────────
@@ -184,7 +188,7 @@ public class S1Patch : IDisposable
     // ── Lookup helpers ───────────────────────────────────────────────────────
 
     public S1Parameter? GetByCC(int ccNumber) =>
-        AllParameters.FirstOrDefault(p => p.CcNumber == ccNumber);
+        _byCC.TryGetValue(ccNumber, out var p) ? p : null;
 
     // ── Bulk send ────────────────────────────────────────────────────────────
 
