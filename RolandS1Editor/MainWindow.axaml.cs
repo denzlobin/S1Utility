@@ -36,22 +36,13 @@ public partial class MainWindow : Window
     private int MidiChannel => ChannelCombo.SelectedIndex >= 0 ? ChannelCombo.SelectedIndex + 1 : 3;
     private int PcChannel   => ProgramChangeChannelCombo.SelectedIndex >= 0 ? ProgramChangeChannelCombo.SelectedIndex + 1 : 16;
 
-    // Chop step-pattern model (4 waveforms × 16 steps, PRM-only).
-    private readonly ChopPattern _chopPattern = new();
-
-    // Draw waveform points (8 signed-16-bit amplitudes, PRM-only).
-    private readonly DrawWave _drawWave = new();
-
-    // Step sequencer data (up to 64 steps, PRM-only).
-    private readonly SequencerData _sequence = new();
+    private readonly PrmFileManager _prm;
 
     // Patch/pattern bank buttons (4 groups × 16 patterns = 64 program changes).
     private readonly List<Button> _patchButtons = new();
 
     private bool   _autoConnect;
-    private bool   _patternSync;
     private bool   _suppressPatternSyncToggle;
-    private string _prmFolder    = "";
     private int    _midiChannel  = 3;
     private int    _pcChannel    = 3;
     private static readonly string SettingsPath =
@@ -85,84 +76,6 @@ public partial class MainWindow : Window
     private static readonly IBrush s_chopOffBrush = new SolidColorBrush(Color.Parse("#383838"));
     private static readonly IBrush s_chopBorder   = new SolidColorBrush(Color.Parse("#505050"));
 
-    // ── PRM-only effect parameters ────────────────────────────────────────────
-
-    private static readonly string[] s_lowCutOpts = {
-        "Flat","20","25","31.5","40","50","63","80","100","125",
-        "160","200","250","315","400","500","630","800"
-    };
-    private static readonly string[] s_highCutOpts = {
-        "630","800","1k","1.25k","1.6k","2k","2.5k","3.15k",
-        "4k","5k","6.3k","8k","10k","12.5k","Flat"
-    };
-
-    private static List<PrmParameter> BuildPrmDelayMain() => new()
-    {
-        new("Sync", "DELAY_SW", options: new[] { "Off", "Sync to Tempo" }),
-    };
-
-    private static List<PrmParameter> BuildPrmReverbMain() => new()
-    {
-        new("Type", "REVERB_TYPE", options: new[] {
-            "Ambience","Room","Hall 1","Hall 2","Plate","Spring","Modulate" }),
-    };
-
-    private static List<PrmParameter> BuildPrmDelayAdv() => new()
-    {
-        new("Feedback", "DELAY_FEEDBACK", prmMax: 255),
-        new("Low Cut",  "DELAY_LOW_CUT",  options: s_lowCutOpts),
-        new("High Cut", "DELAY_HIGH_CUT", options: s_highCutOpts),
-    };
-
-    private static List<PrmParameter> BuildPrmReverbAdv() => new()
-    {
-        new("Pre-Delay", "REVERB_PRE_DELAY", prmMax: 100),
-        new("Density",   "REVERB_DENSITY",   prmMax: 10),
-        new("Low Cut",   "REVERB_LOW_CUT",   options: s_lowCutOpts),
-        new("High Cut",  "REVERB_HIGH_CUT",  options: s_highCutOpts),
-    };
-
-    private readonly List<PrmParameter> _prmDelayMain;
-    private readonly List<PrmParameter> _prmReverbMain;
-    private readonly List<PrmParameter> _prmDelayAdv;
-    private readonly List<PrmParameter> _prmReverbAdv;
-
-    private readonly PrmParameter _delayTempo = new("Tempo", "DELAY_TEMPO", options: new[] {
-        "128", "64t", "128d", "1_64", "32t", "64d", "1_32", "16t",
-        "32d", "1_16", "8t", "16d", "1_8", "4t", "8d", "1_4" });
-
-    // OSC chop PRM-only
-    private readonly PrmParameter _prmChopType     = new("Chop Type",  "OSC_CHOP_TYPE",      prmMax: 7);
-    private readonly PrmParameter _prmChopCombType = new("Comb Type",  "OSC_CHOP_COMB_TYPE", prmMax: 7);
-
-    // Pattern globals
-    private readonly PrmParameter _prmLeng      = new("Length",     "LENG",       prmMax: 64);
-    private readonly PrmParameter _prmShuffle   = new("Shuffle",    "SHUFFLE",    prmMax: 50);
-    private readonly PrmParameter _prmLevel     = new("Level",      "LEVEL",      prmMax: 127);
-    private readonly PrmParameter _prmScale     = new("Scale",      "SCALE",      prmMax: 7);
-    private readonly PrmParameter _prmTempoSync = new("Tempo Sync", "TEMPO_SYNC", options: new[] { "Off", "On" });
-
-    // Arpeggiator
-    private readonly PrmParameter _prmArpType = new("Type", "ARP_TYPE", options: new[] {
-        "Off", "Up", "Down", "Up/Down", "Random", "Order" });
-    private readonly PrmParameter _prmArpRate = new("Rate", "ARP_RATE", prmMax: 7);
-
-    // Riser
-    private readonly PrmParameter _prmRiserSw    = new("Riser",     "RISER_SW",    options: new[] { "Off", "On" });
-    private readonly PrmParameter _prmRiserMode  = new("Mode",      "RISER_MODE",  options: new[] { "Normal", "Rise", "Fall", "Rise+Fall" });
-    private readonly PrmParameter _prmRiserCtrl  = new("Target",    "RISER_CTRL",  prmMax: 127);
-    private readonly PrmParameter _prmRiserBeat  = new("Beat",      "RISER_BEAT",  prmMax: 15);
-    private readonly PrmParameter _prmRiserShape = new("Shape",     "RISER_SHAPE", prmMax: 7);
-    private readonly PrmParameter _prmRiserReso  = new("Resonance", "RISER_RESO",  prmMax: 100);
-    private readonly PrmParameter _prmRiserLevel = new("Level",     "RISER_LEVEL", prmMax: 100);
-
-    // D-Motion
-    private readonly PrmParameter _prmDmAssignX   = new("X Assign",   "DM_ASSIGN_X",   prmMax: 15);
-    private readonly PrmParameter _prmDmAssignY   = new("Y Assign",   "DM_ASSIGN_Y",   prmMax: 15);
-    private readonly PrmParameter _prmDmAssignTap = new("Tap Assign", "DM_ASSIGN_TAP", prmMax: 15);
-    private readonly PrmParameter _prmDmAssignFf  = new("FF Assign",  "DM_ASSIGN_FF",  prmMax: 15);
-    private readonly PrmParameter _prmDmSensX     = new("X Sens",     "DM_SENS_X",     prmMax: 10);
-    private readonly PrmParameter _prmDmSensY     = new("Y Sens",     "DM_SENS_Y",     prmMax: 10);
 
     // Labels for values that need special formatting (tempo as BPM, signed transpose, motion CC names)
     private readonly TextBlock   _tempoLabel     = new() { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
@@ -192,11 +105,11 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        _viewModel     = new S1EditorViewModel(_patch);
-        _prmDelayMain  = BuildPrmDelayMain();
-        _prmReverbMain = BuildPrmReverbMain();
-        _prmDelayAdv   = BuildPrmDelayAdv();
-        _prmReverbAdv  = BuildPrmReverbAdv();
+        _viewModel = new S1EditorViewModel(_patch);
+        _prm       = new PrmFileManager(_patch);
+
+        _prm.MetaLoaded    += OnPrmMetaLoaded;
+        _prm.StatusChanged += (_, args) => SetStatus(args.Message, args.Color);
 
         for (int i = 0; i < 8; i++)
             _motionCcLabels[i] = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
@@ -213,7 +126,7 @@ public partial class MainWindow : Window
         PopulateDeviceLists();
         BuildRealtimeEditorPanels();
         BuildPrmViewerContent();
-        ApplyInitPatch();
+        _prm.ApplyInitPatch();
 
         ConnectButton.Click          += OnConnectClicked;
         RefreshDevicesButton.Click   += async (_, _) => await RefreshDevicesAsync();
@@ -225,7 +138,7 @@ public partial class MainWindow : Window
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
 
         LoadSettings();
-        PrmFolderBox.Text = _prmFolder;
+        PrmFolderBox.Text = _prm.PrmFolder;
         AutoConnectToggle.IsChecked = _autoConnect;
         AutoConnectToggle.IsCheckedChanged += (_, _) =>
         {
@@ -242,13 +155,13 @@ public partial class MainWindow : Window
             SaveSettings();
         };
 
-        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prmFolder);
-        PatternSyncToggle.IsChecked = _patternSync;
+        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prm.PrmFolder);
+        PatternSyncToggle.IsChecked = _prm.PatternSync;
         PatternSyncToggle.IsCheckedChanged += async (_, _) =>
         {
             if (_suppressPatternSyncToggle) return;
             bool enabling = PatternSyncToggle.IsChecked == true;
-            if (enabling && !_patternSync)
+            if (enabling && !_prm.PatternSync)
             {
                 bool confirmed = await ShowPatternSyncWarningAsync();
                 if (!confirmed)
@@ -259,7 +172,7 @@ public partial class MainWindow : Window
                     return;
                 }
             }
-            _patternSync = PatternSyncToggle.IsChecked == true;
+            _prm.PatternSync = PatternSyncToggle.IsChecked == true;
             SaveSettings();
         };
 
@@ -1029,8 +942,8 @@ public partial class MainWindow : Window
         if ((uint)program < (uint)_patchButtons.Count)
             _patchButtons[program].Classes.Add("patch-btn-active");
 
-        if (_patternSync && !string.IsNullOrEmpty(_prmFolder))
-            TryLoadPatternPrm(program);
+        if (_prm.PatternSync && !string.IsNullOrEmpty(_prm.PrmFolder))
+            _prm.TryLoadPatternPrm(program);
     }
 
     private void PopulateSection(WrapPanel panel, IReadOnlyList<S1Parameter> parameters, IBrush accent)
@@ -1268,13 +1181,13 @@ public partial class MainWindow : Window
     private Control BuildDelayTimeKnob()
     {
         var param   = RequireCC(90);
-        var delaySw = _prmDelayMain[0];
+        var delaySw = _prm.DelayMain[0];
 
         string GetDisplay()
         {
             if (delaySw.Value != 1)
                 return $"{1 + (int)Math.Round(param.Value * 739.0 / 127)}ms"; // S-1 range: 1–740 ms
-            var opts = _delayTempo.Options!;
+            var opts = _prm.DelayTempo.Options!;
             int idx  = Math.Clamp(param.Value, 0, opts.Length - 1);  // CC 0-15 → index 0-15
             return opts[idx];
         }
@@ -1291,7 +1204,7 @@ public partial class MainWindow : Window
         }
 
         // When sync is on, CC 0–N maps evenly across the full knob rotation.
-        int delaySteps = _delayTempo.Options!.Length - 1;
+        int delaySteps = _prm.DelayTempo.Options!.Length - 1;
         int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, delaySteps) * 127.0 / delaySteps);
         int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * (double)delaySteps / 127), 0, delaySteps);
 
@@ -1393,20 +1306,20 @@ public partial class MainWindow : Window
         oscContent.Children.Add(MakeSubSectionHeader("OSC CHOP", OscAccent));
         oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(103)));  // Chop Overtone
         oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(104)));  // Chop Comb
-        oscContent.Children.Add(MakePrmInfoRow(_prmChopType));
-        oscContent.Children.Add(MakePrmInfoRow(_prmChopCombType));
+        oscContent.Children.Add(MakePrmInfoRow(_prm.ChopType));
+        oscContent.Children.Add(MakePrmInfoRow(_prm.ChopCombType));
         oscContent.Children.Add(MakeChopPatternControl());
 
         var riserCard = MakeSectionCard("RISER", FxAccent, out var riserContent);
         riserContent.Children.Add(MakeTwoColumnGrid(new List<Control>
         {
-            MakePrmInfoRow(_prmRiserSw,    compact: true),
-            MakePrmInfoRow(_prmRiserMode,  compact: true),
-            MakePrmInfoRow(_prmRiserCtrl,  compact: true),
-            MakePrmInfoRow(_prmRiserBeat,  compact: true),
-            MakePrmInfoRow(_prmRiserShape, compact: true),
-            MakePrmInfoRow(_prmRiserReso,  compact: true),
-            MakePrmInfoRow(_prmRiserLevel, compact: true),
+            MakePrmInfoRow(_prm.RiserSw,    compact: true),
+            MakePrmInfoRow(_prm.RiserMode,  compact: true),
+            MakePrmInfoRow(_prm.RiserCtrl,  compact: true),
+            MakePrmInfoRow(_prm.RiserBeat,  compact: true),
+            MakePrmInfoRow(_prm.RiserShape, compact: true),
+            MakePrmInfoRow(_prm.RiserReso,  compact: true),
+            MakePrmInfoRow(_prm.RiserLevel, compact: true),
         }));
 
         Grid.SetColumn(oscCard, 0); Grid.SetRow(oscCard, 0); Grid.SetRowSpan(oscCard, 3);
@@ -1457,8 +1370,8 @@ public partial class MainWindow : Window
             MakePrmViewerCcRowCompact(RequireCC(91)),  // Level
             MakePrmViewerCcRowCompact(RequireCC(89)),  // Time
         };
-        foreach (var p in _prmReverbMain) revItems.Add(MakePrmInfoRow(p, compact: true));
-        foreach (var p in _prmReverbAdv)  revItems.Add(MakePrmInfoRow(p, compact: true));
+        foreach (var p in _prm.ReverbMain) revItems.Add(MakePrmInfoRow(p, compact: true));
+        foreach (var p in _prm.ReverbAdv)  revItems.Add(MakePrmInfoRow(p, compact: true));
         fxContent.Children.Add(MakeTwoColumnGrid(revItems));
 
         // Delay — 2-column compact grid
@@ -1468,9 +1381,9 @@ public partial class MainWindow : Window
             MakePrmViewerCcRowCompact(RequireCC(92)),  // Level
             MakeDelayTimeViewerRow(),
         };
-        foreach (var p in _prmDelayMain) delItems.Add(MakePrmInfoRow(p, compact: true));
-        delItems.Add(MakePrmInfoRow(_delayTempo, compact: true));
-        foreach (var p in _prmDelayAdv)  delItems.Add(MakePrmInfoRow(p, compact: true));
+        foreach (var p in _prm.DelayMain) delItems.Add(MakePrmInfoRow(p, compact: true));
+        delItems.Add(MakePrmInfoRow(_prm.DelayTempo, compact: true));
+        foreach (var p in _prm.DelayAdv)  delItems.Add(MakePrmInfoRow(p, compact: true));
         fxContent.Children.Add(MakeTwoColumnGrid(delItems));
 
         // Chorus
@@ -1506,18 +1419,18 @@ public partial class MainWindow : Window
         patCol.Children.Add(MakeSubSectionHeader("PATTERN", SeqAccent));
         patCol.Children.Add(MakeInfoRow("Tempo:",     _tempoLabel));
         patCol.Children.Add(MakeInfoRow("Transpose:", _transposeLabel));
-        patCol.Children.Add(MakePrmInfoRow(_prmLeng));
-        patCol.Children.Add(MakePrmInfoRow(_prmShuffle));
-        patCol.Children.Add(MakePrmInfoRow(_prmLevel));
-        patCol.Children.Add(MakePrmInfoRow(_prmScale));
-        patCol.Children.Add(MakePrmInfoRow(_prmTempoSync));
+        patCol.Children.Add(MakePrmInfoRow(_prm.Leng));
+        patCol.Children.Add(MakePrmInfoRow(_prm.Shuffle));
+        patCol.Children.Add(MakePrmInfoRow(_prm.Level));
+        patCol.Children.Add(MakePrmInfoRow(_prm.Scale));
+        patCol.Children.Add(MakePrmInfoRow(_prm.TempoSync));
         Grid.SetColumn(patCol, 0);
         seqMetaGrid.Children.Add(patCol);
 
         var arpCol = new StackPanel { Spacing = 2 };
         arpCol.Children.Add(MakeSubSectionHeader("ARPEGGIATOR", SeqAccent));
-        arpCol.Children.Add(MakePrmInfoRow(_prmArpType));
-        arpCol.Children.Add(MakePrmInfoRow(_prmArpRate));
+        arpCol.Children.Add(MakePrmInfoRow(_prm.ArpType));
+        arpCol.Children.Add(MakePrmInfoRow(_prm.ArpRate));
         Grid.SetColumn(arpCol, 1);
         seqMetaGrid.Children.Add(arpCol);
 
@@ -1530,12 +1443,12 @@ public partial class MainWindow : Window
 
         var dmCol = new StackPanel { Spacing = 2 };
         dmCol.Children.Add(MakeSubSectionHeader("D-MOTION", DmAccent));
-        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignX));
-        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignY));
-        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignTap));
-        dmCol.Children.Add(MakePrmInfoRow(_prmDmAssignFf));
-        dmCol.Children.Add(MakePrmInfoRow(_prmDmSensX));
-        dmCol.Children.Add(MakePrmInfoRow(_prmDmSensY));
+        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignX));
+        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignY));
+        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignTap));
+        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignFf));
+        dmCol.Children.Add(MakePrmInfoRow(_prm.DmSensX));
+        dmCol.Children.Add(MakePrmInfoRow(_prm.DmSensY));
         Grid.SetColumn(dmCol, 3);
         seqMetaGrid.Children.Add(dmCol);
 
@@ -1616,7 +1529,7 @@ public partial class MainWindow : Window
     // Contextual Delay Time row for the PRM viewer.
     private Control MakeDelayTimeViewerRow()
     {
-        var delaySw     = _prmDelayMain[0];
+        var delaySw     = _prm.DelayMain[0];
         var delayTimeCC = RequireCC(90);
 
         var lbl = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")) };
@@ -1625,13 +1538,13 @@ public partial class MainWindow : Window
         {
             lbl.Text = delaySw.Value == 0
                 ? $"{1 + (int)Math.Round(delayTimeCC.Value * 739.0 / 127)}ms" // S-1 range: 1–740 ms
-                : GetPrmDisplayString(_delayTempo);
+                : GetPrmDisplayString(_prm.DelayTempo);
         }
 
         Refresh();
         delaySw.ValueChanged     += (_, _) => Dispatcher.UIThread.Post(Refresh);
         delayTimeCC.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
-        _delayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        _prm.DelayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
 
         return MakeInfoRow("Time:", lbl, labelMinWidth: 80);
     }
@@ -1650,7 +1563,7 @@ public partial class MainWindow : Window
         {
             for (int pt = 0; pt < DrawWave.Points; pt++)
             {
-                int signed = _drawWave.GetPoint(pt);
+                int signed = _prm.DrawWave.GetPoint(pt);
                 int raw    = signed < 0 ? signed + 65536 : signed;
                 int lo     = raw & 0xFF;
                 int hi     = (raw >> 8) & 0xFF;
@@ -1708,7 +1621,7 @@ public partial class MainWindow : Window
         }
 
         UpdateBars();
-        _drawWave.PointsChanged += (_, _) => Dispatcher.UIThread.Post(UpdateBars);
+        _prm.DrawWave.PointsChanged += (_, _) => Dispatcher.UIThread.Post(UpdateBars);
 
         return new StackPanel { Children = { barsRow, labelsRow } };
     }
@@ -1740,7 +1653,7 @@ public partial class MainWindow : Window
                     Width           = 16,
                     Height          = 16,
                     Margin          = new Thickness(1, 0),
-                    Background      = _chopPattern.GetStep(w, s) ? s_chopOnBrush : s_chopOffBrush,
+                    Background      = _prm.ChopPattern.GetStep(w, s) ? s_chopOnBrush : s_chopOffBrush,
                     BorderBrush     = s_chopBorder,
                     BorderThickness = new Thickness(1),
                     CornerRadius    = new CornerRadius(2),
@@ -1749,13 +1662,13 @@ public partial class MainWindow : Window
                 row.Children.Add(sq);
             }
 
-            _chopPattern.PatternChanged += changedWaveform =>
+            _prm.ChopPattern.PatternChanged += changedWaveform =>
             {
                 if (changedWaveform != waveform) return;
                 Dispatcher.UIThread.Post(() =>
                 {
                     for (int s = 0; s < ChopPattern.Steps; s++)
-                        stepSquares[s].Background = _chopPattern.GetStep(waveform, s)
+                        stepSquares[s].Background = _prm.ChopPattern.GetStep(waveform, s)
                             ? s_chopOnBrush : s_chopOffBrush;
                 });
             };
@@ -1802,17 +1715,17 @@ public partial class MainWindow : Window
             canvas.Children.Clear();
             motionLanes.Children.Clear();
 
-            int count = _sequence.StepCount;
+            int count = _prm.Sequence.StepCount;
             infoLabel.Text =
                 $"Steps: {count}   " +
-                $"Tempo: {_sequence.Tempo / 100.0:F1} BPM   " +
-                $"Transpose: {_sequence.Transpose}   " +
-                $"Shuffle: {_sequence.Shuffle}";
+                $"Tempo: {_prm.Sequence.Tempo / 100.0:F1} BPM   " +
+                $"Transpose: {_prm.Sequence.Transpose}   " +
+                $"Shuffle: {_prm.Sequence.Shuffle}";
 
             // Auto-detect pitch range from active notes
             int minNote = 127, maxNote = 0;
             for (int s = 0; s < count; s++)
-                foreach (var n in _sequence.Steps[s].Notes)
+                foreach (var n in _prm.Sequence.Steps[s].Notes)
                     if (n >= 0) { minNote = Math.Min(minNote, n); maxNote = Math.Max(maxNote, n); }
             if (minNote > maxNote) { minNote = 48; maxNote = 72; }  // default C3–C5
             minNote = Math.Max(0,   minNote - 2);
@@ -1873,7 +1786,7 @@ public partial class MainWindow : Window
             // Note blocks — one color per voice, opacity driven by velocity
             for (int s = 0; s < count; s++)
             {
-                var step = _sequence.Steps[s];
+                var step = _prm.Sequence.Steps[s];
                 double x = LabelW + s * ColW;
 
                 for (int v = 0; v < 4; v++)
@@ -1921,12 +1834,12 @@ public partial class MainWindow : Window
             {
                 bool hasData = false;
                 for (int s = 0; s < count; s++)
-                    if (_sequence.Steps[s].Motions[m] != -1) { hasData = true; break; }
+                    if (_prm.Sequence.Steps[s].Motions[m] != -1) { hasData = true; break; }
                 if (!hasData) continue;
 
                 int    slot      = m;
-                string laneLabel = _sequence.MotionCCs[m] >= 0
-                    ? $"CC{_sequence.MotionCCs[m]}" : $"M{m + 1}";
+                string laneLabel = _prm.Sequence.MotionCCs[m] >= 0
+                    ? $"CC{_prm.Sequence.MotionCCs[m]}" : $"M{m + 1}";
 
                 var lc   = new Canvas { Width = totalW, Height = LaneH };
                 var lcBg = new Border { Width = totalW - LabelW, Height = LaneH,
@@ -1947,7 +1860,7 @@ public partial class MainWindow : Window
 
                 for (int s = 0; s < count; s++)
                 {
-                    int mv = _sequence.Steps[s].Motions[slot];
+                    int mv = _prm.Sequence.Steps[s].Motions[slot];
                     if (mv < 0) continue;
                     double barH = Math.Max(1, mv / 127.0 * (LaneH - 1));
                     var bar = new Border
@@ -1980,7 +1893,7 @@ public partial class MainWindow : Window
             // Pitch-bend lane
             bool hasPb = false;
             for (int s = 0; s < count; s++)
-                if (_sequence.Steps[s].PitchBend != -32768) { hasPb = true; break; }
+                if (_prm.Sequence.Steps[s].PitchBend != -32768) { hasPb = true; break; }
 
             if (hasPb)
             {
@@ -2009,7 +1922,7 @@ public partial class MainWindow : Window
 
                 for (int s = 0; s < count; s++)
                 {
-                    int    pb   = _sequence.Steps[s].PitchBend;
+                    int    pb   = _prm.Sequence.Steps[s].PitchBend;
                     if (pb == -32768) continue;
                     double norm = Math.Clamp(pb / 32768.0, -1.0, 1.0);
                     double barH = Math.Max(1, Math.Abs(norm) * (LaneH / 2 - 1));
@@ -2058,7 +1971,7 @@ public partial class MainWindow : Window
         }
 
         Rebuild();
-        _sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(Rebuild);
+        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(Rebuild);
 
         return new StackPanel
         {
@@ -2225,8 +2138,8 @@ public partial class MainWindow : Window
             using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(SettingsPath));
             if (doc.RootElement.TryGetProperty("autoConnect",      out var el))  _autoConnect      = el.GetBoolean();
             if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2)) _viewModel.FilterModEnabled = el2.GetBoolean();
-            if (doc.RootElement.TryGetProperty("prmFolder",        out var el3)) _prmFolder        = el3.GetString() ?? "";
-            if (doc.RootElement.TryGetProperty("patternSync",      out var el4)) _patternSync      = el4.GetBoolean();
+            if (doc.RootElement.TryGetProperty("prmFolder",        out var el3)) _prm.PrmFolder        = el3.GetString() ?? "";
+            if (doc.RootElement.TryGetProperty("patternSync",      out var el4)) _prm.PatternSync      = el4.GetBoolean();
             if (doc.RootElement.TryGetProperty("midiChannel",      out var el5)) _midiChannel      = Math.Clamp(el5.GetInt32(), 1, 16);
             if (doc.RootElement.TryGetProperty("pcChannel",        out var el6)) _pcChannel        = Math.Clamp(el6.GetInt32(), 1, 16);
         }
@@ -2245,8 +2158,8 @@ public partial class MainWindow : Window
             {
                 autoConnect      = _autoConnect,
                 filterModEnabled = _viewModel.FilterModEnabled,
-                prmFolder        = _prmFolder,
-                patternSync      = _patternSync,
+                prmFolder        = _prm.PrmFolder,
+                patternSync      = _prm.PatternSync,
                 midiChannel      = MidiChannel,
                 pcChannel        = PcChannel,
             }, JsonOptions));
@@ -2314,7 +2227,7 @@ public partial class MainWindow : Window
         if (file is null) return;
 
         var preset = _patch.ToPreset(PresetNameBox.Text ?? "Untitled");
-        preset.PrmOnly = AllPrmOnlyParams()
+        preset.PrmOnly = _prm.AllPrmOnlyParams()
             .Select(p => new PrmOnlyEntry { PrmKey = p.PrmKey, Value = p.Value })
             .ToList();
         await using var stream = await file.OpenWriteAsync();
@@ -2353,7 +2266,7 @@ public partial class MainWindow : Window
 
         if (preset.PrmOnly.Count > 0)
         {
-            var prmLookup = AllPrmOnlyParams().ToDictionary(p => p.PrmKey);
+            var prmLookup = _prm.AllPrmOnlyParams().ToDictionary(p => p.PrmKey);
             foreach (var entry in preset.PrmOnly)
             {
                 if (prmLookup.TryGetValue(entry.PrmKey, out var prm))
@@ -2363,36 +2276,6 @@ public partial class MainWindow : Window
 
         await _patch.SendAllAsync();
         SetStatus($"Loaded: {preset.Name}", "#70C870");
-    }
-
-    // ── Pattern Sync ──────────────────────────────────────────────────────────
-
-    private string PrmFileForProgram(int program)
-    {
-        int bank    = program / 16 + 1;
-        int pattern = program % 16 + 1;
-        return System.IO.Path.Combine(_prmFolder, $"S1_PTN{bank}-{pattern:D2}.PRM");
-    }
-
-    private void TryLoadPatternPrm(int program)
-    {
-        string path = PrmFileForProgram(program);
-        if (!System.IO.File.Exists(path))
-        {
-            SetStatus($"Pattern Sync: {System.IO.Path.GetFileName(path)} not found in PRM folder", "#F0A040");
-            return;
-        }
-
-        PrmFileData parsed;
-        try { parsed = PrmFileParser.Parse(path); }
-        catch (Exception ex)
-        {
-            SetStatus($"Pattern Sync: parse error — {ex.Message}", "#FF6B6B");
-            return;
-        }
-
-        ApplyPrmData(parsed);
-        SetStatus($"Pattern Sync: {System.IO.Path.GetFileName(path)}", "#888888");
     }
 
     private async Task<bool> ShowPatternSyncWarningAsync()
@@ -2481,9 +2364,9 @@ public partial class MainWindow : Window
 
         if (folders.Count == 0) return;
 
-        _prmFolder        = folders[0].TryGetLocalPath() ?? "";
-        PrmFolderBox.Text = _prmFolder;
-        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prmFolder);
+        _prm.PrmFolder        = folders[0].TryGetLocalPath() ?? "";
+        PrmFolderBox.Text = _prm.PrmFolder;
+        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prm.PrmFolder);
         SaveSettings();
     }
 
@@ -2512,7 +2395,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        ApplyPrmData(parsed);
+        _prm.ApplyPrmData(parsed);
 
         var fileName = System.IO.Path.GetFileNameWithoutExtension(files[0].Name);
         PresetNameBox.Text = fileName;
@@ -2522,103 +2405,13 @@ public partial class MainWindow : Window
         SetStatus($"Loaded PRM: {fileName}", "#70C870");
     }
 
-    private void ApplyInitPatch()
+    private void OnPrmMetaLoaded(object? sender, PrmMetaArgs e)
     {
-        using var stream = typeof(MainWindow).Assembly.GetManifestResourceStream("InitPatch.prm")!;
-        using var reader = new System.IO.StreamReader(stream);
-        ApplyPrmData(PrmFileParser.Parse(reader));
-    }
-
-    private void ApplyPrmData(PrmFileData data)
-    {
-        foreach (var (key, rawValue) in data.Parameters)
-        {
-            if (!PrmCcMap.Map.TryGetValue(key, out var info)) continue;
-            if (!int.TryParse(rawValue, out int prmValue)) continue;
-            _patch.HandleIncomingCC(info.Cc, info.ToCc(prmValue));
-        }
-
-        _patch.HandleIncomingCC(1,  0);    // Mod Wheel = 0
-        _patch.HandleIncomingCC(11, 127);  // Expression = 127
-
-        LoadPrmOnly(data, _prmDelayMain);
-        LoadPrmOnly(data, [_delayTempo]);
-        LoadPrmOnly(data, _prmReverbMain);
-        LoadPrmOnly(data, _prmDelayAdv);
-        LoadPrmOnly(data, _prmReverbAdv);
-
-        for (int w = 0; w < ChopPattern.Waveforms; w++)
-        {
-            if (data.Parameters.TryGetValue(ChopPattern.PrmKeys[w], out var rawStr) &&
-                int.TryParse(rawStr, out int rawVal))
-                _chopPattern.LoadFromPrm(w, rawVal);
-        }
-
-        var drawPts = new int[8];
+        _tempoLabel.Text     = e.Tempo;
+        _transposeLabel.Text = e.Transpose;
         for (int i = 0; i < 8; i++)
-        {
-            if (data.Parameters.TryGetValue($"OSC_DRAW_P{i + 1}", out var rawStr) &&
-                int.TryParse(rawStr, out int rawVal))
-                drawPts[i] = rawVal;
-        }
-        _drawWave.LoadAll(drawPts);
-
-        _sequence.LoadFromPrm(data);
-
-        // OSC chop extras
-        LoadPrmOnly(data, new[] { _prmChopType, _prmChopCombType });
-
-        // Pattern / Arpeggiator / Riser / D-Motion
-        LoadPrmOnly(data, new[] { _prmLeng, _prmShuffle, _prmLevel, _prmScale, _prmTempoSync,
-                                   _prmArpType, _prmArpRate });
-        LoadPrmOnly(data, new[] { _prmRiserSw, _prmRiserMode, _prmRiserCtrl, _prmRiserBeat,
-                                   _prmRiserShape, _prmRiserReso, _prmRiserLevel });
-        LoadPrmOnly(data, new[] { _prmDmAssignX, _prmDmAssignY, _prmDmAssignTap, _prmDmAssignFf,
-                                   _prmDmSensX, _prmDmSensY });
-
-        // Tempo: stored as integer × 100 (e.g. 10000 = 100.0 BPM)
-        _tempoLabel.Text = data.Parameters.TryGetValue("TEMPO", out var tempoRaw)
-                           && int.TryParse(tempoRaw, out int tempoVal)
-            ? $"{tempoVal / 100.0:F1} BPM"
-            : "—";
-
-        // Transpose: signed semitones
-        _transposeLabel.Text = data.Parameters.TryGetValue("TRANSPOSE", out var trRaw)
-                               && int.TryParse(trRaw, out int trVal)
-            ? (trVal > 0 ? $"+{trVal}" : trVal.ToString())
-            : "0";
-
-        // Motion CC assignments (−1 = unassigned, else a CC number)
-        for (int i = 0; i < 8; i++)
-        {
-            string key = $"MOTION_CC{i + 1}";
-            _motionCcLabels[i].Text = data.Parameters.TryGetValue(key, out var mcRaw)
-                                      && int.TryParse(mcRaw, out int mcVal) && mcVal >= 0
-                ? (_patch.GetByCC(mcVal)?.Name ?? $"CC{mcVal}")
-                : "—";
-        }
+            _motionCcLabels[i].Text = e.MotionCcLabels[i];
     }
-
-    private static void LoadPrmOnly(PrmFileData data, IEnumerable<PrmParameter> prms)
-    {
-        foreach (var p in prms)
-        {
-            if (data.Parameters.TryGetValue(p.PrmKey, out var raw) &&
-                int.TryParse(raw, out int prmVal))
-                p.LoadFromPrm(prmVal);
-        }
-    }
-
-    private IEnumerable<PrmParameter> AllPrmOnlyParams() =>
-        _prmDelayMain.Concat(_prmDelayAdv).Concat(new[] { _delayTempo })
-                     .Concat(_prmReverbMain).Concat(_prmReverbAdv)
-                     .Concat(new[] { _prmChopType, _prmChopCombType,
-                                     _prmLeng, _prmShuffle, _prmLevel, _prmScale, _prmTempoSync,
-                                     _prmArpType, _prmArpRate,
-                                     _prmRiserSw, _prmRiserMode, _prmRiserCtrl, _prmRiserBeat,
-                                     _prmRiserShape, _prmRiserReso, _prmRiserLevel,
-                                     _prmDmAssignX, _prmDmAssignY, _prmDmAssignTap, _prmDmAssignFf,
-                                     _prmDmSensX, _prmDmSensY });
 
     private void SetStatus(string message, string hexColour)
     {
