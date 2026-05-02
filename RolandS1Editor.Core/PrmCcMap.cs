@@ -12,27 +12,28 @@ namespace RolandS1Editor;
 //   0-100  → CC 0-127  (ccValue = prmValue * 127 / 100, rounded)
 //   0-1    → CC 0-127  (flag: 0→0, any positive→127, because Clamp(n,0,1)=1 for n≥1)
 // Reverse follows the same formula inverted.
-public record PrmParameterInfo(int Cc, int PrmMin, int PrmMax)
+// CcMin lets parameters with a non-zero CC floor (e.g. OSC_CHOP_COMB: CC 3–127) be represented.
+public record PrmParameterInfo(int Cc, int PrmMin, int PrmMax, int CcMin = 0)
 {
-    // Scale a raw PRM integer to a 0-127 CC value.
+    // Scale a raw PRM integer to a CC value in [CcMin, 127].
     public int ToCc(int prmValue)
     {
         double norm = (double)(Math.Clamp(prmValue, PrmMin, PrmMax) - PrmMin)
                      / (PrmMax - PrmMin);
-        return (int)Math.Round(norm * 127);
+        return (int)Math.Round(CcMin + norm * (127 - CcMin));
     }
 
-    // Scale a 0-127 CC value back to the PRM range for writing.
+    // Scale a CC value back to the PRM range for writing.
     public int ToPrm(int ccValue)
     {
-        double norm = Math.Clamp(ccValue, 0, 127) / 127.0;
+        double norm = Math.Clamp(ccValue - CcMin, 0, 127 - CcMin) / (double)(127 - CcMin);
         return (int)Math.Round(norm * (PrmMax - PrmMin) + PrmMin);
     }
 }
 
 public static class PrmCcMap
 {
-    private static PrmParameterInfo P(int cc, int min, int max) => new(cc, min, max);
+    private static PrmParameterInfo P(int cc, int min, int max, int ccMin = 0) => new(cc, min, max, ccMin);
 
     // PRM key → (CC number, PRM range).
     // MOD_WHEEL and EXPRESSION are intentionally omitted: they are preserved
@@ -78,7 +79,7 @@ public static class PrmCcMap
             { "NOISE_MODE",             P(78,  0,   127) },
             { "OSC_DRAW_MULT",          P(102, 0,   127) },
             { "OSC_CHOP_OVERTONE",      P(103, 0,   255) },   // PRM 0-255 native; display 0-200 via cc*200/127
-            // OSC_CHOP_COMB (CC104) omitted — PRM stores 1-32 integers with non-linear CC mapping
+            { "OSC_CHOP_COMB",          P(104, 1,   32,  3) }, // PRM 1–32 → CC 3–127 (CC floor matches hardware min)
             { "OSC_DRAW_SW",            P(107, 0,   127) },
 
             // ── Filter ───────────────────────────────────────────────────────

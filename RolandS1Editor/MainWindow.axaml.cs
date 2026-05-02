@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -349,6 +349,10 @@ public partial class MainWindow : Window
 
     // ── Tab 1: Realtime editor ────────────────────────────────────────────────
 
+    // Throws if a required CC is missing — gives a clear error instead of a NullReferenceException.
+    private S1Parameter RequireCC(int cc) =>
+        _patch.GetByCC(cc) ?? throw new InvalidOperationException($"Required parameter CC {cc} not found in patch");
+
     private void BuildRealtimeEditorPanels()
     {
         BuildOscPanel();
@@ -365,60 +369,60 @@ public partial class MainWindow : Window
         // Row 1: level knobs
         var knobRow1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 19, 20, 21, 23 })
-            knobRow1.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
+            knobRow1.Children.Add(MakeKnob(RequireCC(cc), OscAccent));
         OscillatorPanel.Children.Add(knobRow1);
 
         // Row 2: modulation / tuning knobs
         var knobRow2 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 15, 13, 76, 18 })
-            knobRow2.Children.Add(MakeKnob(_patch.GetByCC(cc)!, OscAccent));
+            knobRow2.Children.Add(MakeKnob(RequireCC(cc), OscAccent));
         OscillatorPanel.Children.Add(knobRow2);
 
         // Button strips stacked vertically — all full-width, uniform button cells per strip
-        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(14)!, OscAccent));  // Range
-        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(78)!, OscAccent));  // Noise Mode
-        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(16)!, OscAccent));  // PWM Source
-        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(22)!, OscAccent));  // Sub Octave
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(14), OscAccent));  // Range
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(78), OscAccent));  // Noise Mode
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(16), OscAccent));  // PWM Source
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(22), OscAccent));  // Sub Octave
 
         OscillatorPanel.Children.Add(MakeSubSectionHeader("DRAW · CHOP", OscAccent));
 
         var dcKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        dcKnobs.Children.Add(MakeKnob(_patch.GetByCC(102)!, OscAccent, minCcValue: 3));
-        dcKnobs.Children.Add(MakeKnob(_patch.GetByCC(104)!, OscAccent, minCcValue: 3));
-        dcKnobs.Children.Add(MakeKnob(_patch.GetByCC(103)!, OscAccent));
+        dcKnobs.Children.Add(MakeKnob(RequireCC(102), OscAccent, minCcValue: 3));
+        dcKnobs.Children.Add(MakeKnob(RequireCC(104), OscAccent, minCcValue: 3));
+        dcKnobs.Children.Add(MakeKnob(RequireCC(103), OscAccent));
         OscillatorPanel.Children.Add(dcKnobs);
 
-        OscillatorPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(107)!, OscAccent));
+        OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(107), OscAccent));
     }
 
     private void BuildFilterPanel()
     {
-        FilterPanel.Children.Add(MakeFilterCurve(_patch.GetByCC(74)!, _patch.GetByCC(71)!));
+        FilterPanel.Children.Add(MakeFilterCurve(RequireCC(74), RequireCC(71)));
 
         var filtRow1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 74, 71, 24 })
-            filtRow1.Children.Add(MakeKnob(_patch.GetByCC(cc)!, FiltAccent));
+            filtRow1.Children.Add(MakeKnob(RequireCC(cc), FiltAccent));
         FilterPanel.Children.Add(filtRow1);
 
         var filtRow2 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 25, 26, 27 })
-            filtRow2.Children.Add(MakeKnob(_patch.GetByCC(cc)!, FiltAccent));
+            filtRow2.Children.Add(MakeKnob(RequireCC(cc), FiltAccent));
         FilterPanel.Children.Add(filtRow2);
     }
 
     private void BuildEnvelopePanel()
     {
         EnvelopePanel.Children.Add(MakeAdsrVisualizer(
-            _patch.GetByCC(73)!, _patch.GetByCC(75)!, _patch.GetByCC(30)!, _patch.GetByCC(72)!));
+            RequireCC(73), RequireCC(75), RequireCC(30), RequireCC(72)));
 
         var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 73, 75, 30, 72 })
-            knobs.Children.Add(MakeKnob(_patch.GetByCC(cc)!, EnvAccent));
+            knobs.Children.Add(MakeKnob(RequireCC(cc), EnvAccent));
         EnvelopePanel.Children.Add(knobs);
 
         var btnGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
-        var ampBtn = MakeLedButtonGroup(_patch.GetByCC(28)!, EnvAccent);
-        var trgBtn = MakeLedButtonGroup(_patch.GetByCC(29)!, EnvAccent);
+        var ampBtn = MakeLedButtonGroup(RequireCC(28), EnvAccent);
+        var trgBtn = MakeLedButtonGroup(RequireCC(29), EnvAccent);
         Grid.SetColumn(ampBtn, 0); Grid.SetColumn(trgBtn, 1);
         btnGrid.Children.Add(ampBtn); btnGrid.Children.Add(trgBtn);
         EnvelopePanel.Children.Add(btnGrid);
@@ -428,10 +432,10 @@ public partial class MainWindow : Window
     {
         var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         knobs.Children.Add(MakeLfoRateKnob());
-        knobs.Children.Add(MakeKnob(_patch.GetByCC(17)!, LfoAccent));
+        knobs.Children.Add(MakeKnob(RequireCC(17), LfoAccent));
         LfoPanel.Children.Add(knobs);
 
-        LfoPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(12)!, LfoAccent));
+        LfoPanel.Children.Add(MakeLedButtonGroup(RequireCC(12), LfoAccent));
 
         var modeRow = new StackPanel
         {
@@ -440,9 +444,9 @@ public partial class MainWindow : Window
             Margin              = new Thickness(3, 1, 3, 2),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        modeRow.Children.Add(MakeLedButtonGroup(_patch.GetByCC(79)!,  LfoAccent));
-        modeRow.Children.Add(MakeLedButtonGroup(_patch.GetByCC(106)!, LfoAccent));
-        modeRow.Children.Add(MakeLedButtonGroup(_patch.GetByCC(105)!, LfoAccent));
+        modeRow.Children.Add(MakeLedButtonGroup(RequireCC(79),  LfoAccent));
+        modeRow.Children.Add(MakeLedButtonGroup(RequireCC(106), LfoAccent));
+        modeRow.Children.Add(MakeLedButtonGroup(RequireCC(105), LfoAccent));
         LfoPanel.Children.Add(modeRow);
     }
 
@@ -451,23 +455,23 @@ public partial class MainWindow : Window
         // 5 knobs × 56px = 280px + margins ≈ 300px — fits the column without overflow
         var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 1, 11, 5, 10, 77 })
-            knobs.Children.Add(MakeKnob(_patch.GetByCC(cc)!, VoiceAccent, containerWidth: 56));
+            knobs.Children.Add(MakeKnob(RequireCC(cc), VoiceAccent, containerWidth: 56));
         VoicePanel.Children.Add(knobs);
 
         // Portamento and Polyphony stacked vertically — side-by-side caused overflow with 6-option strip
-        VoicePanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(31)!, VoiceAccent));
-        VoicePanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(80)!, VoiceAccent));
+        VoicePanel.Children.Add(MakeLedButtonGroup(RequireCC(31), VoiceAccent));
+        VoicePanel.Children.Add(MakeLedButtonGroup(RequireCC(80), VoiceAccent));
 
-        VoicePanel.Children.Add(MakeDroneButton(_patch.GetByCC(64)!, VoiceAccent));
+        VoicePanel.Children.Add(MakeDroneButton(RequireCC(64), VoiceAccent));
 
         var chordSection = new StackPanel();
         chordSection.Children.Add(MakeSubSectionHeader("CHORD", VoiceAccent));
-        chordSection.Children.Add(MakeChordVoiceRow(2, _patch.GetByCC(81)!, _patch.GetByCC(85)!, VoiceAccent));
-        chordSection.Children.Add(MakeChordVoiceRow(3, _patch.GetByCC(82)!, _patch.GetByCC(86)!, VoiceAccent));
-        chordSection.Children.Add(MakeChordVoiceRow(4, _patch.GetByCC(83)!, _patch.GetByCC(87)!, VoiceAccent));
+        chordSection.Children.Add(MakeChordVoiceRow(2, RequireCC(81), RequireCC(85), VoiceAccent));
+        chordSection.Children.Add(MakeChordVoiceRow(3, RequireCC(82), RequireCC(86), VoiceAccent));
+        chordSection.Children.Add(MakeChordVoiceRow(4, RequireCC(83), RequireCC(87), VoiceAccent));
         VoicePanel.Children.Add(chordSection);
 
-        var polyParam = _patch.GetByCC(80)!;
+        var polyParam = RequireCC(80);
         void UpdateChordEnabled(int v)
         {
             bool isChord = v == 3;
@@ -477,8 +481,8 @@ public partial class MainWindow : Window
         UpdateChordEnabled(polyParam.Value);
         polyParam.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => UpdateChordEnabled(v));
 
-        var portModeParam = _patch.GetByCC(31)!;
-        var portOnParam   = _patch.GetByCC(65)!;
+        var portModeParam = RequireCC(31);
+        var portOnParam   = RequireCC(65);
         void SyncPortamentoOn(int modeVal) =>
             portOnParam.Value = modeVal > 0 ? 127 : 0;
         SyncPortamentoOn(portModeParam.Value);
@@ -1059,9 +1063,9 @@ public partial class MainWindow : Window
         {
             76  => (val - 64).ToString(),
             77  => FormatSemitone(val - 64),
-            102 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}",
+            102 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}", // CC 3–127 → display 1.0–32.0 in 0.5 steps
             103 => Math.Min(200, (int)Math.Round(val * 255.0 / 127)).ToString(),
-            104 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}",
+            104 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}", // same scale as CC 102
             _   => PrmCcMap.ByCC.TryGetValue(cc, out var e) ? e.Info.ToPrm(val).ToString()
                                                              : val.ToString()
         };
@@ -1238,8 +1242,8 @@ public partial class MainWindow : Window
         var reverbCol = new StackPanel();
         reverbCol.Children.Add(MakeSubSectionHeader("REVERB", FxAccent));
         var revKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        revKnobs.Children.Add(MakeKnob(_patch.GetByCC(91)!, FxAccent));
-        revKnobs.Children.Add(MakeKnob(_patch.GetByCC(89)!, FxAccent));
+        revKnobs.Children.Add(MakeKnob(RequireCC(91), FxAccent));
+        revKnobs.Children.Add(MakeKnob(RequireCC(89), FxAccent));
         reverbCol.Children.Add(revKnobs);
 
         var divider = new Border
@@ -1252,7 +1256,7 @@ public partial class MainWindow : Window
         var delayCol = new StackPanel();
         delayCol.Children.Add(MakeSubSectionHeader("DELAY", FxAccent));
         var delKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        delKnobs.Children.Add(MakeKnob(_patch.GetByCC(92)!, FxAccent));
+        delKnobs.Children.Add(MakeKnob(RequireCC(92), FxAccent));
         delKnobs.Children.Add(BuildDelayTimeKnob());
         delayCol.Children.Add(delKnobs);
 
@@ -1265,18 +1269,18 @@ public partial class MainWindow : Window
         EffectsPanel.Children.Add(sideBySide);
 
         EffectsPanel.Children.Add(MakeSubSectionHeader("CHORUS", FxAccent));
-        EffectsPanel.Children.Add(MakeLedButtonGroup(_patch.GetByCC(93)!, FxAccent));
+        EffectsPanel.Children.Add(MakeLedButtonGroup(RequireCC(93), FxAccent));
     }
 
     private Control BuildDelayTimeKnob()
     {
-        var param   = _patch.GetByCC(90)!;
+        var param   = RequireCC(90);
         var delaySw = _prmDelayMain[0];
 
         string GetDisplay()
         {
             if (delaySw.Value != 1)
-                return $"{1 + (int)Math.Round(param.Value * 739.0 / 127)}ms";
+                return $"{1 + (int)Math.Round(param.Value * 739.0 / 127)}ms"; // S-1 range: 1–740 ms
             var opts = _delayTempo.Options!;
             int idx  = Math.Clamp(param.Value, 0, opts.Length - 1);  // CC 0-15 → index 0-15
             return opts[idx];
@@ -1293,9 +1297,10 @@ public partial class MainWindow : Window
             valueLabel.Text = d;
         }
 
-        // When sync is on, CC 0-15 maps evenly across the full knob rotation.
-        int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, 15) * 127.0 / 15);
-        int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * 15.0 / 127), 0, 15);
+        // When sync is on, CC 0–N maps evenly across the full knob rotation.
+        int delaySteps = _delayTempo.Options!.Length - 1;
+        int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, delaySteps) * 127.0 / delaySteps);
+        int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * (double)delaySteps / 127), 0, delaySteps);
 
         knob.ValueChanged    += (_, v) => { param.Value = delaySw.Value == 1 ? KnobToSync(v) : v; Refresh(); };
         param.ValueChanged   += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = delaySw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
@@ -1321,8 +1326,8 @@ public partial class MainWindow : Window
     // ── LFO Rate knob — context-aware: free 0-127 when sync off, 32 values when sync on ──
     private Control MakeLfoRateKnob()
     {
-        var param  = _patch.GetByCC(3)!;
-        var syncSw = _patch.GetByCC(106)!;
+        var param  = RequireCC(3);
+        var syncSw = RequireCC(106);
 
         string GetDisplay()
         {
@@ -1342,9 +1347,10 @@ public partial class MainWindow : Window
             valueLabel.Text = d;
         }
 
-        // When sync on, CC 0–30 spread evenly across full knob rotation.
-        int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, 30) * 127.0 / 30);
-        int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * 30.0 / 127), 0, 30);
+        // When sync on, CC 0–N spread evenly across full knob rotation.
+        int lfoSteps = s_lfoSyncValues.Length - 1;
+        int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, lfoSteps) * 127.0 / lfoSteps);
+        int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * (double)lfoSteps / 127), 0, lfoSteps);
 
         knob.ValueChanged   += (_, v) => { param.Value = syncSw.Value == 1 ? KnobToSync(v) : v; Refresh(); };
         param.ValueChanged  += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = syncSw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
@@ -1381,8 +1387,8 @@ public partial class MainWindow : Window
             mainOscForViewer.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
 
         oscContent.Children.Add(MakeSubSectionHeader("OSC DRAW", OscAccent));
-        oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(102)!));  // Draw Multiply
-        oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(107)!));  // Draw Step/Slope
+        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(102)));  // Draw Multiply
+        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(107)));  // Draw Step/Slope
         oscContent.Children.Add(new Viewbox
         {
             Stretch   = Stretch.Uniform,
@@ -1392,8 +1398,8 @@ public partial class MainWindow : Window
         });
 
         oscContent.Children.Add(MakeSubSectionHeader("OSC CHOP", OscAccent));
-        oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(103)!));  // Chop Overtone
-        oscContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(104)!));  // Chop Comb
+        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(103)));  // Chop Overtone
+        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(104)));  // Chop Comb
         oscContent.Children.Add(MakePrmInfoRow(_prmChopType));
         oscContent.Children.Add(MakePrmInfoRow(_prmChopCombType));
         oscContent.Children.Add(MakeChopPatternControl());
@@ -1455,8 +1461,8 @@ public partial class MainWindow : Window
         // Reverb — 2-column compact grid
         var revItems = new List<Control>
         {
-            MakePrmViewerCcRowCompact(_patch.GetByCC(91)!),  // Level
-            MakePrmViewerCcRowCompact(_patch.GetByCC(89)!),  // Time
+            MakePrmViewerCcRowCompact(RequireCC(91)),  // Level
+            MakePrmViewerCcRowCompact(RequireCC(89)),  // Time
         };
         foreach (var p in _prmReverbMain) revItems.Add(MakePrmInfoRow(p, compact: true));
         foreach (var p in _prmReverbAdv)  revItems.Add(MakePrmInfoRow(p, compact: true));
@@ -1466,7 +1472,7 @@ public partial class MainWindow : Window
         fxContent.Children.Add(MakeSubSectionHeader("DELAY", FxAccent));
         var delItems = new List<Control>
         {
-            MakePrmViewerCcRowCompact(_patch.GetByCC(92)!),  // Level
+            MakePrmViewerCcRowCompact(RequireCC(92)),  // Level
             MakeDelayTimeViewerRow(),
         };
         foreach (var p in _prmDelayMain) delItems.Add(MakePrmInfoRow(p, compact: true));
@@ -1476,7 +1482,7 @@ public partial class MainWindow : Window
 
         // Chorus
         fxContent.Children.Add(MakeSubSectionHeader("CHORUS", FxAccent));
-        fxContent.Children.Add(MakePrmViewerCcRow(_patch.GetByCC(93)!));  // Chorus Type
+        fxContent.Children.Add(MakePrmViewerCcRow(RequireCC(93)));  // Chorus Type
 
         var voiceCard = MakeSectionCard("VOICE", VoiceAccent, out var voiceContent);
         var voiceItems = _patch.Controls.Concat(_patch.Voice)
@@ -1618,14 +1624,14 @@ public partial class MainWindow : Window
     private Control MakeDelayTimeViewerRow()
     {
         var delaySw     = _prmDelayMain[0];
-        var delayTimeCC = _patch.GetByCC(90)!;
+        var delayTimeCC = RequireCC(90);
 
         var lbl = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")) };
 
         void Refresh()
         {
             lbl.Text = delaySw.Value == 0
-                ? $"{1 + (int)Math.Round(delayTimeCC.Value * 739.0 / 127)}ms"
+                ? $"{1 + (int)Math.Round(delayTimeCC.Value * 739.0 / 127)}ms" // S-1 range: 1–740 ms
                 : GetPrmDisplayString(_delayTempo);
         }
 
@@ -2012,7 +2018,7 @@ public partial class MainWindow : Window
                 {
                     int    pb   = _sequence.Steps[s].PitchBend;
                     if (pb == -32768) continue;
-                    double norm = Math.Clamp(pb / 32767.0, -1.0, 1.0);
+                    double norm = Math.Clamp(pb / 32768.0, -1.0, 1.0);
                     double barH = Math.Max(1, Math.Abs(norm) * (LaneH / 2 - 1));
                     var    bar  = new Border
                     {
@@ -2193,6 +2199,9 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            if (_activeInput != null)
+                _activeInput.EventReceived -= OnMidiEventReceived;
+            _activeInput = null;
             SetStatus($"→ {outPort.Name}  (input unavailable: {ex.Message})", "#F0A040");
         }
     }
@@ -2228,7 +2237,11 @@ public partial class MainWindow : Window
             if (doc.RootElement.TryGetProperty("midiChannel",      out var el5)) _midiChannel      = Math.Clamp(el5.GetInt32(), 1, 16);
             if (doc.RootElement.TryGetProperty("pcChannel",        out var el6)) _pcChannel        = Math.Clamp(el6.GetInt32(), 1, 16);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Settings] Load failed: {ex.Message}");
+            SetStatus("Settings failed to load — using defaults.", "#F0A040");
+        }
     }
 
     private void SaveSettings()
@@ -2245,7 +2258,11 @@ public partial class MainWindow : Window
                 pcChannel        = PcChannel,
             }, JsonOptions));
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Settings] Save failed: {ex.Message}");
+            SetStatus("Settings could not be saved.", "#F0A040");
+        }
     }
 
     private void OnMidiEventReceived(object? sender, MidiEventReceivedEventArgs e)
@@ -2493,7 +2510,8 @@ public partial class MainWindow : Window
         PrmFileData parsed;
         try
         {
-            parsed = PrmFileParser.Parse(files[0].TryGetLocalPath()!);
+            var localPath = files[0].TryGetLocalPath()!;
+            parsed = await Task.Run(() => PrmFileParser.Parse(localPath));
         }
         catch (Exception ex)
         {
@@ -2535,13 +2553,6 @@ public partial class MainWindow : Window
         LoadPrmOnly(data, _prmReverbMain);
         LoadPrmOnly(data, _prmDelayAdv);
         LoadPrmOnly(data, _prmReverbAdv);
-
-        if (data.Parameters.TryGetValue("OSC_CHOP_COMB", out var combRaw) &&
-            int.TryParse(combRaw, out int combPrm))
-        {
-            int combCc = Math.Clamp(3 + (int)Math.Round((combPrm - 1) * 124.0 / 31.0), 3, 127);
-            _patch.HandleIncomingCC(104, combCc);
-        }
 
         for (int w = 0; w < ChopPattern.Waveforms; w++)
         {
@@ -2629,7 +2640,7 @@ public partial class MainWindow : Window
         _noteCount++;
         _envPhase = EnvPhase.Attack;
         _envLevel = 0;
-        if (_patch.GetByCC(105)!.Value == 1)
+        if (RequireCC(105).Value == 1)
             _lfoPhase = 0;
     }
 
@@ -2639,7 +2650,7 @@ public partial class MainWindow : Window
         if (_noteCount == 0)
         {
             if (_envPhase == EnvPhase.Decay)
-                _envLevel = _patch.GetByCC(30)!.Value / 127.0; // snap to sustain level
+                _envLevel = RequireCC(30).Value / 127.0; // snap to sustain level
             _envLevelAtRelease = _envLevel;
             _envPhase = EnvPhase.Release;
         }
@@ -2658,10 +2669,10 @@ public partial class MainWindow : Window
         if (midiLit != _midiDotLit) { _midiDotLit = midiLit; MidiActivityDot.Background = midiLit ? MidiDotActive : MidiDotIdle; }
 
         // ── Envelope ──────────────────────────────────────────────────────
-        double attackSecs  = ModEnvTime(_patch.GetByCC(73)!.Value);
-        double decaySecs   = ModEnvTime(_patch.GetByCC(75)!.Value);
-        double sustainLvl  = _patch.GetByCC(30)!.Value / 127.0;
-        double releaseSecs = ModEnvTime(_patch.GetByCC(72)!.Value);
+        double attackSecs  = ModEnvTime(RequireCC(73).Value);
+        double decaySecs   = ModEnvTime(RequireCC(75).Value);
+        double sustainLvl  = RequireCC(30).Value / 127.0;
+        double releaseSecs = ModEnvTime(RequireCC(72).Value);
 
         switch (_envPhase)
         {
@@ -2672,7 +2683,7 @@ public partial class MainWindow : Window
             case EnvPhase.Decay:
                 _envLevel = Math.Max(sustainLvl, _envLevel - dt * (1.0 - sustainLvl) / decaySecs);
                 if (_envLevel <= sustainLvl)
-                    _envPhase = (_patch.GetByCC(29)!.Value == 0 && _noteCount > 0) ? EnvPhase.Attack : EnvPhase.Sustain;
+                    _envPhase = (RequireCC(29).Value == 0 && _noteCount > 0) ? EnvPhase.Attack : EnvPhase.Sustain;
                 break;
             case EnvPhase.Sustain:
                 _envLevel = sustainLvl;
@@ -2684,27 +2695,27 @@ public partial class MainWindow : Window
         }
 
         // ── LFO ───────────────────────────────────────────────────────────
-        bool   lfoSync = _patch.GetByCC(106)!.Value == 1;
-        bool   lfoFast = _patch.GetByCC(79)!.Value  == 1;
-        double lfoHz   = ModLfoHz(_patch.GetByCC(3)!.Value, lfoSync, lfoFast);
+        bool   lfoSync = RequireCC(106).Value == 1;
+        bool   lfoFast = RequireCC(79).Value  == 1;
+        double lfoHz   = ModLfoHz(RequireCC(3).Value, lfoSync, lfoFast);
         double prevPhase = _lfoPhase;
         _lfoPhase = (_lfoPhase + lfoHz * dt) % 1.0;
         if (_lfoPhase < prevPhase)
         {
             _lfoRandom = Random.Shared.NextDouble() * 2.0 - 1.0;
-            if (_patch.GetByCC(29)!.Value == 0 && _noteCount > 0) // Trigger Mode = LFO, key held
+            if (RequireCC(29).Value == 0 && _noteCount > 0) // Trigger Mode = LFO, key held
             {
                 _envPhase = EnvPhase.Attack;
                 _envLevel = 0;
             }
         }
 
-        double lfoVal = ModLfoValue(_patch.GetByCC(12)!.Value, _lfoPhase, _lfoRandom);
+        double lfoVal = ModLfoValue(RequireCC(12).Value, _lfoPhase, _lfoRandom);
 
         // ── Combine (only when feature is enabled) ────────────────────────
         if (!_filterModEnabled) return;
-        double envAmount = _patch.GetByCC(24)!.Value / 127.0;
-        double lfoAmount = _patch.GetByCC(25)!.Value / 127.0;
+        double envAmount = RequireCC(24).Value / 127.0;
+        double lfoAmount = RequireCC(25).Value / 127.0;
         _filterModOffset = envAmount * _envLevel + lfoAmount * lfoVal;
 
         _filterCurveUpdate?.Invoke();
