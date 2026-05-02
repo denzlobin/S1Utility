@@ -49,7 +49,6 @@ public partial class MainWindow : Window
     private readonly List<Button> _patchButtons = new();
 
     private bool   _autoConnect;
-    private bool   _filterModEnabled;
     private bool   _patternSync;
     private bool   _suppressPatternSyncToggle;
     private string _prmFolder    = "";
@@ -60,17 +59,10 @@ public partial class MainWindow : Window
 
     // ── Filter modulation animation ───────────────────────────────────────────
 
-    private enum EnvPhase { Off, Attack, Decay, Sustain, Release }
+    private readonly S1EditorViewModel _viewModel;
 
     private Action?  _filterCurveUpdate;
     private Action?  _envelopeDotUpdate;
-    private double   _filterModOffset;
-    private EnvPhase _envPhase = EnvPhase.Off;
-    private double   _envLevel;
-    private double   _envLevelAtRelease;
-    private int      _noteCount;
-    private double   _lfoPhase;
-    private double   _lfoRandom;
     private DateTime _lastModTick;
     private DateTime _lastMidiActivity = DateTime.MinValue;
     private bool     _midiDotLit;
@@ -200,6 +192,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _viewModel     = new S1EditorViewModel(_patch);
         _prmDelayMain  = BuildPrmDelayMain();
         _prmReverbMain = BuildPrmReverbMain();
         _prmDelayAdv   = BuildPrmDelayAdv();
@@ -241,11 +234,11 @@ public partial class MainWindow : Window
         };
         if (_autoConnect) TryAutoConnect();
 
-        FilterModToggle.IsChecked = _filterModEnabled;
+        FilterModToggle.IsChecked = _viewModel.FilterModEnabled;
         FilterModToggle.IsCheckedChanged += (_, _) =>
         {
-            _filterModEnabled = FilterModToggle.IsChecked == true;
-            if (!_filterModEnabled) { _filterModOffset = 0; _filterCurveUpdate?.Invoke(); _envelopeDotUpdate?.Invoke(); }
+            _viewModel.FilterModEnabled = FilterModToggle.IsChecked == true;
+            if (!_viewModel.FilterModEnabled) { _filterCurveUpdate?.Invoke(); _envelopeDotUpdate?.Invoke(); }
             SaveSettings();
         };
 
@@ -642,7 +635,7 @@ public partial class MainWindow : Window
             const int    N      = 200;
             const double sigma  = 0.15;    // gaussian width in omega space
 
-            double fN          = Math.Clamp(freqParam.Value / 127.0 + _filterModOffset, 0.0, 1.0);
+            double fN          = Math.Clamp(freqParam.Value / 127.0 + _viewModel.FilterModOffset, 0.0, 1.0);
             double rN          = resParam.Value / 127.0;
             double cutoffFreq  = Math.Pow(10, logMin + fN * (logMax - logMin));
             double xC          = fN * W;
@@ -770,7 +763,7 @@ public partial class MainWindow : Window
 
         void UpdateDot()
         {
-            if (!_filterModEnabled || _envPhase == EnvPhase.Off)
+            if (!_viewModel.FilterModEnabled || _viewModel.CurrentPhase == EnvPhase.Off)
             {
                 dot.IsVisible = false;
                 return;
@@ -790,10 +783,10 @@ public partial class MainWindow : Window
             double hw2 = minSeg2 + (sN2 / sum2) * varPool2;
             double rT2 = minSeg2 + (rN2 / sum2) * varPool2;
             double sL2 = H - sN2 * (H - 5);
-            double lvl  = _envLevel;
+            double lvl  = _viewModel.EnvLevel;
 
             double dx, dy;
-            switch (_envPhase)
+            switch (_viewModel.CurrentPhase)
             {
                 case EnvPhase.Attack:
                     dx = lvl * aT2;
@@ -810,8 +803,8 @@ public partial class MainWindow : Window
                     dy = sL2;
                     break;
                 case EnvPhase.Release:
-                    double rp = _envLevelAtRelease > 0.001
-                        ? Math.Clamp(1.0 - lvl / _envLevelAtRelease, 0, 1) : 1.0;
+                    double rp = _viewModel.EnvLevelAtRelease > 0.001
+                        ? Math.Clamp(1.0 - lvl / _viewModel.EnvLevelAtRelease, 0, 1) : 1.0;
                     dx = aT2 + dT2 + hw2 + rp * rT2;
                     dy = sL2 + rp * (H - sL2);
                     break;
@@ -2231,7 +2224,7 @@ public partial class MainWindow : Window
             if (!System.IO.File.Exists(SettingsPath)) return;
             using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(SettingsPath));
             if (doc.RootElement.TryGetProperty("autoConnect",      out var el))  _autoConnect      = el.GetBoolean();
-            if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2)) _filterModEnabled = el2.GetBoolean();
+            if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2)) _viewModel.FilterModEnabled = el2.GetBoolean();
             if (doc.RootElement.TryGetProperty("prmFolder",        out var el3)) _prmFolder        = el3.GetString() ?? "";
             if (doc.RootElement.TryGetProperty("patternSync",      out var el4)) _patternSync      = el4.GetBoolean();
             if (doc.RootElement.TryGetProperty("midiChannel",      out var el5)) _midiChannel      = Math.Clamp(el5.GetInt32(), 1, 16);
@@ -2251,7 +2244,7 @@ public partial class MainWindow : Window
             System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new
             {
                 autoConnect      = _autoConnect,
-                filterModEnabled = _filterModEnabled,
+                filterModEnabled = _viewModel.FilterModEnabled,
                 prmFolder        = _prmFolder,
                 patternSync      = _patternSync,
                 midiChannel      = MidiChannel,
@@ -2275,12 +2268,12 @@ public partial class MainWindow : Window
                 break;
             case NoteOnEvent noteOn when (int)noteOn.Channel == MidiChannel - 1:
                 if (noteOn.Velocity > 0)
-                    Dispatcher.UIThread.Post(OnNoteOn);
+                    Dispatcher.UIThread.Post(_viewModel.NoteOn);
                 else
-                    Dispatcher.UIThread.Post(OnNoteOff);
+                    Dispatcher.UIThread.Post(_viewModel.NoteOff);
                 break;
             case NoteOffEvent noteOff when (int)noteOff.Channel == MidiChannel - 1:
-                Dispatcher.UIThread.Post(OnNoteOff);
+                Dispatcher.UIThread.Post(_viewModel.NoteOff);
                 break;
             case ProgramChangeEvent pc when (int)pc.Channel == MidiChannel - 1:
                 Dispatcher.UIThread.Post(() => HighlightPatchButton((int)pc.ProgramNumber));
@@ -2633,29 +2626,6 @@ public partial class MainWindow : Window
         StatusText.Foreground = new SolidColorBrush(Color.Parse(hexColour));
     }
 
-    // ── Filter modulation: note tracking ─────────────────────────────────────
-
-    private void OnNoteOn()
-    {
-        _noteCount++;
-        _envPhase = EnvPhase.Attack;
-        _envLevel = 0;
-        if (RequireCC(105).Value == 1)
-            _lfoPhase = 0;
-    }
-
-    private void OnNoteOff()
-    {
-        _noteCount = Math.Max(0, _noteCount - 1);
-        if (_noteCount == 0)
-        {
-            if (_envPhase == EnvPhase.Decay)
-                _envLevel = RequireCC(30).Value / 127.0; // snap to sustain level
-            _envLevelAtRelease = _envLevel;
-            _envPhase = EnvPhase.Release;
-        }
-    }
-
     // ── Filter modulation: 60 fps tick ───────────────────────────────────────
 
     private void OnModTimerTick(object? sender, EventArgs e)
@@ -2664,86 +2634,15 @@ public partial class MainWindow : Window
         double dt = Math.Min((now - _lastModTick).TotalSeconds, 0.1);
         _lastModTick = now;
 
-        // ── MIDI activity dot ─────────────────────────────────────────────
         bool midiLit = (now - _lastMidiActivity).TotalMilliseconds < 150;
         if (midiLit != _midiDotLit) { _midiDotLit = midiLit; MidiActivityDot.Background = midiLit ? MidiDotActive : MidiDotIdle; }
 
-        // ── Envelope ──────────────────────────────────────────────────────
-        double attackSecs  = ModEnvTime(RequireCC(73).Value);
-        double decaySecs   = ModEnvTime(RequireCC(75).Value);
-        double sustainLvl  = RequireCC(30).Value / 127.0;
-        double releaseSecs = ModEnvTime(RequireCC(72).Value);
-
-        switch (_envPhase)
+        if (_viewModel.Tick(dt))
         {
-            case EnvPhase.Attack:
-                _envLevel = Math.Min(1.0, _envLevel + dt / attackSecs);
-                if (_envLevel >= 1.0) _envPhase = EnvPhase.Decay;
-                break;
-            case EnvPhase.Decay:
-                _envLevel = Math.Max(sustainLvl, _envLevel - dt * (1.0 - sustainLvl) / decaySecs);
-                if (_envLevel <= sustainLvl)
-                    _envPhase = (RequireCC(29).Value == 0 && _noteCount > 0) ? EnvPhase.Attack : EnvPhase.Sustain;
-                break;
-            case EnvPhase.Sustain:
-                _envLevel = sustainLvl;
-                break;
-            case EnvPhase.Release:
-                _envLevel = Math.Max(0, _envLevel - dt / releaseSecs);
-                if (_envLevel <= 0) { _envLevel = 0; _envPhase = EnvPhase.Off; }
-                break;
+            _filterCurveUpdate?.Invoke();
+            _envelopeDotUpdate?.Invoke();
         }
-
-        // ── LFO ───────────────────────────────────────────────────────────
-        bool   lfoSync = RequireCC(106).Value == 1;
-        bool   lfoFast = RequireCC(79).Value  == 1;
-        double lfoHz   = ModLfoHz(RequireCC(3).Value, lfoSync, lfoFast);
-        double prevPhase = _lfoPhase;
-        _lfoPhase = (_lfoPhase + lfoHz * dt) % 1.0;
-        if (_lfoPhase < prevPhase)
-        {
-            _lfoRandom = Random.Shared.NextDouble() * 2.0 - 1.0;
-            if (RequireCC(29).Value == 0 && _noteCount > 0) // Trigger Mode = LFO, key held
-            {
-                _envPhase = EnvPhase.Attack;
-                _envLevel = 0;
-            }
-        }
-
-        double lfoVal = ModLfoValue(RequireCC(12).Value, _lfoPhase, _lfoRandom);
-
-        // ── Combine (only when feature is enabled) ────────────────────────
-        if (!_filterModEnabled) return;
-        double envAmount = RequireCC(24).Value / 127.0;
-        double lfoAmount = RequireCC(25).Value / 127.0;
-        _filterModOffset = envAmount * _envLevel + lfoAmount * lfoVal;
-
-        _filterCurveUpdate?.Invoke();
-        _envelopeDotUpdate?.Invoke();
     }
-
-    // Maps CC 0-127 to envelope time: 1 ms at 0, ~8 s at 127 (square-law taper).
-    private static double ModEnvTime(int cc) => 0.001 + Math.Pow(cc / 127.0, 2.0) * 8.0;
-
-    // Maps rate CC to Hz with exponential taper; Fast mode doubles two octaves.
-    private static double ModLfoHz(int cc, bool sync, bool fast)
-    {
-        double hz = sync
-            ? 0.06 * Math.Pow(260.0, Math.Clamp(cc, 0, 30) / 30.0)   // ~0.06–16 Hz across 31 steps
-            : 0.01 * Math.Pow(2000.0, cc / 127.0);                    // ~0.01–20 Hz
-        return fast ? hz * 4.0 : hz;
-    }
-
-    // Returns -1..+1 LFO value for the given waveform and phase.
-    private static double ModLfoValue(int waveform, double phase, double random) => waveform switch
-    {
-        0 => phase * 2.0 - 1.0,                                          // Sawtooth
-        1 => 1.0 - phase * 2.0,                                          // Inv Saw
-        2 => phase < 0.5 ? phase * 4.0 - 1.0 : 3.0 - phase * 4.0,       // Triangle
-        3 => phase < 0.5 ? 1.0 : -1.0,                                   // Square
-        4 => random,                                                       // S&H (Random)
-        _ => Random.Shared.NextDouble() * 2.0 - 1.0,                     // Noise
-    };
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
 
