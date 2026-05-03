@@ -3,8 +3,8 @@
         x:Class="RolandS1Editor.MainWindow"
         Title="Roland S-1 Editor"
         Background="#1A1A1A"
-        Width="1100" Height="1200"
-        MinWidth="550" MinHeight="600">
+        Width="1100" Height="1100"
+        MinWidth="550" MinHeight="550">
 
     <Window.Resources>
         <!-- ── Background scale ──────────────────────────────────────────── -->
@@ -177,7 +177,7 @@
     </Window.Styles>
 
     <Viewbox Stretch="Uniform">
-        <DockPanel Width="1100" Height="1200">
+        <DockPanel Width="1100" Height="1100">
 
         <!-- ── Plugin title bar ─────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
@@ -281,7 +281,7 @@
                 BorderBrush="#2C2C36"
                 BorderThickness="0,1,0,0"
                 Padding="12,8,12,10">
-            <Grid ColumnDefinitions="*,Auto,Auto">
+            <Grid ColumnDefinitions="*,Auto,440">
 
                 <StackPanel x:Name="PatchGridContainer" IsEnabled="False" Grid.Column="0"/>
 
@@ -289,60 +289,40 @@
 
                 <StackPanel Grid.Column="2" Spacing="5" VerticalAlignment="Center" Margin="14,0,0,0">
 
-                    <!-- Toggles -->
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <CheckBox x:Name="AutoConnectToggle"
-                                  Content="Auto S-1"
-                                  Foreground="#888898"
-                                  FontSize="9.5"/>
-                        <CheckBox x:Name="FilterModToggle"
-                                  Content="Filter Mod"
-                                  Foreground="#888898"
-                                  FontSize="9.5"
-                                  ToolTip.Tip="Experimental: animates the filter curve to simulate envelope and LFO modulation. Based on heuristics — behaviour may not match hardware exactly."/>
-                        <CheckBox x:Name="PatternSyncToggle"
-                                  Content="Pattern Sync"
-                                  Foreground="#D0702A"
-                                  FontSize="9.5"
-                                  IsEnabled="False"
-                                  ToolTip.Tip="Experimental: auto-loads PRM data when switching patterns. Requires a PRM Folder. Files must exactly match the device — it is your responsibility to keep them in sync."/>
-                        <TextBlock Text="⚠"
-                                   Foreground="#D0702A"
-                                   FontSize="10"
-                                   VerticalAlignment="Center"
-                                   ToolTip.Tip="Files must exactly match the device — it is your responsibility to keep them in sync."/>
-                    </StackPanel>
+                    <!-- Live heuristic feature toggles (built in code-behind) -->
+                    <StackPanel x:Name="LiveFeaturesPanel" Spacing="3"/>
 
                     <Border Height="1" Background="#2C2C36" Margin="0,1"/>
 
                     <!-- Channels -->
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="MIDI Ch" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="ChannelCombo"
-                                  Width="52" Height="24" FontSize="10"
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,*" HorizontalAlignment="Stretch">
+                        <TextBlock Grid.Column="0" Text="MIDI Channel" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1" x:Name="ChannelCombo"
+                                  Margin="6,0,0,0" Height="24" FontSize="10"
                                   Background="#1E1E28" BorderBrush="#3A3A46"/>
-                        <Border Width="1" Height="14" Background="#2C2C36" Margin="4,0"/>
-                        <TextBlock Text="PC Ch" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
-                        <ComboBox x:Name="ProgramChangeChannelCombo"
-                                  Width="52" Height="24" FontSize="10"
+                        <Border Grid.Column="2" Width="1" Height="14" Background="#2C2C36" Margin="4,0"/>
+                        <TextBlock Grid.Column="3" Text="Program Change Channel" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="4" x:Name="ProgramChangeChannelCombo"
+                                  Margin="6,0,0,0" Height="24" FontSize="10"
                                   Background="#1E1E28" BorderBrush="#3A3A46"/>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- PRM Folder -->
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="PRM Folder" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
-                        <TextBox x:Name="PrmFolderBox"
-                                 Width="160" Height="24" FontSize="10"
+                    <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch">
+                        <TextBlock Grid.Column="0" Text="PRM Folder" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1" x:Name="PrmFolderBox"
+                                 Margin="6,0,0,0" Height="24" FontSize="10"
                                  IsReadOnly="True"
                                  PlaceholderText="(not set)"
                                  Background="#1A1A24"
                                  BorderBrush="#333344"
                                  Foreground="#9090A8"
                                  CornerRadius="3"/>
-                        <Button x:Name="BrowsePrmFolderButton"
+                        <Button Grid.Column="2" x:Name="BrowsePrmFolderButton"
+                                Margin="6,0,0,0"
                                 Classes="toolbar"
                                 Content="Browse…"/>
-                    </StackPanel>
+                    </Grid>
 
                 </StackPanel>
 

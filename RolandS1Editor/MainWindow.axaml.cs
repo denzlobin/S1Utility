@@ -31,9 +31,14 @@ public partial class MainWindow : Window
     private readonly List<Button> _patchButtons = new();
 
     private bool   _autoConnect;
-    private bool   _suppressPatternSyncToggle;
+    private bool   _patternSyncDialogOpen;
+    private Window? _seqWindow;
     private int    _midiChannel  = 3;
     private int    _pcChannel    = 3;
+    private Action<bool>? _setPatchMirrorEnabled;
+    private Action<bool>? _setPatchMirrorActive;
+    private Action<bool>? _setLiveViewEnabled;
+    private Action<bool>? _setLiveViewActive;
     private static readonly string SettingsPath =
         System.IO.Path.Combine(AppContext.BaseDirectory, "s1editor.settings.json");
 
@@ -52,7 +57,7 @@ public partial class MainWindow : Window
 
     // ── Aspect-ratio scaling ──────────────────────────────────────────────────
     private const  double DesignWidth  = 1100;
-    private const  double DesignHeight = 1200;
+    private const  double DesignHeight = 1100;
     private const  double AspectRatio  = DesignWidth / DesignHeight;
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -91,6 +96,7 @@ public partial class MainWindow : Window
     private static readonly IBrush VoiceAccent = new SolidColorBrush(Color.Parse("#C05878"));
     private static readonly IBrush FxAccent    = new SolidColorBrush(Color.Parse("#40C8A8"));
     private static readonly IBrush DmAccent    = new SolidColorBrush(Color.Parse("#60A8E0"));
+    private static readonly IBrush WarnBrush   = new SolidColorBrush(Color.Parse("#D0702A"));
 
     public MainWindow()
     {
@@ -135,42 +141,8 @@ public partial class MainWindow : Window
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
 
         PrmFolderBox.Text = _prm.PrmFolder;
-        AutoConnectToggle.IsChecked = _autoConnect;
-        AutoConnectToggle.IsCheckedChanged += (_, _) =>
-        {
-            _autoConnect = AutoConnectToggle.IsChecked == true;
-            SaveSettings();
-        };
+        BuildLiveFeaturesPanel();
         if (_autoConnect) TryAutoConnect();
-
-        FilterModToggle.IsChecked = _viewModel.FilterModEnabled;
-        FilterModToggle.IsCheckedChanged += (_, _) =>
-        {
-            _viewModel.FilterModEnabled = FilterModToggle.IsChecked == true;
-            if (!_viewModel.FilterModEnabled) { _filterCurveUpdate?.Invoke(); _envelopeDotUpdate?.Invoke(); }
-            SaveSettings();
-        };
-
-        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prm.PrmFolder);
-        PatternSyncToggle.IsChecked = _prm.PatternSync;
-        PatternSyncToggle.IsCheckedChanged += async (_, _) =>
-        {
-            if (_suppressPatternSyncToggle) return;
-            bool enabling = PatternSyncToggle.IsChecked == true;
-            if (enabling && !_prm.PatternSync)
-            {
-                bool confirmed = await ShowPatternSyncWarningAsync();
-                if (!confirmed)
-                {
-                    _suppressPatternSyncToggle = true;
-                    PatternSyncToggle.IsChecked = false;
-                    _suppressPatternSyncToggle = false;
-                    return;
-                }
-            }
-            _prm.PatternSync = PatternSyncToggle.IsChecked == true;
-            SaveSettings();
-        };
 
         _lastModTick = DateTime.UtcNow;
         _modTimer.Interval = TimeSpan.FromMilliseconds(16);
@@ -464,16 +436,6 @@ public partial class MainWindow : Window
         Refresh(param.Value);
         param.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => Refresh(v));
 
-        var valueLbl = new TextBlock
-        {
-            Text                = opts[GetIndex(param.Value)],
-            FontSize            = 8.5,
-            Foreground          = accent,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextAlignment       = TextAlignment.Center,
-        };
-        param.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => valueLbl.Text = opts[GetIndex(v)]);
-
         return new StackPanel
         {
             Margin              = new Thickness(3, 2, 3, 4),
@@ -483,14 +445,11 @@ public partial class MainWindow : Window
                 row,
                 new TextBlock
                 {
+                    Classes             = { "param-label" },
                     Text                = param.Name,
-                    FontSize            = 9,
-                    Foreground          = new SolidColorBrush(Color.Parse("#666666")),
                     Margin              = new Thickness(0, 3, 0, 0),
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    TextAlignment       = TextAlignment.Center,
                 },
-                valueLbl,
             },
         };
     }
@@ -874,6 +833,225 @@ public partial class MainWindow : Window
         return btn;
     }
 
+    // ── Live heuristic feature toggles ───────────────────────────────────────────
+
+    // Returns the toggle button plus two delegates to update its visual state
+    // from outside: setActive(bool) and setEnabled(bool).
+    private (Border btn, Action<bool> setActive, Action<bool> setEnabled) MakeHeuristicToggle(
+        string name, string tooltip, IBrush accent)
+    {
+        var led = new Border
+        {
+            Width             = 6,
+            Height            = 6,
+            CornerRadius      = new CornerRadius(3),
+            Margin            = new Thickness(0, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var nameLbl = new TextBlock
+        {
+            Text              = name,
+            FontSize          = 9.5,
+            FontWeight        = FontWeight.SemiBold,
+            LetterSpacing     = 0.5,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var nameRow = new StackPanel
+        {
+            Orientation       = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Children          = { led, nameLbl },
+        };
+
+        var btn = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            BorderThickness     = new Thickness(1),
+            CornerRadius        = new CornerRadius(4),
+            Padding             = new Thickness(9, 8),
+            Cursor              = new Cursor(StandardCursorType.Hand),
+            Child               = nameRow,
+        };
+        ToolTip.SetTip(btn, tooltip);
+
+        void SetActive(bool on)
+        {
+            var col = ((SolidColorBrush)accent).Color;
+            btn.Background     = on ? new SolidColorBrush(Color.FromArgb(0x18, col.R, col.G, col.B))
+                                    : new SolidColorBrush(Color.Parse("#161616"));
+            btn.BorderBrush    = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
+            led.Background     = on ? accent : new SolidColorBrush(Color.Parse("#2A2A2A"));
+            nameLbl.Foreground = on ? accent : new SolidColorBrush(Color.Parse("#555555"));
+        }
+
+        void SetEnabled(bool enabled)
+        {
+            btn.IsEnabled = enabled;
+            btn.Opacity   = enabled ? 1.0 : 0.4;
+        }
+
+        SetActive(false);
+        return (btn, SetActive, SetEnabled);
+    }
+
+    private bool HasSequencerContent()
+    {
+        int count = _prm.Sequence.StepCount;
+        for (int s = 0; s < count; s++)
+        {
+            var step = _prm.Sequence.Steps[s];
+            if (step.Notes.Any(n => n >= 0))   return true;
+            if (step.Motions.Any(m => m >= 0)) return true;
+            if (step.PitchBend != -32768)       return true;
+        }
+        return false;
+    }
+
+    private bool PrmFolderHasValidFiles()
+    {
+        if (string.IsNullOrEmpty(_prm.PrmFolder)) return false;
+        try { return System.IO.Directory.EnumerateFiles(_prm.PrmFolder, "*.prm").Any(); }
+        catch { return false; }
+    }
+
+    // Refreshes the enabled and active state of both Patch Mirror and Live View
+    // whenever the PRM folder changes or Patch Mirror is toggled.
+    private void RefreshLiveFeaturesState()
+    {
+        bool valid         = PrmFolderHasValidFiles();
+        bool patchMirrorOn = valid && _prm.PatternSync;
+
+        _setPatchMirrorEnabled?.Invoke(valid);
+        _setPatchMirrorActive?.Invoke(patchMirrorOn);
+        _setLiveViewEnabled?.Invoke(patchMirrorOn);
+
+        if (!patchMirrorOn && _viewModel.FilterModEnabled)
+        {
+            _viewModel.FilterModEnabled = false;
+            _setLiveViewActive?.Invoke(false);
+            _filterCurveUpdate?.Invoke();
+            _envelopeDotUpdate?.Invoke();
+        }
+    }
+
+    private void BuildLiveFeaturesPanel()
+    {
+        // ── Auto-connect ──────────────────────────────────────────────────────
+        var (autoBtn, setAutoActive, _) = MakeHeuristicToggle(
+            "AUTO-CONNECT",
+            "Heuristic: searches MIDI device names for \"S-1\" and connects automatically on launch " +
+            "and after a device refresh. Name matching only; any device containing \"S-1\" will match " +
+            "regardless of model. Verify the right device is selected after auto-connect.",
+            DmAccent);
+
+        setAutoActive(_autoConnect);
+        autoBtn.PointerPressed += (_, _) =>
+        {
+            _autoConnect = !_autoConnect;
+            setAutoActive(_autoConnect);
+            SaveSettings();
+        };
+
+        // ── Live View: filter curve + ADSR animation (requires Patch Mirror) ──
+        var (liveViewBtn, setLiveViewActive, setLiveViewEnabled) = MakeHeuristicToggle(
+            "ANIMATIONS",
+            "Heuristic: animates the filter curve and ADSR dot at 60 fps using the editor's current " +
+            "CC values as model inputs. The envelope and LFO routing is an approximation; it responds " +
+            "to note events but will not match the S-1 hardware signal path exactly.\n\n" +
+            "Requires Patch Mirror so the editor values reflect what is on the device.",
+            EnvAccent);
+
+        _setLiveViewActive  = setLiveViewActive;
+        _setLiveViewEnabled = setLiveViewEnabled;
+
+        bool prmValid      = PrmFolderHasValidFiles();
+        bool patchMirrorOn = prmValid && _prm.PatternSync;
+
+        if (!patchMirrorOn && _viewModel.FilterModEnabled)
+            _viewModel.FilterModEnabled = false;
+
+        setLiveViewActive(_viewModel.FilterModEnabled);
+        setLiveViewEnabled(patchMirrorOn);
+
+        liveViewBtn.PointerPressed += (_, _) =>
+        {
+            _viewModel.FilterModEnabled = !_viewModel.FilterModEnabled;
+            setLiveViewActive(_viewModel.FilterModEnabled);
+            if (!_viewModel.FilterModEnabled)
+            {
+                _filterCurveUpdate?.Invoke();
+                _envelopeDotUpdate?.Invoke();
+            }
+            SaveSettings();
+        };
+
+        // ── Patch Mirror ──────────────────────────────────────────────────────
+        var (patchMirrorBtn, setPatchMirrorActive, setPatchMirrorEnabled) = MakeHeuristicToggle(
+            "PATCH MIRROR",
+            "Heuristic: auto-loads the PRM file matching the current pattern number when you switch " +
+            "patterns (via the editor or a MIDI Program Change). The editor is updated only; no values " +
+            "are sent back to the S-1.\n\n" +
+            "Requires a PRM folder containing valid .PRM files. Accuracy depends on keeping the " +
+            "folder in sync with what is stored on the device.",
+            WarnBrush);
+
+        _setPatchMirrorEnabled = setPatchMirrorEnabled;
+        _setPatchMirrorActive  = setPatchMirrorActive;
+
+        setPatchMirrorEnabled(prmValid);
+        setPatchMirrorActive(patchMirrorOn);
+
+        patchMirrorBtn.PointerPressed += async (_, _) =>
+        {
+            if (_patternSyncDialogOpen) return;
+            bool enabling = !_prm.PatternSync;
+            if (enabling)
+            {
+                _patternSyncDialogOpen = true;
+                bool confirmed = await ShowPatternSyncWarningAsync();
+                _patternSyncDialogOpen = false;
+                if (!confirmed) return;
+            }
+            _prm.PatternSync = enabling;
+            setPatchMirrorActive(enabling);
+            setLiveViewEnabled(enabling);
+            if (!enabling)
+            {
+                _viewModel.FilterModEnabled = false;
+                setLiveViewActive(false);
+                _filterCurveUpdate?.Invoke();
+                _envelopeDotUpdate?.Invoke();
+            }
+            SaveSettings();
+        };
+
+        // ── Assemble panel ────────────────────────────────────────────────────
+        LiveFeaturesPanel.Children.Add(new TextBlock
+        {
+            Text          = "LIVE FEATURES",
+            FontSize      = 8,
+            FontWeight    = FontWeight.Bold,
+            LetterSpacing = 1.5,
+            Foreground    = new SolidColorBrush(Color.Parse("#44445A")),
+            Margin        = new Thickness(0, 0, 0, 3),
+        });
+        var btnGrid = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ColumnDefinitions   = new ColumnDefinitions("*,*,*"),
+            ColumnSpacing       = 4,
+        };
+        Grid.SetColumn(autoBtn,        0);
+        Grid.SetColumn(patchMirrorBtn, 1);
+        Grid.SetColumn(liveViewBtn,    2);
+        btnGrid.Children.Add(autoBtn);
+        btnGrid.Children.Add(patchMirrorBtn);
+        btnGrid.Children.Add(liveViewBtn);
+        LiveFeaturesPanel.Children.Add(btnGrid);
+    }
+
     private void BuildPatchPanel()
     {
         PatchGridContainer.Children.Add(new TextBlock
@@ -892,10 +1070,10 @@ public partial class MainWindow : Window
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
             row.Children.Add(new TextBlock
             {
-                Text              = $"PTN {g + 1}",
+                Text              = $"BANK {g + 1}",
                 FontSize          = 9,
                 Foreground        = new SolidColorBrush(Color.Parse("#505050")),
-                Width             = 38,
+                Width             = 46,
                 VerticalAlignment = VerticalAlignment.Center,
             });
 
@@ -1378,12 +1556,11 @@ public partial class MainWindow : Window
         // ── Row 3: SEQUENCER (full width) ────────────────────────────────
         var seqCard = MakeSectionCard("SEQUENCER", SeqAccent, out var seqContent);
 
-        // PATTERN / ARPEGGIATOR / AUTOMATION / D-MOTION as four equal columns
         var seqMetaGrid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,*,*,*"),
             ColumnSpacing     = 20,
-            Margin            = new Thickness(0, 0, 0, 4),
+            Margin            = new Thickness(0, 0, 0, 8),
         };
 
         var patCol = new StackPanel { Spacing = 2 };
@@ -1424,11 +1601,247 @@ public partial class MainWindow : Window
         seqMetaGrid.Children.Add(dmCol);
 
         seqContent.Children.Add(seqMetaGrid);
-        seqContent.Children.Add(MakeSubSectionHeader("STEPS", SeqAccent));
-        seqContent.Children.Add(MakeSequencerControl());
+
+        var seqBtnLabel = new TextBlock
+        {
+            FontSize      = 10.5,
+            FontWeight    = FontWeight.SemiBold,
+            LetterSpacing = 0.8,
+        };
+        var seqBtn = new Border
+        {
+            BorderThickness     = new Thickness(1),
+            CornerRadius        = new CornerRadius(4),
+            Padding             = new Thickness(20, 9),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Cursor              = new Cursor(StandardCursorType.Hand),
+            Child               = seqBtnLabel,
+        };
+
+        var seqAccentClr = ((SolidColorBrush)SeqAccent).Color;
+        void RefreshSeqBtn()
+        {
+            bool has              = HasSequencerContent();
+            seqBtn.IsEnabled      = has;
+            seqBtn.Opacity        = has ? 1.0 : 0.35;
+            seqBtn.Background     = has
+                ? new SolidColorBrush(Color.FromArgb(0x18, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B))
+                : new SolidColorBrush(Color.Parse("#161616"));
+            seqBtn.BorderBrush    = has ? SeqAccent : new SolidColorBrush(Color.Parse("#2E2E2E"));
+            seqBtnLabel.Text       = "STEPS & AUTOMATION" + (has ? "  ↗" : "");
+            seqBtnLabel.Foreground = has ? SeqAccent : new SolidColorBrush(Color.Parse("#555555"));
+        }
+
+        RefreshSeqBtn();
+        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(RefreshSeqBtn);
+        seqBtn.PointerPressed     += (_, _) => ShowSequencerWindow();
+
+        seqContent.Children.Add(seqBtn);
 
         Grid.SetColumn(seqCard, 0); Grid.SetRow(seqCard, 3); Grid.SetColumnSpan(seqCard, 3);
         PrmViewerGrid.Children.Add(seqCard);
+    }
+
+    private void ShowSequencerWindow()
+    {
+        if (_seqWindow != null) { _seqWindow.Activate(); return; }
+
+        var (seqControl, seqUnsubscribe) = MakeSequencerControl();
+
+        var seqAccentClr = ((SolidColorBrush)SeqAccent).Color;
+
+        var exportLbl = new TextBlock
+        {
+            Text          = "EXPORT MIDI",
+            FontSize      = 10.5,
+            FontWeight    = FontWeight.SemiBold,
+            LetterSpacing = 0.8,
+        };
+        var exportBtn = new Border
+        {
+            BorderThickness     = new Thickness(1),
+            CornerRadius        = new CornerRadius(4),
+            Padding             = new Thickness(20, 9),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin              = new Thickness(0, 12, 0, 0),
+            Cursor              = new Cursor(StandardCursorType.Hand),
+            Child               = exportLbl,
+        };
+        exportBtn.PointerPressed += async (_, _) => await ExportMidiAsync();
+
+        void RefreshExportBtn()
+        {
+            bool has              = HasSequencerContent();
+            exportBtn.IsEnabled   = has;
+            exportBtn.Opacity     = has ? 1.0 : 0.35;
+            exportBtn.BorderBrush = has ? SeqAccent : new SolidColorBrush(Color.Parse("#2E2E2E"));
+            exportBtn.Background  = has
+                ? new SolidColorBrush(Color.FromArgb(0x18, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B))
+                : new SolidColorBrush(Color.Parse("#161616"));
+            exportLbl.Foreground  = has ? SeqAccent : new SolidColorBrush(Color.Parse("#555555"));
+        }
+
+        RefreshExportBtn();
+
+        const int LabelW = 26, ColW = 15, WPad = 56;
+        int CalcWidth() => Math.Max(480, LabelW + _prm.Sequence.StepCount * ColW + WPad);
+
+        _seqWindow = new Window
+        {
+            Title                 = "Steps & Automation",
+            Width                 = CalcWidth(),
+            SizeToContent         = SizeToContent.Height,
+            MaxHeight             = 800,
+            Background            = new SolidColorBrush(Color.Parse("#18181E")),
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content               = new Border
+            {
+                Padding = new Thickness(14),
+                Child   = new StackPanel { Children = { seqControl, exportBtn } },
+            },
+        };
+
+        EventHandler dataHandler = (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (_seqWindow == null) return;
+            _seqWindow.Width = CalcWidth();
+            RefreshExportBtn();
+        });
+        _prm.Sequence.DataChanged += dataHandler;
+
+        _seqWindow.Closed += (_, _) =>
+        {
+            _prm.Sequence.DataChanged -= dataHandler;
+            seqUnsubscribe();
+            _seqWindow = null;
+        };
+
+        _seqWindow.Show(this);
+    }
+
+    private async Task ExportMidiAsync()
+    {
+        if (_seqWindow == null) return;
+
+        var file = await _seqWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title             = "Export MIDI",
+            SuggestedFileName = "sequencer",
+            DefaultExtension  = ".mid",
+            FileTypeChoices   = new[]
+            {
+                new FilePickerFileType("MIDI File") { Patterns = new[] { "*.mid", "*.midi" } },
+            },
+        });
+
+        if (file == null) return;
+
+        byte[] midiBytes = BuildMidiFile();
+        await using var stream = await file.OpenWriteAsync();
+        await stream.WriteAsync(midiBytes);
+    }
+
+    private byte[] BuildMidiFile()
+    {
+        const int TicksPerBeat = 480;
+        const int TicksPerStep = TicksPerBeat / 4;  // 16th note = 120 ticks
+
+        double bpm       = _prm.Sequence.Tempo > 0 ? _prm.Sequence.Tempo / 100.0 : 120.0;
+        int    usPerBeat = (int)Math.Round(60_000_000.0 / bpm);
+        int    stepCount = _prm.Sequence.StepCount;
+
+        var events = new List<(int Tick, byte[] Data)>();
+
+        events.Add((0, new byte[]
+        {
+            0xFF, 0x51, 0x03,
+            (byte)(usPerBeat >> 16), (byte)(usPerBeat >> 8), (byte)usPerBeat,
+        }));
+
+        for (int s = 0; s < stepCount; s++)
+        {
+            var step = _prm.Sequence.Steps[s];
+            int tick = s * TicksPerStep;
+
+            for (int v = 0; v < 4; v++)
+            {
+                int note = step.Notes[v];
+                if (note < 0) continue;
+                int vel     = step.Velocities[v] > 0 ? Math.Clamp(step.Velocities[v], 1, 127) : 100;
+                int lenTick = (int)Math.Max(1, Math.Round(Math.Max(1, step.Lengths[v]) / 100.0 * TicksPerStep));
+                events.Add((tick,            new byte[] { 0x90, (byte)note, (byte)vel }));
+                events.Add((tick + lenTick,  new byte[] { 0x80, (byte)note, 0 }));
+            }
+
+            for (int m = 0; m < 8; m++)
+            {
+                int mv = step.Motions[m];
+                if (mv < 0) continue;
+                int cc = _prm.Sequence.MotionCCs[m];
+                if (cc < 0) continue;
+                events.Add((tick, new byte[] { 0xB0, (byte)cc, (byte)mv }));
+            }
+
+            if (step.PitchBend != -32768)
+            {
+                int pb     = Math.Clamp(8192 + (int)Math.Round(step.PitchBend * 8192.0 / 32768.0), 0, 16383);
+                events.Add((tick, new byte[] { 0xE0, (byte)(pb & 0x7F), (byte)((pb >> 7) & 0x7F) }));
+            }
+        }
+
+        int endTick = events.Count > 0 ? events.Max(e => e.Tick) + TicksPerStep : TicksPerStep;
+        events.Add((endTick, new byte[] { 0xFF, 0x2F, 0x00 }));
+
+        events.Sort((a, b) =>
+        {
+            int cmp = a.Tick.CompareTo(b.Tick);
+            if (cmp != 0) return cmp;
+            return (b.Data[0] == 0x80).CompareTo(a.Data[0] == 0x80);  // note-offs first
+        });
+
+        var track = new List<byte>();
+        int prevTick = 0;
+        foreach (var (tick, data) in events)
+        {
+            SmfWriteVlq(track, tick - prevTick);
+            track.AddRange(data);
+            prevTick = tick;
+        }
+
+        var smf = new List<byte>();
+        smf.AddRange(new byte[] { (byte)'M', (byte)'T', (byte)'h', (byte)'d' });
+        SmfWriteBe32(smf, 6);
+        SmfWriteBe16(smf, 0);
+        SmfWriteBe16(smf, 1);
+        SmfWriteBe16(smf, TicksPerBeat);
+        smf.AddRange(new byte[] { (byte)'M', (byte)'T', (byte)'r', (byte)'k' });
+        SmfWriteBe32(smf, track.Count);
+        smf.AddRange(track);
+
+        return smf.ToArray();
+    }
+
+    private static void SmfWriteVlq(List<byte> buf, int value)
+    {
+        var stack = new Stack<byte>();
+        stack.Push((byte)(value & 0x7F));
+        value >>= 7;
+        while (value > 0) { stack.Push((byte)((value & 0x7F) | 0x80)); value >>= 7; }
+        foreach (var b in stack) buf.Add(b);
+    }
+
+    private static void SmfWriteBe16(List<byte> buf, int value)
+    {
+        buf.Add((byte)(value >> 8));
+        buf.Add((byte)value);
+    }
+
+    private static void SmfWriteBe32(List<byte> buf, int value)
+    {
+        buf.Add((byte)(value >> 24));
+        buf.Add((byte)(value >> 16));
+        buf.Add((byte)(value >> 8));
+        buf.Add((byte)value);
     }
 
     // Creates a section card (Border + title + content StackPanel).
@@ -1664,7 +2077,7 @@ public partial class MainWindow : Window
         new SolidColorBrush(Color.Parse("#B070D8")),  // V4 purple
     };
 
-    private Control MakeSequencerControl()
+    private (Control, Action) MakeSequencerControl()
     {
         const double RowH     =  5.0;
         const double ColW     = 15.0;
@@ -1931,7 +2344,7 @@ public partial class MainWindow : Window
             {
                 motionLanes.Children.Add(new TextBlock
                 {
-                    Text       = "MOTION",
+                    Text       = "AUTOMATION",
                     FontSize   = 8,
                     FontWeight = FontWeight.Bold,
                     Foreground = new SolidColorBrush(Color.Parse("#606060")),
@@ -1942,22 +2355,26 @@ public partial class MainWindow : Window
             }
         }
 
+        EventHandler dataChangedHandler = (_, _) => Dispatcher.UIThread.Post(Rebuild);
         Rebuild();
-        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(Rebuild);
+        _prm.Sequence.DataChanged += dataChangedHandler;
 
-        return new StackPanel
-        {
-            Children =
+        return (
+            new StackPanel
             {
-                infoLabel,
-                new ScrollViewer
+                Children =
                 {
-                    HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-                    VerticalScrollBarVisibility   = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-                    Content                       = new StackPanel { Children = { canvas, motionLanes } },
+                    infoLabel,
+                    new ScrollViewer
+                    {
+                        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                        VerticalScrollBarVisibility   = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                        Content                       = new StackPanel { Children = { canvas, motionLanes } },
+                    },
                 },
             },
-        };
+            () => _prm.Sequence.DataChanged -= dataChangedHandler
+        );
     }
 
     // ── Shared info-row helpers ───────────────────────────────────────────────
@@ -2208,12 +2625,12 @@ public partial class MainWindow : Window
     {
         bool confirmed = false;
 
-        var yesBtn = new Button { Content = "Enable Pattern Sync", Classes = { "toolbar" } };
-        var noBtn  = new Button { Content = "Cancel",              Classes = { "toolbar" } };
+        var yesBtn = new Button { Content = "Enable Patch Mirror", Classes = { "toolbar" } };
+        var noBtn  = new Button { Content = "Cancel",             Classes = { "toolbar" } };
 
         var dlg = new Window
         {
-            Title                 = "Pattern Sync — Safety Warning",
+            Title                 = "Patch Mirror: Safety Warning",
             Width                 = 480,
             SizeToContent         = SizeToContent.Height,
             CanResize             = false,
@@ -2238,9 +2655,9 @@ public partial class MainWindow : Window
                         Foreground   = new SolidColorBrush(Color.Parse("#CCCCCC")),
                         TextWrapping = TextWrapping.Wrap,
                         Text         =
-                            "When Pattern Sync is enabled, switching patterns — either by clicking " +
-                            "a pattern button in the editor or by pressing a pattern on the S-1 — " +
-                            "will automatically load the corresponding PRM file from your PRM Folder " +
+                            "When Patch Mirror is enabled, switching patterns (by clicking a button " +
+                            "in the editor or by pressing a pattern button on the S-1) will " +
+                            "automatically load the corresponding PRM file from your PRM folder " +
                             "and update all editor values and the PRM Viewer.\n\n" +
                             "No values are sent back to the device during a pattern switch. " +
                             "The editor is updated only.",
@@ -2290,9 +2707,9 @@ public partial class MainWindow : Window
 
         if (folders.Count == 0) return;
 
-        _prm.PrmFolder        = folders[0].TryGetLocalPath() ?? "";
+        _prm.PrmFolder    = folders[0].TryGetLocalPath() ?? "";
         PrmFolderBox.Text = _prm.PrmFolder;
-        PatternSyncToggle.IsEnabled = !string.IsNullOrEmpty(_prm.PrmFolder);
+        RefreshLiveFeaturesState();
         SaveSettings();
     }
 
