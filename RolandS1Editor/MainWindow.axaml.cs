@@ -65,10 +65,15 @@ public partial class MainWindow : Window
     private WndProcDelegate? _arWndProcDelegate;
     private IntPtr           _arOldWndProc;
 
+    private static readonly string[] s_dmAssignNames =
+        { "Off", "Modulation", "Frequency", "Resonance", "Pitch Bend", "Pan", "Expression", "Delay Level", "Reverb Level" };
+
     // Brushes reused across all 64 step buttons.
-    private static readonly IBrush s_chopOnBrush  = new SolidColorBrush(Color.Parse("#CC2222"));
-    private static readonly IBrush s_chopOffBrush = new SolidColorBrush(Color.Parse("#383838"));
-    private static readonly IBrush s_chopBorder   = new SolidColorBrush(Color.Parse("#505050"));
+    private static readonly IBrush s_chopOnBrush   = new SolidColorBrush(Color.Parse("#CC2222"));
+    private static readonly IBrush s_chopOffBrush  = new SolidColorBrush(Color.Parse("#252530"));
+    private static readonly IBrush s_chopBorder    = new SolidColorBrush(Color.Parse("#505050"));
+    private static readonly IBrush s_chopOnBorder  = new SolidColorBrush(Color.Parse("#E03030"));
+    private static readonly IBrush s_chopOffBorder = new SolidColorBrush(Color.Parse("#1A1A24"));
 
 
     // Labels for values that need special formatting (tempo as BPM, signed transpose, motion CC names)
@@ -1136,6 +1141,9 @@ public partial class MainWindow : Window
             "REVERB_PRE_DELAY"              => $"{v}ms",
             "LENG"                          => $"{v} steps",
             "RISER_RESO" or "RISER_LEVEL"   => $"{v}%",
+            "DM_ASSIGN_X" or "DM_ASSIGN_Y"
+                or "DM_ASSIGN_TAP" or "DM_ASSIGN_FF"
+                                            => v < s_dmAssignNames.Length ? s_dmAssignNames[v] : v.ToString(),
             _                               => v.ToString(),
         };
     }
@@ -1499,16 +1507,21 @@ public partial class MainWindow : Window
         var lfoCard = MakeSectionCard("LFO", LfoAccent, out var lfoContent);
         lfoContent.Children.Add(MakeTwoColumnGrid(
             _patch.Lfo.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
-        var col1Row2Stack = new StackPanel { Spacing = 4 };
-        col1Row2Stack.Children.Add(lfoCard);
-        col1Row2Stack.Children.Add(riserCard);
+        var col1Row2Grid = new Grid { RowDefinitions = new RowDefinitions("*,*"), RowSpacing = 4 };
+        Grid.SetRow(lfoCard,   0);
+        Grid.SetRow(riserCard, 1);
+        col1Row2Grid.Children.Add(lfoCard);
+        col1Row2Grid.Children.Add(riserCard);
 
-        var col1Stack = new StackPanel { Spacing = 4 };
-        col1Stack.Children.Add(filterCard);
-        col1Stack.Children.Add(envCard);
-        col1Stack.Children.Add(col1Row2Stack);
-        Grid.SetColumn(col1Stack, 1); Grid.SetRow(col1Stack, 0); Grid.SetRowSpan(col1Stack, 3);
-        PrmViewerGrid.Children.Add(col1Stack);
+        var col1Grid = new Grid { RowDefinitions = new RowDefinitions("*,*,*"), RowSpacing = 4 };
+        Grid.SetRow(filterCard,   0);
+        Grid.SetRow(envCard,      1);
+        Grid.SetRow(col1Row2Grid, 2);
+        col1Grid.Children.Add(filterCard);
+        col1Grid.Children.Add(envCard);
+        col1Grid.Children.Add(col1Row2Grid);
+        Grid.SetColumn(col1Grid, 1); Grid.SetRow(col1Grid, 0); Grid.SetRowSpan(col1Grid, 3);
+        PrmViewerGrid.Children.Add(col1Grid);
 
         // ── Column 2: EFFECTS / VOICE ─────────────────────────────────────
         var fxCard = MakeSectionCard("REVERB", FxAccent, out var fxContent);
@@ -1965,15 +1978,22 @@ public partial class MainWindow : Window
             }
         }
 
-        var barsRow   = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
-        var labelsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(0, 2, 0, 0) };
+        const double Gap    = 2.0;
+        const double TotalW = 16 * BarW + 15 * Gap;
+        const double TotalH = CellH * 2 + 1;
+
+        var barsRow   = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Gap };
+        var labelsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Gap,
+                                         Margin = new Thickness(0, 2, 0, 0) };
 
         for (int i = 0; i < 16; i++)
         {
             var posBar = new Border { Width = BarW, Height = 0, Background = OscAccent,
-                                      VerticalAlignment = VerticalAlignment.Bottom };
+                                      VerticalAlignment = VerticalAlignment.Bottom,
+                                      CornerRadius = new CornerRadius(2, 2, 0, 0) };
             var negBar = new Border { Width = BarW, Height = 0, Background = OscAccent,
-                                      VerticalAlignment = VerticalAlignment.Top };
+                                      VerticalAlignment = VerticalAlignment.Top,
+                                      CornerRadius = new CornerRadius(0, 0, 2, 2) };
             posBars[i] = posBar;
             negBars[i] = negBar;
 
@@ -2005,10 +2025,40 @@ public partial class MainWindow : Window
             labelsRow.Children.Add(lbl);
         }
 
+        // Faint horizontal reference lines at ±100%, ±50%, 0% levels.
+        var lineColor       = new SolidColorBrush(Color.FromArgb(0x35, 0x88, 0x88, 0x88));
+        var gridLinesCanvas = new Canvas { Width = TotalW, Height = TotalH, IsHitTestVisible = false };
+        foreach (double y in new[] { 0.5, CellH / 2, CellH, CellH + 1 + CellH / 2, TotalH - 0.5 })
+        {
+            var gridLine = new Rectangle { Width = TotalW, Height = 1, Fill = lineColor };
+            Canvas.SetTop(gridLine, y);
+            gridLinesCanvas.Children.Add(gridLine);
+        }
+
+        // Layer grid lines behind bars in a single-cell Grid, then wrap in a styled Border.
+        gridLinesCanvas.HorizontalAlignment = HorizontalAlignment.Left;
+        gridLinesCanvas.VerticalAlignment   = VerticalAlignment.Top;
+        barsRow.HorizontalAlignment         = HorizontalAlignment.Left;
+        barsRow.VerticalAlignment           = VerticalAlignment.Top;
+
+        var innerGrid = new Grid();
+        innerGrid.Children.Add(gridLinesCanvas);
+        innerGrid.Children.Add(barsRow);
+
+        var barsContainer = new Border
+        {
+            Background      = new SolidColorBrush(Color.Parse("#1A1A1A")),
+            BorderBrush     = new SolidColorBrush(Color.FromArgb(0x66, 0x38, 0x38, 0x48)),
+            BorderThickness = new Thickness(1),
+            CornerRadius    = new CornerRadius(3),
+            Padding         = new Thickness(3),
+            Child           = innerGrid,
+        };
+
         UpdateBars();
         _prm.DrawWave.PointsChanged += (_, _) => Dispatcher.UIThread.Post(UpdateBars);
 
-        return new StackPanel { Children = { barsRow, labelsRow } };
+        return new StackPanel { Children = { barsContainer, labelsRow } };
     }
 
     // Chop step-pattern grid display.
@@ -2021,31 +2071,56 @@ public partial class MainWindow : Window
             int waveform    = w;
             var stepSquares = new Border[ChopPattern.Steps];
 
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0 };
-            row.Children.Add(new TextBlock
+            // Fixed-height Grid row: label | separator | steps — guarantees vertical alignment.
+            var row = new Grid
+            {
+                Height            = 18,
+                ColumnDefinitions = new ColumnDefinitions("42,Auto,Auto"),
+            };
+
+            var rowLabel = new TextBlock
             {
                 Text              = ChopPattern.WaveformNames[w],
-                Width             = 42,
                 FontSize          = 10,
                 Foreground        = new SolidColorBrush(Color.Parse("#BBBBBB")),
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            Grid.SetColumn(rowLabel, 0);
+            row.Children.Add(rowLabel);
 
+            var sep = new Border
+            {
+                Width             = 1,
+                Margin            = new Thickness(3, 2, 4, 2),
+                Background        = new SolidColorBrush(Color.Parse("#2A2A38")),
+                VerticalAlignment = VerticalAlignment.Stretch,
+            };
+            Grid.SetColumn(sep, 1);
+            row.Children.Add(sep);
+
+            var stepsContainer = new StackPanel
+            {
+                Orientation       = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
             for (int s = 0; s < ChopPattern.Steps; s++)
             {
+                bool on = _prm.ChopPattern.GetStep(w, s);
                 var sq = new Border
                 {
                     Width           = 16,
                     Height          = 16,
                     Margin          = new Thickness(1, 0),
-                    Background      = _prm.ChopPattern.GetStep(w, s) ? s_chopOnBrush : s_chopOffBrush,
-                    BorderBrush     = s_chopBorder,
+                    Background      = on ? s_chopOnBrush  : s_chopOffBrush,
+                    BorderBrush     = on ? s_chopOnBorder : s_chopOffBorder,
                     BorderThickness = new Thickness(1),
                     CornerRadius    = new CornerRadius(2),
                 };
                 stepSquares[s] = sq;
-                row.Children.Add(sq);
+                stepsContainer.Children.Add(sq);
             }
+            Grid.SetColumn(stepsContainer, 2);
+            row.Children.Add(stepsContainer);
 
             _prm.ChopPattern.PatternChanged += (_, changedWaveform) =>
             {
@@ -2053,8 +2128,11 @@ public partial class MainWindow : Window
                 Dispatcher.UIThread.Post(() =>
                 {
                     for (int s = 0; s < ChopPattern.Steps; s++)
-                        stepSquares[s].Background = _prm.ChopPattern.GetStep(waveform, s)
-                            ? s_chopOnBrush : s_chopOffBrush;
+                    {
+                        bool on = _prm.ChopPattern.GetStep(waveform, s);
+                        stepSquares[s].Background  = on ? s_chopOnBrush  : s_chopOffBrush;
+                        stepSquares[s].BorderBrush = on ? s_chopOnBorder : s_chopOffBorder;
+                    }
                 });
             };
 
