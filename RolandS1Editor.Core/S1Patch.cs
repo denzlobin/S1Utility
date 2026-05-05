@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using static RolandS1Editor.S1ParameterType;
 
@@ -139,6 +140,45 @@ public class S1Patch : IDisposable
             .ToList();
 
         _byCC = AllParameters.ToDictionary(p => p.CcNumber);
+
+        _unsyncedCount = AllParameters.Count;
+        foreach (var p in AllParameters)
+            p.SyncStateChanged += OnParameterSyncChanged;
+    }
+
+    // ── Sync state ───────────────────────────────────────────────────────────
+
+    private int _unsyncedCount;
+
+    // Number of parameters whose synth value is not yet confirmed to match the editor.
+    public int UnsyncedCount => _unsyncedCount;
+
+    // Fires (from any thread) whenever UnsyncedCount changes.
+    public event EventHandler<int>? SyncCountChanged;
+
+    // Mark one parameter synced by CC number. No-op if not found or already synced.
+    public void MarkSynced(int ccNumber) => GetByCC(ccNumber)?.MarkSynced();
+
+    // Mark all parameters synced (e.g. after Send All or a successful PRM load).
+    public void MarkAllSynced()
+    {
+        foreach (var p in AllParameters)
+            p.MarkSynced();
+    }
+
+    // Reset all parameters to unsynced — call at the start of every connect/reconnect.
+    public void ResetAllSync()
+    {
+        foreach (var p in AllParameters)
+            p.ResetSync();
+    }
+
+    private void OnParameterSyncChanged(object? sender, bool synced)
+    {
+        int remaining = synced
+            ? Interlocked.Decrement(ref _unsyncedCount)
+            : Interlocked.Increment(ref _unsyncedCount);
+        SyncCountChanged?.Invoke(this, Math.Max(0, remaining));
     }
 
     // ── MIDI transport ──────────────────────────────────────────────────────

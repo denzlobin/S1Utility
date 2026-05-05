@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace RolandS1Editor;
 
@@ -34,6 +35,32 @@ public class S1Parameter
     public string[]?       Options       { get; }
 
     private int _value;
+
+    // ── Sync state ────────────────────────────────────────────────────────────
+
+    // 0 = unsynced, 1 = synced. Manipulated with Interlocked so it is safe to
+    // write from the MIDI receive thread and read from the UI thread.
+    private int _syncedFlag;
+
+    // True once we know the synth's value for this parameter matches the editor.
+    // Starts false; transitions to true via MarkSynced() — never resets in a session.
+    public bool IsSynced => _syncedFlag == 1;
+
+    // Fires exactly once per parameter when it transitions unsynced → synced.
+    // May fire from any thread; subscribers must dispatch to UI if needed.
+    public event EventHandler<bool>? SyncStateChanged;
+
+    public void MarkSynced()
+    {
+        if (Interlocked.Exchange(ref _syncedFlag, 1) == 0)
+            SyncStateChanged?.Invoke(this, true);
+    }
+
+    internal void ResetSync()
+    {
+        if (Interlocked.Exchange(ref _syncedFlag, 0) == 1)
+            SyncStateChanged?.Invoke(this, false);
+    }
 
     // Setting Value from the UI: clamps, sends CC to hardware, notifies UI.
     public int Value

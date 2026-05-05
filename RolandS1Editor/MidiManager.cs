@@ -111,6 +111,7 @@ public sealed class MidiManager : IDisposable
         switch (e.Event)
         {
             case ControlChangeEvent cc when (int)cc.Channel == Channel - 1:
+                _patch.MarkSynced((int)cc.ControlNumber);
                 _patch.HandleIncomingCC((int)cc.ControlNumber, (int)cc.ControlValue);
                 break;
             case NoteOnEvent noteOn when (int)noteOn.Channel == Channel - 1:

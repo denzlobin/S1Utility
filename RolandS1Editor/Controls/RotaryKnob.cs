@@ -35,6 +35,16 @@ public class RotaryKnob : Control
     public static readonly StyledProperty<IBrush?> AccentBrushProperty =
         AvaloniaProperty.Register<RotaryKnob, IBrush?>(nameof(AccentBrush));
 
+    // When false the knob renders desaturated (gray arc + dim indicator) to
+    // signal that the editor value may not match what is loaded on the synth.
+    public static readonly StyledProperty<bool> IsSyncedProperty =
+        AvaloniaProperty.Register<RotaryKnob, bool>(nameof(IsSynced), defaultValue: false);
+
+    // The lowest CC value this knob can produce. Values below MinValue are
+    // clamped and the arc treats MinValue as the visual zero position.
+    public static readonly StyledProperty<int> MinValueProperty =
+        AvaloniaProperty.Register<RotaryKnob, int>(nameof(MinValue), defaultValue: 0);
+
     public int Value
     {
         get => GetValue(ValueProperty);
@@ -45,6 +55,18 @@ public class RotaryKnob : Control
     {
         get => GetValue(AccentBrushProperty);
         set => SetValue(AccentBrushProperty, value);
+    }
+
+    public bool IsSynced
+    {
+        get => GetValue(IsSyncedProperty);
+        set => SetValue(IsSyncedProperty, value);
+    }
+
+    public int MinValue
+    {
+        get => GetValue(MinValueProperty);
+        set => SetValue(MinValueProperty, Math.Clamp(value, 0, 126));
     }
 
     // Raised whenever Value changes so callers can update their data model.
@@ -75,7 +97,8 @@ public class RotaryKnob : Control
             InvalidateVisual();
             ValueChanged?.Invoke(this, Value);
         }
-        else if (change.Property == AccentBrushProperty)
+        else if (change.Property == AccentBrushProperty || change.Property == IsSyncedProperty
+                                                        || change.Property == MinValueProperty)
         {
             InvalidateVisual();
         }
@@ -85,13 +108,18 @@ public class RotaryKnob : Control
 
     public override void Render(DrawingContext dc)
     {
-        var center = new Point(Cx, Cy);
-        var accent = AccentBrush ?? new SolidColorBrush(Color.Parse("#F0A040"));
+        var center  = new Point(Cx, Cy);
+        bool synced = IsSynced;
 
-        // 1. Knob body — dark filled circle with a subtle rim
+        // Accent colour: full colour when synced, flat gray when not.
+        IBrush accent = synced
+            ? (AccentBrush ?? new SolidColorBrush(Color.Parse("#F0A040")))
+            : new SolidColorBrush(Color.Parse("#484848"));
+
+        // 1. Knob body — dark filled circle; rim slightly dimmer when unsynced
         dc.DrawEllipse(
             new SolidColorBrush(Color.Parse("#2C2C2C")),
-            new Pen(new SolidColorBrush(Color.Parse("#5A5A5A")), 1.5),
+            new Pen(new SolidColorBrush(Color.Parse(synced ? "#5A5A5A" : "#404040")), 1.5),
             center, BodyRadius, BodyRadius);
 
         // 2. Background track arc — shows the full 300° travel range
@@ -100,8 +128,11 @@ public class RotaryKnob : Control
                 lineCap: PenLineCap.Round),
             center, TrackRadius, StartAngleDeg, TotalSweepDeg);
 
-        // 3. Value arc — filled portion in the section's accent colour
-        double valueSweep = Value / 127.0 * TotalSweepDeg;
+        // 3. Value arc — normalized so MinValue renders at the visual zero position
+        int    minV       = MinValue;
+        double valueSweep = (127 - minV) > 0
+            ? Math.Max(0, Value - minV) / (double)(127 - minV) * TotalSweepDeg
+            : 0;
         if (valueSweep > 0.5)
         {
             DrawArc(dc,
@@ -109,7 +140,7 @@ public class RotaryKnob : Control
                 center, TrackRadius, StartAngleDeg, valueSweep);
         }
 
-        // 4. Indicator line — points from near-centre to the knob edge
+        // 4. Indicator line — dim when unsynced
         double indicatorRad = (StartAngleDeg + valueSweep) * Math.PI / 180.0;
         var innerPt = new Point(
             Cx + IndicatorInner * Math.Cos(indicatorRad),
@@ -118,7 +149,8 @@ public class RotaryKnob : Control
             Cx + IndicatorOuter * Math.Cos(indicatorRad),
             Cy + IndicatorOuter * Math.Sin(indicatorRad));
         dc.DrawLine(
-            new Pen(Brushes.White, 1.5, lineCap: PenLineCap.Round),
+            new Pen(new SolidColorBrush(Color.Parse(synced ? "#FFFFFF" : "#505050")),
+                1.5, lineCap: PenLineCap.Round),
             innerPt, outerPt);
     }
 
@@ -168,7 +200,7 @@ public class RotaryKnob : Control
         if (!_isDragging) return;
         // Dragging up (negative delta) increases value; down decreases it.
         var delta = _dragStartY - e.GetPosition(this).Y;
-        Value = Math.Clamp(_dragStartValue + (int)(delta * 0.8), 0, 127);
+        Value = Math.Clamp(_dragStartValue + (int)(delta * 0.8), MinValue, 127);
         e.Handled = true;
     }
 

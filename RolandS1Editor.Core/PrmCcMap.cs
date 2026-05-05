@@ -77,9 +77,9 @@ public static class PrmCcMap
             { "VCO_NOISE_LEVEL",        P(23,  0,   255) },
             { "FINE_TUNE",              P(76,  0,   255) },   // 128 in PRM → CC 64
             { "NOISE_MODE",             P(78,  0,   127) },
-            { "OSC_DRAW_MULT",          P(102, 0,   127) },
-            { "OSC_CHOP_OVERTONE",      P(103, 0,   255) },   // PRM 0-255 native; display 0-200 via cc*200/127
-            { "OSC_CHOP_COMB",          P(104, 1,   32,  3) }, // PRM 1–32 → CC 3–127 (CC floor matches hardware min)
+            { "OSC_DRAW_MULT",          P(102, 7,   255, 3) }, // PRM 7–255 → CC 3–127; PRM 7 = hardware init = CC 3 = display 1.0
+            { "OSC_CHOP_OVERTONE",      P(103, 0,   255) },   // PRM 0-255 native; display 0-200 via cc*255/127, capped 200
+            { "OSC_CHOP_COMB",          P(104, 7,   255, 3) }, // PRM 7–255 → CC 3–127; PRM 7 = hardware init = CC 3 = display 1.0
             { "OSC_DRAW_SW",            P(107, 0,   127) },
 
             // ── Filter ───────────────────────────────────────────────────────

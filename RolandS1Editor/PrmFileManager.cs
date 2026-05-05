@@ -128,7 +128,16 @@ public sealed class PrmFileManager
     {
         using var stream = typeof(PrmFileManager).Assembly.GetManifestResourceStream("InitPatch.prm")!;
         using var reader = new StreamReader(stream);
-        ApplyPrmData(PrmFileParser.Parse(reader));
+        var data = PrmFileParser.Parse(reader);
+        ApplyPrmData(data);
+
+        // When Chop Type is 0 the hardware does not apply Chop Overtone to the
+        // synthesis engine during a pattern load, even if the PRM stores a non-zero
+        // value. Incoming MIDI CC103 bypasses that gate, so we zero it explicitly.
+        bool chopTypeOff = !data.Parameters.TryGetValue("OSC_CHOP_TYPE", out var ct)
+                           || ct == "0";
+        if (chopTypeOff)
+            _patch.HandleIncomingCC(103, 0);
     }
 
     public void ApplyPrmData(PrmFileData data)
@@ -215,6 +224,7 @@ public sealed class PrmFileManager
         }
 
         ApplyPrmData(parsed);
+        _patch.MarkAllSynced();
         StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)}", "#888888"));
     }
 

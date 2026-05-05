@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly List<Button> _patchButtons = new();
 
     private bool   _autoConnect;
+    private bool   _isConnected;
     private bool   _patternSyncDialogOpen;
     private Window? _seqWindow;
     private int    _midiChannel  = 3;
@@ -112,11 +113,13 @@ public partial class MainWindow : Window
         _prm.MetaLoaded    += OnPrmMetaLoaded;
         _prm.StatusChanged += (_, args) => SetStatus(args.Message, args.Color);
 
-        _midiMgr.Disconnected         += (_, _) => Dispatcher.UIThread.Post(OnDeviceDisconnected);
-        _midiMgr.NoteOnReceived       += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOn);
-        _midiMgr.NoteOffReceived      += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOff);
+        _midiMgr.Disconnected          += (_, _) => Dispatcher.UIThread.Post(OnDeviceDisconnected);
+        _midiMgr.NoteOnReceived        += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOn);
+        _midiMgr.NoteOffReceived       += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOff);
         _midiMgr.ProgramChangeReceived += (_, prog) => Dispatcher.UIThread.Post(() => HighlightPatchButton(prog));
-        _midiMgr.ActivityReceived     += (_, _) => _lastMidiActivity = DateTime.UtcNow;
+        _midiMgr.ActivityReceived      += (_, _) => _lastMidiActivity = DateTime.UtcNow;
+
+        _patch.SyncCountChanged += (_, count) => Dispatcher.UIThread.Post(() => UpdateSyncIndicator(count));
 
         for (int i = 0; i < 8; i++)
             _motionCcLabels[i] = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
@@ -147,6 +150,7 @@ public partial class MainWindow : Window
 
         PrmFolderBox.Text = _prm.PrmFolder;
         BuildLiveFeaturesPanel();
+        UpdateSyncIndicator(_patch.UnsyncedCount);
         if (_autoConnect) TryAutoConnect();
 
         _lastModTick = DateTime.UtcNow;
@@ -378,6 +382,8 @@ public partial class MainWindow : Window
         var borders      = new Border[opts.Length];
         var setColor     = new Action<IBrush>[opts.Length];
 
+        bool isSynced = param.IsSynced;
+
         int GetIndex(int v) => param.ParameterType == S1ParameterType.Toggle
             ? (v > 0 ? 1 : 0)
             : Math.Clamp(v, 0, opts.Length - 1);
@@ -388,11 +394,20 @@ public partial class MainWindow : Window
             for (int i = 0; i < borders.Length; i++)
             {
                 bool on = i == active;
-                borders[i].Background  = on
-                    ? new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0))
-                    : new SolidColorBrush(Color.Parse("#191919"));
-                borders[i].BorderBrush = on ? accent : new SolidColorBrush(Color.Parse("#303030"));
-                setColor[i](on ? accent : new SolidColorBrush(Color.Parse("#4A4A4A")));
+                if (isSynced)
+                {
+                    borders[i].Background  = on
+                        ? new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0))
+                        : new SolidColorBrush(Color.Parse("#191919"));
+                    borders[i].BorderBrush = on ? accent : new SolidColorBrush(Color.Parse("#303030"));
+                    setColor[i](on ? accent : new SolidColorBrush(Color.Parse("#4A4A4A")));
+                }
+                else
+                {
+                    borders[i].Background  = new SolidColorBrush(Color.Parse("#191919"));
+                    borders[i].BorderBrush = new SolidColorBrush(Color.Parse("#252525"));
+                    setColor[i](new SolidColorBrush(Color.Parse("#2A2A2A")));
+                }
             }
         }
 
@@ -433,13 +448,21 @@ public partial class MainWindow : Window
                 Child           = content,
             };
             cell.PointerPressed += (_, _) =>
+            {
+                param.MarkSynced();
                 param.Value = param.ParameterType == S1ParameterType.Toggle ? (idx > 0 ? 127 : 0) : idx;
+            };
             borders[i] = cell;
             row.Children.Add(cell);
         }
 
         Refresh(param.Value);
-        param.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() => Refresh(v));
+        param.ValueChanged      += (_, v)      => Dispatcher.UIThread.Post(() => Refresh(v));
+        param.SyncStateChanged  += (_, synced) => Dispatcher.UIThread.Post(() =>
+        {
+            isSynced = synced;
+            Refresh(param.Value);
+        });
 
         return new StackPanel
         {
@@ -725,16 +748,36 @@ public partial class MainWindow : Window
             Child             = toggleLbl,
         };
 
+        bool toggleIsSynced = toggleParam.IsSynced;
+
         void RefreshToggle()
         {
             bool on = toggleParam.Value > 0;
-            toggle.Background  = on ? new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0)) : new SolidColorBrush(Color.Parse("#191919"));
-            toggle.BorderBrush = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
-            toggleLbl.Foreground = on ? accent : new SolidColorBrush(Color.Parse("#444444"));
+            if (toggleIsSynced)
+            {
+                toggle.Background    = on ? new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0)) : new SolidColorBrush(Color.Parse("#191919"));
+                toggle.BorderBrush   = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
+                toggleLbl.Foreground = on ? accent : new SolidColorBrush(Color.Parse("#444444"));
+            }
+            else
+            {
+                toggle.Background    = new SolidColorBrush(Color.Parse("#191919"));
+                toggle.BorderBrush   = new SolidColorBrush(Color.Parse("#252525"));
+                toggleLbl.Foreground = new SolidColorBrush(Color.Parse("#333333"));
+            }
         }
         RefreshToggle();
-        toggle.PointerPressed += (_, _) => { toggleParam.Value = toggleParam.Value > 0 ? 0 : 127; };
-        toggleParam.ValueChanged += (_, _) => Dispatcher.UIThread.Post(RefreshToggle);
+        toggle.PointerPressed += (_, _) =>
+        {
+            toggleParam.MarkSynced();
+            toggleParam.Value = toggleParam.Value > 0 ? 0 : 127;
+        };
+        toggleParam.ValueChanged  += (_, _) => Dispatcher.UIThread.Post(RefreshToggle);
+        toggleParam.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() =>
+        {
+            toggleIsSynced = synced;
+            RefreshToggle();
+        });
 
         var slider = new Slider
         {
@@ -821,19 +864,40 @@ public partial class MainWindow : Window
         };
         ToolTip.SetTip(btn, "Click to latch / release held notes");
 
+        bool droneIsSynced = param.IsSynced;
+
         void Refresh()
         {
-            bool on           = param.Value > 0;
-            var  col          = ((SolidColorBrush)accent).Color;
-            btn.Background    = on ? new SolidColorBrush(Color.FromArgb(0x14, col.R, col.G, col.B))
-                                   : new SolidColorBrush(Color.Parse("#161616"));
-            btn.BorderBrush   = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
-            led.Background    = on ? accent : new SolidColorBrush(Color.Parse("#2A2A2A"));
-            label.Foreground  = on ? accent : new SolidColorBrush(Color.Parse("#555555"));
+            bool on  = param.Value > 0;
+            var  col = ((SolidColorBrush)accent).Color;
+            if (droneIsSynced)
+            {
+                btn.Background   = on ? new SolidColorBrush(Color.FromArgb(0x14, col.R, col.G, col.B))
+                                      : new SolidColorBrush(Color.Parse("#161616"));
+                btn.BorderBrush  = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
+                led.Background   = on ? accent : new SolidColorBrush(Color.Parse("#2A2A2A"));
+                label.Foreground = on ? accent : new SolidColorBrush(Color.Parse("#555555"));
+            }
+            else
+            {
+                btn.Background   = new SolidColorBrush(Color.Parse("#161616"));
+                btn.BorderBrush  = new SolidColorBrush(Color.Parse("#252525"));
+                led.Background   = new SolidColorBrush(Color.Parse("#2A2A2A"));
+                label.Foreground = new SolidColorBrush(Color.Parse("#404040"));
+            }
         }
         Refresh();
-        btn.PointerPressed       += (_, _) => { param.Value = param.Value > 0 ? 0 : 127; };
+        btn.PointerPressed += (_, _) =>
+        {
+            param.MarkSynced();
+            param.Value = param.Value > 0 ? 0 : 127;
+        };
         param.ValueChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        param.SyncStateChanged   += (_, synced) => Dispatcher.UIThread.Post(() =>
+        {
+            droneIsSynced = synced;
+            Refresh();
+        });
 
         return btn;
     }
@@ -1152,14 +1216,24 @@ public partial class MainWindow : Window
     {
         string initDisplay = GetKnobDisplayValue(param);
 
-        var knob = new RotaryKnob { Value = param.Value, AccentBrush = accent };
+        var knob = new RotaryKnob { Value = param.Value, AccentBrush = accent, IsSynced = param.IsSynced, MinValue = minCcValue };
         ToolTip.SetTip(knob, $"{param.Name}: {initDisplay}");
 
-        var valueLabel = new TextBlock { Classes = { "param-value-label" }, Text = initDisplay };
+        var valueLabel = new TextBlock
+        {
+            Classes = { "param-value-label" },
+            Text    = param.IsSynced ? initDisplay : "?",
+        };
+
+        // Guard: true while param.ValueChanged is pushing a value to the knob so
+        // knob.ValueChanged does not treat the programmatic update as a user drag.
+        bool updatingFromModel = false;
 
         knob.ValueChanged += (_, v) =>
         {
+            if (updatingFromModel) return;
             param.Value = Math.Max(minCcValue, v);
+            param.MarkSynced();
             string display = GetKnobDisplayValue(param);
             ToolTip.SetTip(knob, $"{param.Name}: {display}");
             valueLabel.Text = display;
@@ -1168,10 +1242,20 @@ public partial class MainWindow : Window
         param.ValueChanged += (_, v) =>
             Dispatcher.UIThread.Post(() =>
             {
+                updatingFromModel = true;
                 knob.Value = v;
+                updatingFromModel = false;
                 string display = GetKnobDisplayValue(param);
                 ToolTip.SetTip(knob, $"{param.Name}: {display}");
-                valueLabel.Text = display;
+                valueLabel.Text = param.IsSynced ? display : "?";
+            });
+
+        param.SyncStateChanged += (_, synced) =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                knob.IsSynced = synced;
+                string display = GetKnobDisplayValue(param);
+                valueLabel.Text = synced ? display : "?";
             });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
@@ -1349,15 +1433,15 @@ public partial class MainWindow : Window
             return opts[idx];
         }
 
-        var knob       = new RotaryKnob { Value = param.Value, AccentBrush = FxAccent };
-        var valueLabel = new TextBlock   { Classes = { "param-value-label" }, Text = GetDisplay() };
+        var knob       = new RotaryKnob { Value = param.Value, AccentBrush = FxAccent, IsSynced = param.IsSynced };
+        var valueLabel = new TextBlock   { Classes = { "param-value-label" }, Text = param.IsSynced ? GetDisplay() : "?" };
         ToolTip.SetTip(knob, $"{param.Name}: {GetDisplay()}");
 
         void Refresh()
         {
             string d = GetDisplay();
             ToolTip.SetTip(knob, $"{param.Name}: {d}");
-            valueLabel.Text = d;
+            valueLabel.Text = param.IsSynced ? d : "?";
         }
 
         // When sync is on, CC 0–N maps evenly across the full knob rotation.
@@ -1365,9 +1449,30 @@ public partial class MainWindow : Window
         int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, delaySteps) * 127.0 / delaySteps);
         int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * (double)delaySteps / 127), 0, delaySteps);
 
-        knob.ValueChanged    += (_, v) => { param.Value = delaySw.Value == 1 ? KnobToSync(v) : v; Refresh(); };
-        param.ValueChanged   += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = delaySw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
-        delaySw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() => { knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value; Refresh(); });
+        bool delayUpdatingFromModel = false;
+
+        knob.ValueChanged    += (_, v) =>
+        {
+            if (delayUpdatingFromModel) return;
+            param.Value = delaySw.Value == 1 ? KnobToSync(v) : v;
+            param.MarkSynced();
+            Refresh();
+        };
+        param.ValueChanged   += (_, v) => Dispatcher.UIThread.Post(() =>
+        {
+            delayUpdatingFromModel = true;
+            knob.Value = delaySw.Value == 1 ? SyncToKnob(v) : v;
+            delayUpdatingFromModel = false;
+            Refresh();
+        });
+        delaySw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() =>
+        {
+            delayUpdatingFromModel = true;
+            knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value;
+            delayUpdatingFromModel = false;
+            Refresh();
+        });
+        param.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() => { knob.IsSynced = synced; Refresh(); });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
         var container = new Grid
@@ -1399,15 +1504,15 @@ public partial class MainWindow : Window
             return s_lfoSyncValues[idx];
         }
 
-        var knob       = new RotaryKnob { Value = param.Value, AccentBrush = LfoAccent };
-        var valueLabel = new TextBlock   { Classes = { "param-value-label" }, Text = GetDisplay() };
+        var knob       = new RotaryKnob { Value = param.Value, AccentBrush = LfoAccent, IsSynced = param.IsSynced };
+        var valueLabel = new TextBlock   { Classes = { "param-value-label" }, Text = param.IsSynced ? GetDisplay() : "?" };
         ToolTip.SetTip(knob, $"{param.Name}: {GetDisplay()}");
 
         void Refresh()
         {
             string d = GetDisplay();
             ToolTip.SetTip(knob, $"{param.Name}: {d}");
-            valueLabel.Text = d;
+            valueLabel.Text = param.IsSynced ? d : "?";
         }
 
         // When sync on, CC 0–N spread evenly across full knob rotation.
@@ -1415,9 +1520,30 @@ public partial class MainWindow : Window
         int SyncToKnob(int cc)   => (int)Math.Round(Math.Clamp(cc, 0, lfoSteps) * 127.0 / lfoSteps);
         int KnobToSync(int knob) => Math.Clamp((int)Math.Round(knob * (double)lfoSteps / 127), 0, lfoSteps);
 
-        knob.ValueChanged   += (_, v) => { param.Value = syncSw.Value == 1 ? KnobToSync(v) : v; Refresh(); };
-        param.ValueChanged  += (_, v) => Dispatcher.UIThread.Post(() => { knob.Value = syncSw.Value == 1 ? SyncToKnob(v) : v; Refresh(); });
-        syncSw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() => { knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value; Refresh(); });
+        bool lfoUpdatingFromModel = false;
+
+        knob.ValueChanged   += (_, v) =>
+        {
+            if (lfoUpdatingFromModel) return;
+            param.Value = syncSw.Value == 1 ? KnobToSync(v) : v;
+            param.MarkSynced();
+            Refresh();
+        };
+        param.ValueChanged  += (_, v) => Dispatcher.UIThread.Post(() =>
+        {
+            lfoUpdatingFromModel = true;
+            knob.Value = syncSw.Value == 1 ? SyncToKnob(v) : v;
+            lfoUpdatingFromModel = false;
+            Refresh();
+        });
+        syncSw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() =>
+        {
+            lfoUpdatingFromModel = true;
+            knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value;
+            lfoUpdatingFromModel = false;
+            Refresh();
+        });
+        param.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() => { knob.IsSynced = synced; Refresh(); });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
         var container = new Grid
@@ -2522,10 +2648,12 @@ public partial class MainWindow : Window
 
     private void OnDeviceDisconnected()
     {
+        _isConnected                 = false;
         PatchGridContainer.IsEnabled = false;
         SendAllButton.IsEnabled      = false;
         ConnectButton.Content        = "Reconnect";
         SetStatus("Device disconnected.", "#FF6B6B");
+        UpdateSyncIndicator(_patch.UnsyncedCount);
     }
 
     private async Task PerformConnectAsync()
@@ -2536,6 +2664,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        _patch.ResetAllSync();
+
         var (outputOk, outName, inName, inputError) = await _midiMgr.ConnectAsync(
             DeviceCombo.SelectedIndex, InputCombo.SelectedIndex, MidiChannel);
 
@@ -2545,9 +2675,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        _isConnected                 = true;
         ConnectButton.Content        = "Reconnect";
         SendAllButton.IsEnabled      = true;
         PatchGridContainer.IsEnabled = true;
+        UpdateSyncIndicator(_patch.UnsyncedCount);
 
         if (inputError != null)
             SetStatus($"→ {outName}  (input unavailable: {inputError})", "#F0A040");
@@ -2618,10 +2750,12 @@ public partial class MainWindow : Window
     private async void OnSendAllClicked(object? sender, RoutedEventArgs e)
     {
         SendAllButton.IsEnabled = false;
-        SetStatus("Sending…", "#AAAAAA");
+        SetStatus("Initializing…", "#AAAAAA");
+        _prm.ApplyInitPatch();
         await _patch.SendAllAsync();
+        _patch.MarkAllSynced();
         SendAllButton.IsEnabled = true;
-        SetStatus("All parameters sent.", "#70C870");
+        SetStatus("Settings initialized.", "#70C870");
     }
 
     // ── Preset save / load ────────────────────────────────────────────────────
@@ -2838,6 +2972,25 @@ public partial class MainWindow : Window
     {
         StatusText.Text       = message;
         StatusText.Foreground = new SolidColorBrush(Color.Parse(hexColour));
+    }
+
+    private void UpdateSyncIndicator(int unsyncedCount)
+    {
+        if (!_isConnected)
+        {
+            SyncIndicatorText.Text = "";
+            return;
+        }
+        if (unsyncedCount <= 0)
+        {
+            SyncIndicatorText.Text       = "✓ Synced";
+            SyncIndicatorText.Foreground = new SolidColorBrush(Color.Parse("#70C870"));
+        }
+        else
+        {
+            SyncIndicatorText.Text       = $"⚠ {unsyncedCount} unsynced";
+            SyncIndicatorText.Foreground = new SolidColorBrush(Color.Parse("#F0A040"));
+        }
     }
 
     // ── Filter modulation: 60 fps tick ───────────────────────────────────────
