@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="..\BackupPatches\S1_PTN4-16.PRM" LogicalName="InitPatch.prm" />
+        <EmbeddedResource Include="InitPatch.prm" LogicalName="InitPatch.prm" />
     </ItemGroup>
 
     <ItemGroup>
