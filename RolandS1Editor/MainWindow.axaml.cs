@@ -1100,6 +1100,8 @@ public partial class MainWindow : Window
             setLiveViewEnabled(enabling);
             if (enabling)
             {
+                if (_isConnected)
+                    GoToPattern1();
                 UpdateRestorePatchButton();
             }
             else
@@ -2817,6 +2819,8 @@ public partial class MainWindow : Window
         SendAllButton.IsEnabled      = true;
         PatchGridContainer.IsEnabled = true;
         UpdateSyncIndicator(_patch.UnsyncedCount);
+        if (_prm.PatternSync)
+            GoToPattern1();
 
         if (inputError != null)
             SetStatus($"→ {outName}  (input unavailable: {inputError})", "#F0A040");
@@ -3128,6 +3132,12 @@ public partial class MainWindow : Window
             SyncIndicatorText.Text       = $"⚠ {unsyncedCount} unsynced";
             SyncIndicatorText.Foreground = new SolidColorBrush(Color.Parse("#F0A040"));
         }
+    }
+
+    private void GoToPattern1()
+    {
+        _patch.SendProgramChange(0, PcChannel);
+        HighlightPatchButton(0);
     }
 
     // ── Filter modulation: 60 fps tick ───────────────────────────────────────
