@@ -206,13 +206,13 @@ public sealed class PrmFileManager
         MetaLoaded?.Invoke(this, new PrmMetaArgs(tempo, transpose, motionLabels));
     }
 
-    public void TryLoadPatternPrm(int program)
+    public bool TryLoadPatternPrm(int program)
     {
         string path = PrmFileForProgram(program);
         if (!File.Exists(path))
         {
             StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)} not found in PRM folder", "#F0A040"));
-            return;
+            return false;
         }
 
         PrmFileData parsed;
@@ -220,12 +220,13 @@ public sealed class PrmFileManager
         catch (Exception ex)
         {
             StatusChanged?.Invoke(this, ($"Pattern Sync: parse error — {ex.Message}", "#FF6B6B"));
-            return;
+            return false;
         }
 
         ApplyPrmData(parsed);
         _patch.MarkAllSynced();
         StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)}", "#888888"));
+        return true;
     }
 
     public IEnumerable<PrmParameter> AllPrmOnlyParams() =>

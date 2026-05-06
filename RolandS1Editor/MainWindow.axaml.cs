@@ -30,6 +30,14 @@ public partial class MainWindow : Window
     // Patch/pattern bank buttons (4 groups × 16 patterns = 64 program changes).
     private readonly List<Button> _patchButtons = new();
 
+    // Dirty patch tracking — only active when Patch Mirror is on.
+    private readonly Dictionary<int, int[]> _slotSnapshots      = new(); // clean PRM baseline per slot
+    private readonly Dictionary<int, int[]> _dirtyStateSnapshots = new(); // user-modified state per slot
+    private readonly HashSet<int>           _dirtySlots          = new(); // slots modified since load
+    private int    _currentSlotIndex      = -1;
+    private bool   _suppressDirtyTracking;
+    private Button? _restorePatchButton;
+
     private bool   _autoConnect;
     private bool   _isConnected;
     private bool   _patternSyncDialogOpen;
@@ -152,6 +160,10 @@ public partial class MainWindow : Window
         BuildLiveFeaturesPanel();
         UpdateSyncIndicator(_patch.UnsyncedCount);
         if (_autoConnect) TryAutoConnect();
+
+        // Subscribe after ApplyInitPatch so the init run does not trigger dirty marks.
+        foreach (var param in _patch.AllParameters)
+            param.ValueChanged += (_, _) => MarkCurrentSlotDirty();
 
         _lastModTick = DateTime.UtcNow;
         _modTimer.Interval = TimeSpan.FromMilliseconds(16);
@@ -1086,12 +1098,17 @@ public partial class MainWindow : Window
             _prm.PatternSync = enabling;
             setPatchMirrorActive(enabling);
             setLiveViewEnabled(enabling);
-            if (!enabling)
+            if (enabling)
+            {
+                UpdateRestorePatchButton();
+            }
+            else
             {
                 _viewModel.FilterModEnabled = false;
                 setLiveViewActive(false);
                 _filterCurveUpdate?.Invoke();
                 _envelopeDotUpdate?.Invoke();
+                ClearDirtyTracking(); // also hides Restore button
             }
             SaveSettings();
         };
@@ -1159,6 +1176,24 @@ public partial class MainWindow : Window
         }
 
         PatchGridContainer.Children.Add(rows);
+
+        _restorePatchButton = new Button
+        {
+            Content          = "Restore Patch",
+            FontSize         = 9,
+            Height           = 18,
+            Margin           = new Thickness(0, 4, 0, 0),
+            Padding          = new Thickness(6, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Background       = new SolidColorBrush(Color.Parse("#281800")),
+            Foreground       = new SolidColorBrush(Color.Parse("#B07828")),
+            BorderBrush      = new SolidColorBrush(Color.Parse("#6A4A18")),
+            CornerRadius     = new CornerRadius(2),
+            IsEnabled        = false,
+            IsVisible        = false,
+        };
+        _restorePatchButton.Click += (_, _) => OnRestorePatchClicked();
+        PatchGridContainer.Children.Add(_restorePatchButton);
     }
 
     private void OnPatchClicked(int program, Button btn)
@@ -1169,13 +1204,114 @@ public partial class MainWindow : Window
 
     private void HighlightPatchButton(int program)
     {
+        if (program == _currentSlotIndex) return;
+
+        // Capture the outgoing slot's current state before leaving it.
+        if (_currentSlotIndex >= 0 && _dirtySlots.Contains(_currentSlotIndex))
+            _dirtyStateSnapshots[_currentSlotIndex] = CaptureSnapshot();
+
         foreach (var b in _patchButtons)
             b.Classes.Remove("patch-btn-active");
         if ((uint)program < (uint)_patchButtons.Count)
             _patchButtons[program].Classes.Add("patch-btn-active");
+        _currentSlotIndex = program;
 
         if (_prm.PatternSync && !string.IsNullOrEmpty(_prm.PrmFolder))
-            _prm.TryLoadPatternPrm(program);
+        {
+            if (_dirtySlots.Contains(program) && _dirtyStateSnapshots.TryGetValue(program, out var dirtySnap))
+            {
+                // Restore the user's modified values, not the clean PRM baseline.
+                RestoreSnapshotValues(dirtySnap);
+                _patch.MarkAllSynced();
+            }
+            else
+            {
+                _suppressDirtyTracking = true;
+                bool loaded = _prm.TryLoadPatternPrm(program);
+                _suppressDirtyTracking = false;
+                if (loaded) _slotSnapshots[program] = CaptureSnapshot();
+            }
+            UpdateRestorePatchButton();
+        }
+        else
+        {
+            ClearDirtyTracking();
+            _patch.ResetAllSync();
+        }
+    }
+
+    private int[] CaptureSnapshot() =>
+        _patch.AllParameters.Select(p => p.Value).ToArray();
+
+    private void RestoreSnapshotValues(int[] snapshot)
+    {
+        _suppressDirtyTracking = true;
+        for (int i = 0; i < _patch.AllParameters.Count; i++)
+            _patch.HandleIncomingCC(_patch.AllParameters[i].CcNumber, snapshot[i]);
+        _suppressDirtyTracking = false;
+    }
+
+    private void MarkCurrentSlotDirty()
+    {
+        if (_suppressDirtyTracking || !_prm.PatternSync || _currentSlotIndex < 0) return;
+        if (_dirtySlots.Add(_currentSlotIndex))
+        {
+            RefreshPatchButtonStyle(_currentSlotIndex);
+            UpdateRestorePatchButton();
+        }
+    }
+
+    private void RefreshPatchButtonStyle(int slot)
+    {
+        if ((uint)slot >= (uint)_patchButtons.Count) return;
+        var btn = _patchButtons[slot];
+        if (_prm.PatternSync && _dirtySlots.Contains(slot))
+            btn.Classes.Add("patch-btn-dirty");
+        else
+            btn.Classes.Remove("patch-btn-dirty");
+    }
+
+    private void RefreshAllPatchButtonStyles()
+    {
+        for (int i = 0; i < _patchButtons.Count; i++)
+            RefreshPatchButtonStyle(i);
+    }
+
+    private void UpdateRestorePatchButton()
+    {
+        if (_restorePatchButton == null) return;
+        bool mirrorOn = _prm.PatternSync;
+        _restorePatchButton.IsVisible = mirrorOn;
+        _restorePatchButton.IsEnabled = mirrorOn
+            && _currentSlotIndex >= 0
+            && _dirtySlots.Contains(_currentSlotIndex);
+    }
+
+    private void ClearDirtyTracking()
+    {
+        _dirtySlots.Clear();
+        _slotSnapshots.Clear();
+        _dirtyStateSnapshots.Clear();
+        RefreshAllPatchButtonStyles();
+        UpdateRestorePatchButton();
+    }
+
+    private async void OnRestorePatchClicked()
+    {
+        if (_currentSlotIndex < 0 || !_dirtySlots.Contains(_currentSlotIndex)) return;
+
+        _suppressDirtyTracking = true;
+        bool loaded = _prm.TryLoadPatternPrm(_currentSlotIndex);
+        _suppressDirtyTracking = false;
+        if (!loaded) return;
+
+        _dirtySlots.Remove(_currentSlotIndex);
+        _dirtyStateSnapshots.Remove(_currentSlotIndex);
+        _slotSnapshots[_currentSlotIndex] = CaptureSnapshot();
+        RefreshPatchButtonStyle(_currentSlotIndex);
+        UpdateRestorePatchButton();
+        await _patch.SendAllAsync();
+        _patch.MarkAllSynced();
     }
 
     private static string GetKnobDisplayValue(S1Parameter param)
@@ -2654,6 +2790,7 @@ public partial class MainWindow : Window
         ConnectButton.Content        = "Reconnect";
         SetStatus("Device disconnected.", "#FF6B6B");
         UpdateSyncIndicator(_patch.UnsyncedCount);
+        ClearDirtyTracking();
     }
 
     private async Task PerformConnectAsync()

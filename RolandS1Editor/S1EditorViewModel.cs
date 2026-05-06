@@ -4,7 +4,8 @@ namespace RolandS1Editor;
 
 public enum EnvPhase { Off, Attack, Decay, Sustain, Release }
 
-// Owns all filter-modulation animation state: envelope, LFO, note tracking.
+// Owns filter-modulation animation state: ADSR envelope and note tracking.
+// LFO is excluded — its phase is unpredictable from the editor side.
 // No Avalonia dependency — pure C#, fully unit-testable.
 public sealed class S1EditorViewModel
 {
@@ -16,8 +17,7 @@ public sealed class S1EditorViewModel
     private double   _envLevel;
     private double   _envLevelAtRelease;
     private int      _noteCount;
-    private double   _lfoPhase;
-    private double   _lfoRandom;
+    private double   _segmentElapsed;
 
     public bool     FilterModEnabled  { get => _filterModEnabled; set { _filterModEnabled = value; if (!value) _filterModOffset = 0; } }
     public double   FilterModOffset   => _filterModOffset;
@@ -35,8 +35,7 @@ public sealed class S1EditorViewModel
         _noteCount++;
         _envPhase = EnvPhase.Attack;
         _envLevel = 0;
-        if (CC(105) == 1)
-            _lfoPhase = 0;
+        _segmentElapsed = 0;
     }
 
     public void NoteOff()
@@ -47,81 +46,75 @@ public sealed class S1EditorViewModel
             if (_envPhase == EnvPhase.Decay)
                 _envLevel = CC(30) / 127.0; // snap to sustain level
             _envLevelAtRelease = _envLevel;
+            _segmentElapsed = 0;
             _envPhase = EnvPhase.Release;
         }
     }
 
-    // Advances envelope and LFO by dt seconds.
+    // Advances the ADSR envelope by dt seconds.
     // Returns true if FilterModEnabled — caller should refresh the filter curve and envelope dot.
     public bool Tick(double dt)
     {
-        double attackSecs  = ModEnvTime(CC(73));
-        double decaySecs   = ModEnvTime(CC(75));
+        double attackSecs  = ModEnvTime(CC(73), 3.570);
+        double decaySecs   = ModEnvTime(CC(75), 15.000);
         double sustainLvl  = CC(30) / 127.0;
-        double releaseSecs = ModEnvTime(CC(72));
+        double releaseSecs = ModEnvTime(CC(72), 19.500);
 
         switch (_envPhase)
         {
             case EnvPhase.Attack:
-                _envLevel = Math.Min(1.0, _envLevel + dt / attackSecs);
-                if (_envLevel >= 1.0) _envPhase = EnvPhase.Decay;
+            {
+                _segmentElapsed = Math.Min(attackSecs, _segmentElapsed + dt);
+                double t = attackSecs > 0 ? _segmentElapsed / attackSecs : 1.0;
+                const double kA = 3.0;
+                _envLevel = (1.0 - Math.Exp(-kA * t)) / (1.0 - Math.Exp(-kA)); // capacitor-charge curve
+                if (_segmentElapsed >= attackSecs)
+                {
+                    _envLevel = 1.0;
+                    _envPhase = EnvPhase.Decay;
+                    _segmentElapsed = 0;
+                }
                 break;
+            }
             case EnvPhase.Decay:
-                _envLevel = Math.Max(sustainLvl, _envLevel - dt * (1.0 - sustainLvl) / decaySecs);
-                if (_envLevel <= sustainLvl)
-                    _envPhase = (CC(29) == 0 && _noteCount > 0) ? EnvPhase.Attack : EnvPhase.Sustain;
+            {
+                _segmentElapsed = Math.Min(decaySecs, _segmentElapsed + dt);
+                double t    = decaySecs > 0 ? _segmentElapsed / decaySecs : 1.0;
+                double end  = Math.Exp(-4.5);
+                double norm = (Math.Exp(-4.5 * t) - end) / (1.0 - end); // 1→0, exponential
+                _envLevel = sustainLvl + norm * (1.0 - sustainLvl);
+                if (_segmentElapsed >= decaySecs)
+                {
+                    _envLevel = sustainLvl;
+                    _segmentElapsed = 0;
+                    _envPhase = EnvPhase.Sustain;
+                }
                 break;
+            }
             case EnvPhase.Sustain:
                 _envLevel = sustainLvl;
                 break;
             case EnvPhase.Release:
-                _envLevel = Math.Max(0, _envLevel - dt / releaseSecs);
-                if (_envLevel <= 0) { _envLevel = 0; _envPhase = EnvPhase.Off; }
-                break;
-        }
-
-        bool   lfoSync   = CC(106) == 1;
-        bool   lfoFast   = CC(79)  == 1;
-        double lfoHz     = ModLfoHz(CC(3), lfoSync, lfoFast);
-        double prevPhase = _lfoPhase;
-        _lfoPhase = (_lfoPhase + lfoHz * dt) % 1.0;
-        if (_lfoPhase < prevPhase)
-        {
-            _lfoRandom = Random.Shared.NextDouble() * 2.0 - 1.0;
-            if (CC(29) == 0 && _noteCount > 0) // Trigger Mode = LFO, key held
             {
-                _envPhase = EnvPhase.Attack;
-                _envLevel = 0;
+                _segmentElapsed = Math.Min(releaseSecs, _segmentElapsed + dt);
+                double t    = releaseSecs > 0 ? _segmentElapsed / releaseSecs : 1.0;
+                double end  = Math.Exp(-4.5);
+                double norm = (Math.Exp(-4.5 * t) - end) / (1.0 - end); // 1→0, exponential
+                _envLevel = norm * _envLevelAtRelease;
+                if (_segmentElapsed >= releaseSecs)
+                {
+                    _envLevel = 0;
+                    _envPhase = EnvPhase.Off;
+                }
+                break;
             }
         }
 
-        double lfoVal = ModLfoValue(CC(12), _lfoPhase, _lfoRandom);
-
         if (!_filterModEnabled) return false;
-        _filterModOffset = CC(24) / 127.0 * _envLevel + CC(25) / 127.0 * lfoVal;
+        _filterModOffset = CC(24) / 127.0 * _envLevel;
         return true;
     }
 
-    // Maps CC 0-127 to envelope time: 1 ms at 0, ~8 s at 127 (square-law taper).
-    private static double ModEnvTime(int cc) => 0.001 + Math.Pow(cc / 127.0, 2.0) * 8.0;
-
-    // Maps rate CC to Hz with exponential taper; Fast mode doubles two octaves.
-    private static double ModLfoHz(int cc, bool sync, bool fast)
-    {
-        double hz = sync
-            ? 0.06 * Math.Pow(260.0, Math.Clamp(cc, 0, 30) / 30.0)   // ~0.06–16 Hz across 31 steps
-            : 0.01 * Math.Pow(2000.0, cc / 127.0);                    // ~0.01–20 Hz
-        return fast ? hz * 4.0 : hz;
-    }
-
-    // Returns -1..+1 LFO value for the given waveform and phase.
-    private static double ModLfoValue(int waveform, double phase, double random) => waveform switch
-    {
-        0 => phase * 2.0 - 1.0,
-        1 => 1.0 - phase * 2.0,
-        2 => phase < 0.5 ? phase * 4.0 - 1.0 : 3.0 - phase * 4.0,
-        3 => phase < 0.5 ? 1.0 : -1.0,
-        4 => random,
-        _ => Random.Shared.NextDouble() * 2.0 - 1.0,
-    };
+    // Maps CC 0-127 to envelope time: ~1 ms at 0, maxSecs at 127 (square-law taper).
+    private static double ModEnvTime(int cc, double maxSecs) => 0.001 + Math.Pow(cc / 127.0, 2.0) * maxSecs;
 }
