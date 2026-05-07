@@ -45,10 +45,10 @@ public partial class MainWindow : Window
     private Window? _seqWindow;
     private int    _midiChannel  = 3;
     private int    _pcChannel    = 3;
-    private Action<bool>? _setPatchMirrorEnabled;
-    private Action<bool>? _setPatchMirrorActive;
-    private Action<bool>? _setLiveViewEnabled;
-    private Action<bool>? _setLiveViewActive;
+    private sealed record HeuristicToggleState(Action<bool> SetActive, Action<bool> SetEnabled);
+
+    private HeuristicToggleState? _patchMirrorToggle;
+    private HeuristicToggleState? _liveViewToggle;
     private static readonly string SettingsPath =
         System.IO.Path.Combine(AppContext.BaseDirectory, "s1editor.settings.json");
 
@@ -944,7 +944,7 @@ public partial class MainWindow : Window
 
     // Returns the toggle button plus two delegates to update its visual state
     // from outside: setActive(bool) and setEnabled(bool).
-    private (Border btn, Action<bool> setActive, Action<bool> setEnabled) MakeHeuristicToggle(
+    private (Border btn, HeuristicToggleState state) MakeHeuristicToggle(
         string name, string tooltip, IBrush accent)
     {
         var led = new Border
@@ -1000,7 +1000,7 @@ public partial class MainWindow : Window
         }
 
         SetActive(false);
-        return (btn, SetActive, SetEnabled);
+        return (btn, new HeuristicToggleState(SetActive, SetEnabled));
     }
 
     private bool HasSequencerContent()
@@ -1030,14 +1030,14 @@ public partial class MainWindow : Window
         bool valid         = PrmFolderHasValidFiles();
         bool patchMirrorOn = valid && _prm.PatternSync;
 
-        _setPatchMirrorEnabled?.Invoke(valid);
-        _setPatchMirrorActive?.Invoke(patchMirrorOn);
-        _setLiveViewEnabled?.Invoke(patchMirrorOn);
+        _patchMirrorToggle?.SetEnabled(valid);
+        _patchMirrorToggle?.SetActive(patchMirrorOn);
+        _liveViewToggle?.SetEnabled(patchMirrorOn);
 
         if (!patchMirrorOn && _viewModel.FilterModEnabled)
         {
             _viewModel.FilterModEnabled = false;
-            _setLiveViewActive?.Invoke(false);
+            _liveViewToggle?.SetActive(false);
             _filterCurveUpdate?.Invoke();
             _envelopeDotUpdate?.Invoke();
         }
@@ -1046,23 +1046,23 @@ public partial class MainWindow : Window
     private void BuildLiveFeaturesPanel()
     {
         // ── Auto-connect ──────────────────────────────────────────────────────
-        var (autoBtn, setAutoActive, _) = MakeHeuristicToggle(
+        var (autoBtn, autoState) = MakeHeuristicToggle(
             "AUTO-CONNECT",
             "Heuristic: searches MIDI device names for \"S-1\" and connects automatically on launch " +
             "and after a device refresh. Name matching only; any device containing \"S-1\" will match " +
             "regardless of model. Verify the right device is selected after auto-connect.",
             DmAccent);
 
-        setAutoActive(_autoConnect);
+        autoState.SetActive(_autoConnect);
         autoBtn.PointerPressed += (_, _) =>
         {
             _autoConnect = !_autoConnect;
-            setAutoActive(_autoConnect);
+            autoState.SetActive(_autoConnect);
             SaveSettings();
         };
 
         // ── Live View: filter curve + ADSR animation (requires Patch Mirror) ──
-        var (liveViewBtn, setLiveViewActive, setLiveViewEnabled) = MakeHeuristicToggle(
+        var (liveViewBtn, liveViewState) = MakeHeuristicToggle(
             "ANIMATIONS",
             "Heuristic: animates the filter curve and ADSR dot at 60 fps using the editor's current " +
             "CC values as model inputs. The envelope and LFO routing is an approximation; it responds " +
@@ -1070,8 +1070,7 @@ public partial class MainWindow : Window
             "Requires Patch Mirror so the editor values reflect what is on the device.",
             EnvAccent);
 
-        _setLiveViewActive  = setLiveViewActive;
-        _setLiveViewEnabled = setLiveViewEnabled;
+        _liveViewToggle = liveViewState;
 
         bool prmValid      = PrmFolderHasValidFiles();
         bool patchMirrorOn = prmValid && _prm.PatternSync;
@@ -1079,13 +1078,13 @@ public partial class MainWindow : Window
         if (!patchMirrorOn && _viewModel.FilterModEnabled)
             _viewModel.FilterModEnabled = false;
 
-        setLiveViewActive(_viewModel.FilterModEnabled);
-        setLiveViewEnabled(patchMirrorOn);
+        liveViewState.SetActive(_viewModel.FilterModEnabled);
+        liveViewState.SetEnabled(patchMirrorOn);
 
         liveViewBtn.PointerPressed += (_, _) =>
         {
             _viewModel.FilterModEnabled = !_viewModel.FilterModEnabled;
-            setLiveViewActive(_viewModel.FilterModEnabled);
+            liveViewState.SetActive(_viewModel.FilterModEnabled);
             if (!_viewModel.FilterModEnabled)
             {
                 _filterCurveUpdate?.Invoke();
@@ -1095,7 +1094,7 @@ public partial class MainWindow : Window
         };
 
         // ── Patch Mirror ──────────────────────────────────────────────────────
-        var (patchMirrorBtn, setPatchMirrorActive, setPatchMirrorEnabled) = MakeHeuristicToggle(
+        var (patchMirrorBtn, patchMirrorState) = MakeHeuristicToggle(
             "PATCH MIRROR",
             "Heuristic: auto-loads the PRM file matching the current pattern number when you switch " +
             "patterns (via the editor or a MIDI Program Change). The editor is updated only; no values " +
@@ -1104,11 +1103,10 @@ public partial class MainWindow : Window
             "folder in sync with what is stored on the device.",
             WarnBrush);
 
-        _setPatchMirrorEnabled = setPatchMirrorEnabled;
-        _setPatchMirrorActive  = setPatchMirrorActive;
+        _patchMirrorToggle = patchMirrorState;
 
-        setPatchMirrorEnabled(prmValid);
-        setPatchMirrorActive(patchMirrorOn);
+        patchMirrorState.SetEnabled(prmValid);
+        patchMirrorState.SetActive(patchMirrorOn);
 
         patchMirrorBtn.PointerPressed += async (_, _) =>
         {
@@ -1122,8 +1120,8 @@ public partial class MainWindow : Window
                 if (!confirmed) return;
             }
             _prm.PatternSync = enabling;
-            setPatchMirrorActive(enabling);
-            setLiveViewEnabled(enabling);
+            patchMirrorState.SetActive(enabling);
+            liveViewState.SetEnabled(enabling);
             if (enabling)
             {
                 if (_isConnected)
@@ -1133,7 +1131,7 @@ public partial class MainWindow : Window
             else
             {
                 _viewModel.FilterModEnabled = false;
-                setLiveViewActive(false);
+                liveViewState.SetActive(false);
                 _filterCurveUpdate?.Invoke();
                 _envelopeDotUpdate?.Invoke();
                 ClearDirtyTracking(); // also hides Restore button
@@ -1248,9 +1246,12 @@ public partial class MainWindow : Window
         {
             if (_dirtySlots.Contains(program) && _dirtyStateSnapshots.TryGetValue(program, out var dirtySnap))
             {
-                // Restore the user's modified values, not the clean PRM baseline.
+                // Restore the user's modified values to the live patch, but
+                // refresh Tab 2 from the on-disk PRM so the inspector keeps
+                // showing the untouched file state.
                 RestoreSnapshotValues(dirtySnap);
                 _patch.MarkAllSynced();
+                _prm.TryLoadInspectorOnly(program);
             }
             else
             {
@@ -1342,10 +1343,11 @@ public partial class MainWindow : Window
         _patch.MarkAllSynced();
     }
 
-    private static string GetKnobDisplayValue(S1Parameter param)
+    private static string GetKnobDisplayValue(S1Parameter param) => GetKnobDisplayValue(param, param.Value);
+
+    private static string GetKnobDisplayValue(S1Parameter param, int val)
     {
-        int cc  = param.CcNumber;
-        int val = param.Value;
+        int cc = param.CcNumber;
 
         return cc switch
         {
@@ -2064,30 +2066,34 @@ public partial class MainWindow : Window
     };
 
     // Read-only labeled row for a CC-mapped parameter; subscribes to ValueChanged.
-    private static Control MakePrmViewerCcRow(S1Parameter param)
+    private Control MakePrmViewerCcRow(S1Parameter param)
     {
         var lbl = new TextBlock
         {
             FontSize   = 10,
             Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
-            Text       = GetPrmViewerCcValue(param),
+            Text       = GetPrmViewerCcValue(param, SnapshotValue(param)),
         };
-        param.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() => lbl.Text = GetPrmViewerCcValue(param));
+        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
+            () => lbl.Text = GetPrmViewerCcValue(param, SnapshotValue(param)));
         return MakeInfoRow(param.Name + ":", lbl);
     }
 
-    private static string GetPrmViewerCcValue(S1Parameter param)
+    private int SnapshotValue(S1Parameter param) =>
+        _prm.CcSnapshot.TryGetValue(param.CcNumber, out var v) ? v : param.Value;
+
+    private static string GetPrmViewerCcValue(S1Parameter param, int value)
     {
         if (param.Options is not null)
         {
-            int idx = Math.Clamp(param.Value, 0, param.Options.Length - 1);
+            int idx = Math.Clamp(value, 0, param.Options.Length - 1);
             return param.Options[idx];
         }
         return param.ParameterType switch
         {
-            S1ParameterType.Toggle        => param.Value > 0 ? "On" : "Off",
-            S1ParameterType.BipolarSlider => FormatSemitone(Math.Clamp(param.Value - 64, -12, 12)),
-            _                             => GetKnobDisplayValue(param),
+            S1ParameterType.Toggle        => value > 0 ? "On" : "Off",
+            S1ParameterType.BipolarSlider => FormatSemitone(Math.Clamp(value - 64, -12, 12)),
+            _                             => GetKnobDisplayValue(param, value),
         };
     }
 
@@ -2103,14 +2109,15 @@ public partial class MainWindow : Window
 
         void Refresh()
         {
+            int delayTimeVal = SnapshotValue(delayTimeCC);
             lbl.Text = delaySw.Value == 0
-                ? $"{1 + (int)Math.Round(delayTimeCC.Value * 739.0 / 127)}ms" // S-1 range: 1–740 ms
+                ? $"{1 + (int)Math.Round(delayTimeVal * 739.0 / 127)}ms" // S-1 range: 1–740 ms
                 : GetPrmDisplayString(_prm.DelayTempo);
         }
 
         Refresh();
-        delaySw.ValueChanged     += (_, _) => Dispatcher.UIThread.Post(Refresh);
-        delayTimeCC.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        delaySw.ValueChanged         += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        _prm.CcSnapshotChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
         _prm.DelayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
 
         return MakeInfoRow("Time:", lbl, labelMinWidth: 80);
@@ -2658,15 +2665,16 @@ public partial class MainWindow : Window
         return grid;
     }
 
-    private static Control MakePrmViewerCcRowCompact(S1Parameter param)
+    private Control MakePrmViewerCcRowCompact(S1Parameter param)
     {
         var lbl = new TextBlock
         {
             FontSize   = 10,
             Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
-            Text       = GetPrmViewerCcValue(param),
+            Text       = GetPrmViewerCcValue(param, SnapshotValue(param)),
         };
-        param.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() => lbl.Text = GetPrmViewerCcValue(param));
+        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
+            () => lbl.Text = GetPrmViewerCcValue(param, SnapshotValue(param)));
         return MakeInfoRow(param.Name + ":", lbl, labelMinWidth: 80);
     }
 
