@@ -15,8 +15,17 @@ namespace S1Utility;
 
 public partial class MainWindow
 {
-    private static readonly string SettingsPath =
-        System.IO.Path.Combine(AppContext.BaseDirectory, "s1editor.settings.json");
+    private static readonly string SettingsPath = ResolveSettingsPath();
+
+    private static string ResolveSettingsPath()
+    {
+        var dir = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "S1Utility");
+        try { System.IO.Directory.CreateDirectory(dir); }
+        catch { /* fall through; WriteAllText will surface the error */ }
+        return System.IO.Path.Combine(dir, "s1editor.settings.json");
+    }
 
     private static readonly IBrush MidiDotActive = new SolidColorBrush(Color.Parse("#F0A040"));
     private static readonly IBrush MidiDotIdle   = new SolidColorBrush(Color.Parse("#2C2C3A"));
