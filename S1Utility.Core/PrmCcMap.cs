@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // Describes how one PRM parameter maps to a MIDI CC number and how to scale it.
 // PrmMin/PrmMax define the native value range in the .PRM file.

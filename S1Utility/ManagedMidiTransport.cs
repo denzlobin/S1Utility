@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using Commons.Music.Midi;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // IS1MidiTransport implementation for the standalone desktop app.
 // Wraps a Commons.Music.Midi IMidiOutput opened by the app's connect logic.

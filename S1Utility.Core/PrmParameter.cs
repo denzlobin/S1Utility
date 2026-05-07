@@ -1,6 +1,6 @@
 using System;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // A parameter that lives only in the .PRM file — no MIDI CC is sent when it changes.
 // Knobs store value 0-127 (knob range); ToPrm/LoadFromPrm scale to/from the native PRM range.

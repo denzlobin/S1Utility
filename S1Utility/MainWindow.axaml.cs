@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -14,9 +14,9 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
-using RolandS1Editor.Controls;
+using S1Utility.Controls;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 public partial class MainWindow : Window
 {
@@ -148,7 +148,7 @@ public partial class MainWindow : Window
         _prm.ApplyInitPatch();
 
         ConnectButton.Click          += OnConnectClicked;
-        RefreshDevicesButton.Click   += async (_, _) => await RefreshDevicesAsync();
+        RefreshDevicesButton.Click   += (_, _) => RefreshDevices();
         SendAllButton.Click          += OnSendAllClicked;
         SaveButton.Click             += OnSaveClicked;
         LoadButton.Click             += OnLoadClicked;
@@ -196,7 +196,7 @@ public partial class MainWindow : Window
         if (InputCombo.Items.Count  > 0) InputCombo.SelectedIndex  = 0;
     }
 
-    private Task RefreshDevicesAsync()
+    private void RefreshDevices()
     {
         string? prevOut = DeviceCombo.SelectedIndex >= 0
             ? DeviceCombo.Items[DeviceCombo.SelectedIndex] as string : null;
@@ -236,8 +236,6 @@ public partial class MainWindow : Window
             TryAutoConnect();
         else
             SetStatus("Devices refreshed.", "#A0A0B8");
-
-        return Task.CompletedTask;
     }
 
     // ── Tab 1: Realtime editor ────────────────────────────────────────────────
@@ -1414,106 +1412,6 @@ public partial class MainWindow : Window
         container.Children.Add(valueLabel);
         container.Children.Add(nameLabel);
         return container;
-    }
-
-    private static Control MakeDropdown(S1Parameter param)
-    {
-        var opts  = param.Options!;
-        var combo = new ComboBox { Classes = { "param-combo" } };
-        foreach (var opt in opts)
-            combo.Items.Add(opt);
-        combo.SelectedIndex = Math.Clamp(param.Value, 0, opts.Length - 1);
-
-        combo.SelectionChanged += (_, _) =>
-        {
-            if (combo.SelectedIndex >= 0)
-                param.Value = combo.SelectedIndex;
-        };
-
-        param.ValueChanged += (_, v) =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                var idx = Math.Clamp(v, 0, opts.Length - 1);
-                if (combo.SelectedIndex != idx)
-                    combo.SelectedIndex = idx;
-            });
-
-        return new StackPanel
-        {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            = { combo, new TextBlock { Classes = { "param-label" }, Text = param.Name } },
-        };
-    }
-
-    private static Control MakeToggle(S1Parameter param)
-    {
-        var cb = new CheckBox
-        {
-            Classes   = { "param-toggle" },
-            Content   = param.Name,
-            IsChecked = param.Value > 0,
-        };
-
-        cb.IsCheckedChanged += (_, _) =>
-            param.Value = (cb.IsChecked == true) ? 127 : 0;
-
-        param.ValueChanged += (_, v) =>
-            Dispatcher.UIThread.Post(() => cb.IsChecked = v > 0);
-
-        return cb;
-    }
-
-    private static Control MakeKeyShiftSlider(S1Parameter param)
-    {
-        const int SemitoneMin = -12;
-        const int SemitoneMax =  12;
-
-        int   ToSemitone(int cc) => Math.Clamp(cc - 64, SemitoneMin, SemitoneMax);
-
-        int initSt = ToSemitone(param.Value);
-
-        var slider = new Slider
-        {
-            Minimum             = SemitoneMin,
-            Maximum             = SemitoneMax,
-            Value               = initSt,
-            IsSnapToTickEnabled = true,
-            TickFrequency       = 1,
-            Width               = 120,
-            Orientation         = Orientation.Horizontal,
-        };
-
-        var valueLabel = new TextBlock
-        {
-            Classes             = { "param-label" },
-            Text                = FormatSemitone(initSt),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-
-        slider.ValueChanged += (_, e) =>
-        {
-            int s = (int)Math.Round(e.NewValue);
-            param.Value     = s + 64;
-            valueLabel.Text = FormatSemitone(s);
-        };
-
-        param.ValueChanged += (_, cc) =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                int s = ToSemitone(cc);
-                slider.Value    = s;
-                valueLabel.Text = FormatSemitone(s);
-            });
-
-        return new StackPanel
-        {
-            Spacing             = 3,
-            Margin              = new Thickness(4, 6),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Children            = { slider, valueLabel, new TextBlock { Classes = { "param-label" }, Text = param.Name } },
-        };
     }
 
     private void BuildEffectsPanel()
@@ -2853,12 +2751,12 @@ public partial class MainWindow : Window
         {
             if (!System.IO.File.Exists(SettingsPath)) return;
             using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(SettingsPath));
-            if (doc.RootElement.TryGetProperty("autoConnect",      out var el))  _autoConnect      = el.GetBoolean();
-            if (doc.RootElement.TryGetProperty("filterModEnabled", out var el2)) _viewModel.FilterModEnabled = el2.GetBoolean();
-            if (doc.RootElement.TryGetProperty("prmFolder",        out var el3)) _prm.PrmFolder        = el3.GetString() ?? "";
-            if (doc.RootElement.TryGetProperty("patternSync",      out var el4)) _prm.PatternSync      = el4.GetBoolean();
-            if (doc.RootElement.TryGetProperty("midiChannel",      out var el5)) _midiChannel      = Math.Clamp(el5.GetInt32(), 1, 16);
-            if (doc.RootElement.TryGetProperty("pcChannel",        out var el6)) _pcChannel        = Math.Clamp(el6.GetInt32(), 1, 16);
+            if (doc.RootElement.TryGetProperty("autoConnect",      out var autoConnectEl))      _autoConnect                = autoConnectEl.GetBoolean();
+            if (doc.RootElement.TryGetProperty("filterModEnabled", out var filterModEl))       _viewModel.FilterModEnabled = filterModEl.GetBoolean();
+            if (doc.RootElement.TryGetProperty("prmFolder",        out var prmFolderEl))       _prm.PrmFolder              = prmFolderEl.GetString() ?? "";
+            if (doc.RootElement.TryGetProperty("patternSync",      out var patternSyncEl))     _prm.PatternSync            = patternSyncEl.GetBoolean();
+            if (doc.RootElement.TryGetProperty("midiChannel",      out var midiChannelEl))     _midiChannel                = Math.Clamp(midiChannelEl.GetInt32(), 1, 16);
+            if (doc.RootElement.TryGetProperty("pcChannel",        out var pcChannelEl))       _pcChannel                  = Math.Clamp(pcChannelEl.GetInt32(), 1, 16);
         }
         catch (Exception ex)
         {
@@ -2902,10 +2800,10 @@ public partial class MainWindow : Window
     // ── Preset save / load ────────────────────────────────────────────────────
 
     private static readonly FilePickerFileType S1PatchFileType =
-        new("Roland S-1 Patch") { Patterns = new[] { "*.s1patch" } };
+        new("S-1 Patch") { Patterns = new[] { "*.s1patch" } };
 
     private static readonly FilePickerFileType PrmFileType =
-        new("Roland S-1 PRM Patch") { Patterns = new[] { "*.PRM", "*.prm" } };
+        new("S-1 PRM Patch") { Patterns = new[] { "*.PRM", "*.prm" } };
 
     private static readonly JsonSerializerOptions JsonOptions =
         new() { WriteIndented = true };

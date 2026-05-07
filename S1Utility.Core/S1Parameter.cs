@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // How the parameter should be displayed in the UI.
 public enum S1ParameterType

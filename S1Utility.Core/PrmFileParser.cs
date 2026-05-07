@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 public static class PrmFileParser
 {

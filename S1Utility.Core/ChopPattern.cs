@@ -1,6 +1,6 @@
 using System;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // Holds the 4 × 16 chop step patterns for the S-1's oscillator chop feature.
 // Each pattern is one 16-bit integer in the PRM file: bit N-1 = step N ON/OFF.

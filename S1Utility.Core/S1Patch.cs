@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using static RolandS1Editor.S1ParameterType;
+using static S1Utility.S1ParameterType;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // Holds every parameter for one S-1 patch (all 54 CCs).
 // Parameters are stored in named groups matching the physical panel sections,

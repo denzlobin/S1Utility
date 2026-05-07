@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 public partial class App : Application
 {

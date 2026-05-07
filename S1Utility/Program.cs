@@ -1,7 +1,7 @@
-﻿using Avalonia;
+using Avalonia;
 using System;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 class Program
 {

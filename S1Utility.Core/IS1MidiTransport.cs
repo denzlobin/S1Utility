@@ -1,4 +1,4 @@
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // Abstracts MIDI output so S1Patch is independent of the transport mechanism.
 // The standalone app implements this via managed-midi; the VST plugin via host MIDI output.

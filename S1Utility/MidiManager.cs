@@ -6,7 +6,7 @@ using Commons.Music.Midi;
 using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Multimedia;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // Owns MIDI device enumeration, connection lifecycle, and incoming event dispatch.
 // No Avalonia dependency — pure C#, fully unit-testable.

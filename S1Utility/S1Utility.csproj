@@ -12,7 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\RolandS1Editor.Core\RolandS1Editor.Core.csproj" />
+        <ProjectReference Include="..\S1Utility.Core\S1Utility.Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

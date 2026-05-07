@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ChopPatternClass = RolandS1Editor.ChopPattern; // alias avoids property/type ambiguity
+using ChopPatternClass = S1Utility.ChopPattern; // alias avoids property/type ambiguity
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 public sealed record PrmMetaArgs(string Tempo, string Transpose, string[] MotionCcLabels);
 

@@ -1,6 +1,6 @@
 using System;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // Holds the 8 draw-point values loaded from the .PRM file.
 // Each OSC_DRAW_P1..P8 is stored as an unsigned 16-bit integer in the PRM

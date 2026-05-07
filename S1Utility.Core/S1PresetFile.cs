@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 // The data written to / read from a .s1patch JSON file.
 public class S1PresetFile

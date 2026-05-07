@@ -1,8 +1,8 @@
 
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RolandS1Editor", "RolandS1Editor\RolandS1Editor.csproj", "{F8FD7D54-736F-418E-AC68-064AA7400E0D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "S1Utility", "S1Utility\S1Utility.csproj", "{F8FD7D54-736F-418E-AC68-064AA7400E0D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RolandS1Editor.Core", "RolandS1Editor.Core\RolandS1Editor.Core.csproj", "{2A3B4C5D-6E7F-8A9B-C0D1-E2F3A4B5C6D7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "S1Utility.Core", "S1Utility.Core\S1Utility.Core.csproj", "{2A3B4C5D-6E7F-8A9B-C0D1-E2F3A4B5C6D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

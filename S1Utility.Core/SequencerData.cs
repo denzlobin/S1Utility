@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 public class SequencerStep
 {
@@ -29,11 +29,11 @@ public class SequencerStep
             var k = part[..eq];
             if (!int.TryParse(part[(eq + 1)..], out int v)) continue;
 
-            if (k.Length >= 5 && k[..4] == "NOTE" && int.TryParse(k[4..], out int ni) && ni is >= 1 and <= 4)
+            if (k.Length >= 5 && k.StartsWith("NOTE", StringComparison.Ordinal) && int.TryParse(k[4..], out int ni) && ni is >= 1 and <= 4)
                 Notes[ni - 1] = v;
-            else if (k.Length >= 5 && k[..4] == "VELO" && int.TryParse(k[4..], out int vi) && vi is >= 1 and <= 4)
+            else if (k.Length >= 5 && k.StartsWith("VELO", StringComparison.Ordinal) && int.TryParse(k[4..], out int vi) && vi is >= 1 and <= 4)
                 Velocities[vi - 1] = v;
-            else if (k.Length >= 5 && k[..4] == "LENG" && int.TryParse(k[4..], out int li) && li is >= 1 and <= 4)
+            else if (k.Length >= 5 && k.StartsWith("LENG", StringComparison.Ordinal) && int.TryParse(k[4..], out int li) && li is >= 1 and <= 4)
                 Lengths[li - 1] = v;
         }
     }

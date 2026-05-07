@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 
-namespace RolandS1Editor.Controls;
+namespace S1Utility.Controls;
 
 // A circular knob control drawn entirely with Avalonia's drawing API.
 // Drag upward to increase the value, downward to decrease it.

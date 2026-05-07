@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="RolandS1Editor.MainWindow"
-        Title="Roland S-1 Editor"
+        x:Class="S1Utility.MainWindow"
+        Title="S-1 Utility"
         Background="#1A1A1A"
         Width="1100" Height="1100"
         MinWidth="550" MinHeight="550">
@@ -203,7 +203,7 @@
                     <Border Width="6" Height="6" CornerRadius="3"
                             Background="#C8C8D8"
                             BoxShadow="0 0 4 1 #30C8C8D8"/>
-                    <TextBlock Text="ROLAND S-1 EDITOR"
+                    <TextBlock Text="S-1 UTILITY"
                                FontSize="11" FontWeight="SemiBold"
                                Foreground="#D8D8E8" LetterSpacing="1.5"/>
                 </StackPanel>

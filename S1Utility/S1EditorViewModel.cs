@@ -1,6 +1,6 @@
 using System;
 
-namespace RolandS1Editor;
+namespace S1Utility;
 
 public enum EnvPhase { Off, Attack, Decay, Sustain, Release }
 
@@ -9,6 +9,8 @@ public enum EnvPhase { Off, Attack, Decay, Sustain, Release }
 // No Avalonia dependency — pure C#, fully unit-testable.
 public sealed class S1EditorViewModel
 {
+    private static readonly double ExpDecayEnd = Math.Exp(-4.5); // tail value of decay/release exp curve
+
     private readonly S1Patch _patch;
 
     private bool     _filterModEnabled;
@@ -80,8 +82,7 @@ public sealed class S1EditorViewModel
             {
                 _segmentElapsed = Math.Min(decaySecs, _segmentElapsed + dt);
                 double t    = decaySecs > 0 ? _segmentElapsed / decaySecs : 1.0;
-                double end  = Math.Exp(-4.5);
-                double norm = (Math.Exp(-4.5 * t) - end) / (1.0 - end); // 1→0, exponential
+                double norm = (Math.Exp(-4.5 * t) - ExpDecayEnd) / (1.0 - ExpDecayEnd); // 1→0, exponential
                 _envLevel = sustainLvl + norm * (1.0 - sustainLvl);
                 if (_segmentElapsed >= decaySecs)
                 {
@@ -98,8 +99,7 @@ public sealed class S1EditorViewModel
             {
                 _segmentElapsed = Math.Min(releaseSecs, _segmentElapsed + dt);
                 double t    = releaseSecs > 0 ? _segmentElapsed / releaseSecs : 1.0;
-                double end  = Math.Exp(-4.5);
-                double norm = (Math.Exp(-4.5 * t) - end) / (1.0 - end); // 1→0, exponential
+                double norm = (Math.Exp(-4.5 * t) - ExpDecayEnd) / (1.0 - ExpDecayEnd); // 1→0, exponential
                 _envLevel = norm * _envLevelAtRelease;
                 if (_segmentElapsed >= releaseSecs)
                 {
