@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using ChopPatternClass = S1Utility.ChopPattern; // alias avoids property/type ambiguity
+using S1Utility.Core;
+using ChopPatternClass = S1Utility.Core.ChopPattern; // alias avoids property/type ambiguity
 
 namespace S1Utility;
 

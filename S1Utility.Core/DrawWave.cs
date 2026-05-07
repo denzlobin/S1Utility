@@ -1,6 +1,6 @@
-using System;
+﻿using System;
 
-namespace S1Utility;
+namespace S1Utility.Core;
 
 // Holds the 8 draw-point values loaded from the .PRM file.
 // Each OSC_DRAW_P1..P8 is stored as an unsigned 16-bit integer in the PRM

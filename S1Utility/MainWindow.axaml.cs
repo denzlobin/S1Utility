@@ -15,6 +15,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using S1Utility.Controls;
+using S1Utility.Core;
 
 namespace S1Utility;
 

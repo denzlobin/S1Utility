@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Linq;
 
-namespace S1Utility;
+namespace S1Utility.Core;
 
 public class SequencerStep
 {

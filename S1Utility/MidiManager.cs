@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Commons.Music.Midi;
 using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Multimedia;
+using S1Utility.Core;
 
 namespace S1Utility;
 
