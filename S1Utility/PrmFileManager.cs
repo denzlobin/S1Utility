@@ -180,7 +180,7 @@ public sealed class PrmFileManager
         _patch.HandleIncomingCC(1,  0);    // Mod Wheel = 0
         _patch.HandleIncomingCC(11, 127);  // Expression = 127
 
-        LoadInspectorData(data);
+        LoadInspector(data);
     }
 
     // Update Tab 2 (inspector) state from a parsed PRM file without writing to
@@ -192,13 +192,13 @@ public sealed class PrmFileManager
         if (!File.Exists(path)) return false;
         try
         {
-            LoadInspectorData(PrmFileParser.Parse(path));
+            LoadInspector(PrmFileParser.Parse(path));
             return true;
         }
         catch { return false; }
     }
 
-    private void LoadInspectorData(PrmFileData data)
+    public void LoadInspector(PrmFileData data)
     {
         LoadPrmOnly(data, DelayMain);
         LoadPrmOnly(data, new[] { DelayTempo });

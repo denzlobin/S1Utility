@@ -385,6 +385,8 @@ public partial class MainWindow
 
     // ── PRM file open ─────────────────────────────────────────────────────────
 
+    private enum OpenPrmChoice { Cancel, InspectOnly, LoadIntoEditor }
+
     private async void OnOpenPrmClicked(object? sender, RoutedEventArgs e)
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -408,14 +410,119 @@ public partial class MainWindow
             return;
         }
 
-        _prm.ApplyPrmData(parsed);
-
         var fileName = System.IO.Path.GetFileNameWithoutExtension(files[0].Name);
-        PresetNameBox.Text = fileName;
+        var choice   = await ShowOpenPrmChoiceAsync(fileName);
 
+        if (choice == OpenPrmChoice.Cancel) return;
+
+        if (choice == OpenPrmChoice.InspectOnly)
+        {
+            _prm.LoadInspector(parsed);
+            SetStatus($"Inspecting: {fileName}", "#70C870");
+            return;
+        }
+
+        // LoadIntoEditor: write to live patch + push to synth (if connected).
+        _prm.ApplyPrmData(parsed);
+        PresetNameBox.Text = fileName;
         SetStatus("Sending PRM values…", "#AAAAAA");
         await _patch.SendAllAsync();
         SetStatus($"Loaded PRM: {fileName}", "#70C870");
+    }
+
+    private async Task<OpenPrmChoice> ShowOpenPrmChoiceAsync(string fileName)
+    {
+        var result = OpenPrmChoice.Cancel;
+
+        var inspectBtn = new Button { Content = "Inspect Only",     Classes = { "toolbar" } };
+        var loadBtn    = new Button { Content = "Load Into Editor", Classes = { "toolbar" } };
+        var cancelBtn  = new Button { Content = "Cancel",           Classes = { "toolbar" } };
+
+        var dlg = new Window
+        {
+            Title                 = "Open PRM File",
+            Width                 = 540,
+            SizeToContent         = SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background            = new SolidColorBrush(Color.Parse("#1C1C1C")),
+            Content = new StackPanel
+            {
+                Margin   = new Thickness(24, 20),
+                Spacing  = 12,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text       = fileName,
+                        FontSize   = 13,
+                        FontWeight = FontWeight.Bold,
+                        Foreground = new SolidColorBrush(Color.Parse("#E0E0E8")),
+                    },
+                    new TextBlock
+                    {
+                        FontSize     = 11,
+                        Foreground   = new SolidColorBrush(Color.Parse("#A0A0B8")),
+                        TextWrapping = TextWrapping.Wrap,
+                        Text         = "Choose how to open this file.",
+                    },
+                    new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#333344")) },
+
+                    new TextBlock
+                    {
+                        FontSize     = 11,
+                        FontWeight   = FontWeight.SemiBold,
+                        Foreground   = new SolidColorBrush(Color.Parse("#70C870")),
+                        Text         = "Inspect Only",
+                    },
+                    new TextBlock
+                    {
+                        FontSize     = 10.5,
+                        Foreground   = new SolidColorBrush(Color.Parse("#BBBBCC")),
+                        TextWrapping = TextWrapping.Wrap,
+                        Text         = "Populates the Patch Inspector tab with this file's data. " +
+                                       "Editor and synth are unchanged. Use this to study other patches " +
+                                       "without overwriting your current work.",
+                    },
+
+                    new TextBlock
+                    {
+                        FontSize     = 11,
+                        FontWeight   = FontWeight.SemiBold,
+                        Foreground   = new SolidColorBrush(Color.Parse("#F0A040")),
+                        Margin       = new Thickness(0, 6, 0, 0),
+                        Text         = "Load Into Editor",
+                    },
+                    new TextBlock
+                    {
+                        FontSize     = 10.5,
+                        Foreground   = new SolidColorBrush(Color.Parse("#BBBBCC")),
+                        TextWrapping = TextWrapping.Wrap,
+                        Text         = "Sends the file's CC-mapped values to the editor (and to the synth, if connected). " +
+                                       "Covers Oscillator, Filter, Envelope, LFO, Voice, and Effect levels — " +
+                                       "around 50 parameters with MIDI equivalents.\n\n" +
+                                       "PRM-only data (sequencer steps, chop pattern, draw waveform, riser, " +
+                                       "D-Motion, advanced FX) has no MIDI equivalent and stays in the Inspector tab only.",
+                    },
+
+                    new StackPanel
+                    {
+                        Orientation         = Orientation.Horizontal,
+                        Spacing             = 8,
+                        Margin              = new Thickness(0, 8, 0, 0),
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        Children            = { cancelBtn, inspectBtn, loadBtn },
+                    },
+                },
+            },
+        };
+
+        inspectBtn.Click += (_, _) => { result = OpenPrmChoice.InspectOnly;    dlg.Close(); };
+        loadBtn.Click    += (_, _) => { result = OpenPrmChoice.LoadIntoEditor; dlg.Close(); };
+        cancelBtn.Click  += (_, _) => dlg.Close();
+
+        await dlg.ShowDialog(this);
+        return result;
     }
 
     private void OnPrmMetaLoaded(object? sender, PrmMetaArgs e)
