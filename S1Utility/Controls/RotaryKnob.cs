@@ -72,6 +72,21 @@ public class RotaryKnob : Control
     // Raised whenever Value changes so callers can update their data model.
     public event EventHandler<int>? ValueChanged;
 
+    // ── Cached brushes/pens (Render runs at 60fps; avoid per-frame allocations) ──
+
+    private static readonly IBrush s_defaultAccent   = new SolidColorBrush(Color.Parse("#F0A040"));
+    private static readonly IBrush s_unsyncedAccent  = new SolidColorBrush(Color.Parse("#484848"));
+    private static readonly IBrush s_bodyFill        = new SolidColorBrush(Color.Parse("#2C2C2C"));
+    private static readonly IPen   s_bodyRimSynced   = new Pen(new SolidColorBrush(Color.Parse("#5A5A5A")), 1.5);
+    private static readonly IPen   s_bodyRimUnsynced = new Pen(new SolidColorBrush(Color.Parse("#404040")), 1.5);
+    private static readonly IPen   s_trackPen        = new Pen(new SolidColorBrush(Color.Parse("#3C3C3C")), 3, lineCap: PenLineCap.Round);
+    private static readonly IPen   s_indicatorSynced   = new Pen(new SolidColorBrush(Color.Parse("#FFFFFF")), 1.5, lineCap: PenLineCap.Round);
+    private static readonly IPen   s_indicatorUnsynced = new Pen(new SolidColorBrush(Color.Parse("#505050")), 1.5, lineCap: PenLineCap.Round);
+
+    // The full background-track arc geometry never depends on the value; build once.
+    private static readonly StreamGeometry s_trackGeometry = BuildArcGeometry(
+        new Point(Cx, Cy), TrackRadius, StartAngleDeg, TotalSweepDeg);
+
     // ── Drag state ────────────────────────────────────────────────────────────
 
     private bool   _isDragging;
@@ -111,22 +126,16 @@ public class RotaryKnob : Control
         var center  = new Point(Cx, Cy);
         bool synced = IsSynced;
 
-        // Accent colour: full colour when synced, flat gray when not.
         IBrush accent = synced
-            ? (AccentBrush ?? new SolidColorBrush(Color.Parse("#F0A040")))
-            : new SolidColorBrush(Color.Parse("#484848"));
+            ? (AccentBrush ?? s_defaultAccent)
+            : s_unsyncedAccent;
 
         // 1. Knob body — dark filled circle; rim slightly dimmer when unsynced
-        dc.DrawEllipse(
-            new SolidColorBrush(Color.Parse("#2C2C2C")),
-            new Pen(new SolidColorBrush(Color.Parse(synced ? "#5A5A5A" : "#404040")), 1.5),
+        dc.DrawEllipse(s_bodyFill, synced ? s_bodyRimSynced : s_bodyRimUnsynced,
             center, BodyRadius, BodyRadius);
 
-        // 2. Background track arc — shows the full 300° travel range
-        DrawArc(dc,
-            new Pen(new SolidColorBrush(Color.Parse("#3C3C3C")), 3,
-                lineCap: PenLineCap.Round),
-            center, TrackRadius, StartAngleDeg, TotalSweepDeg);
+        // 2. Background track arc — shows the full 300° travel range (cached geometry)
+        dc.DrawGeometry(null, s_trackPen, s_trackGeometry);
 
         // 3. Value arc — normalized so MinValue renders at the visual zero position
         int    minV       = MinValue;
@@ -135,6 +144,7 @@ public class RotaryKnob : Control
             : 0;
         if (valueSweep > 0.5)
         {
+            // Value-arc pen still depends on AccentBrush, which is per-instance configurable.
             DrawArc(dc,
                 new Pen(accent, 3, lineCap: PenLineCap.Round),
                 center, TrackRadius, StartAngleDeg, valueSweep);
@@ -148,10 +158,7 @@ public class RotaryKnob : Control
         var outerPt = new Point(
             Cx + IndicatorOuter * Math.Cos(indicatorRad),
             Cy + IndicatorOuter * Math.Sin(indicatorRad));
-        dc.DrawLine(
-            new Pen(new SolidColorBrush(Color.Parse(synced ? "#FFFFFF" : "#505050")),
-                1.5, lineCap: PenLineCap.Round),
-            innerPt, outerPt);
+        dc.DrawLine(synced ? s_indicatorSynced : s_indicatorUnsynced, innerPt, outerPt);
     }
 
     // Draws a circular arc using StreamGeometry.
@@ -160,7 +167,12 @@ public class RotaryKnob : Control
         Point center, double radius, double startDeg, double sweepDeg)
     {
         if (sweepDeg < 0.1) return;
+        dc.DrawGeometry(null, pen, BuildArcGeometry(center, radius, startDeg, sweepDeg));
+    }
 
+    private static StreamGeometry BuildArcGeometry(
+        Point center, double radius, double startDeg, double sweepDeg)
+    {
         var startRad = startDeg * Math.PI / 180.0;
         var endRad   = (startDeg + sweepDeg) * Math.PI / 180.0;
 
@@ -178,7 +190,7 @@ public class RotaryKnob : Control
                 isLargeArc: sweepDeg > 180,
                 sweepDirection: SweepDirection.Clockwise);
         }
-        dc.DrawGeometry(null, pen, geo);
+        return geo;
     }
 
     // ── Mouse drag interaction ────────────────────────────────────────────────

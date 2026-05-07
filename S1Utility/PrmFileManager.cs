@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using ChopPatternClass = S1Utility.ChopPattern; // alias avoids property/type ambiguity
 
 namespace S1Utility;
@@ -87,6 +86,8 @@ public sealed class PrmFileManager
 
     // ── Construction ─────────────────────────────────────────────────────────
 
+    private readonly IReadOnlyList<PrmParameter> _allPrmOnly;
+
     public PrmFileManager(S1Patch patch)
     {
         _patch    = patch;
@@ -94,6 +95,23 @@ public sealed class PrmFileManager
         ReverbMain = BuildReverbMain();
         DelayAdv   = BuildDelayAdv();
         ReverbAdv  = BuildReverbAdv();
+
+        var all = new List<PrmParameter>();
+        all.AddRange(DelayMain);
+        all.AddRange(DelayAdv);
+        all.Add(DelayTempo);
+        all.AddRange(ReverbMain);
+        all.AddRange(ReverbAdv);
+        all.AddRange(new[] {
+            ChopType, ChopCombType,
+            Leng, Shuffle, Level, Scale, TempoSync,
+            ArpType, ArpRate,
+            RiserSw, RiserMode, RiserCtrl, RiserBeat,
+            RiserShape, RiserReso, RiserLevel,
+            DmAssignX, DmAssignY, DmAssignTap, DmAssignFf,
+            DmSensX, DmSensY,
+        });
+        _allPrmOnly = all;
     }
 
     private List<PrmParameter> BuildDelayMain() => new()
@@ -229,16 +247,7 @@ public sealed class PrmFileManager
         return true;
     }
 
-    public IEnumerable<PrmParameter> AllPrmOnlyParams() =>
-        DelayMain.Concat(DelayAdv).Concat(new[] { DelayTempo })
-                 .Concat(ReverbMain).Concat(ReverbAdv)
-                 .Concat(new[] { ChopType, ChopCombType,
-                                 Leng, Shuffle, Level, Scale, TempoSync,
-                                 ArpType, ArpRate,
-                                 RiserSw, RiserMode, RiserCtrl, RiserBeat,
-                                 RiserShape, RiserReso, RiserLevel,
-                                 DmAssignX, DmAssignY, DmAssignTap, DmAssignFf,
-                                 DmSensX, DmSensY });
+    public IEnumerable<PrmParameter> AllPrmOnlyParams() => _allPrmOnly;
 
     private string PrmFileForProgram(int program)
     {

@@ -112,6 +112,32 @@ public partial class MainWindow : Window
     private static readonly IBrush DmAccent    = new SolidColorBrush(Color.Parse("#60A8E0"));
     private static readonly IBrush WarnBrush   = new SolidColorBrush(Color.Parse("#D0702A"));
 
+    // ── Cached brushes used by Refresh() closures (avoid per-event allocations) ──
+
+    private static readonly IBrush s_ledCellOn        = new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0));
+    private static readonly IBrush s_ledCellOff       = new SolidColorBrush(Color.Parse("#191919"));
+    private static readonly IBrush s_ledBorderOff     = new SolidColorBrush(Color.Parse("#303030"));
+    private static readonly IBrush s_ledTextOff       = new SolidColorBrush(Color.Parse("#4A4A4A"));
+    private static readonly IBrush s_ledBorderUnsync  = new SolidColorBrush(Color.Parse("#252525"));
+    private static readonly IBrush s_ledTextUnsync    = new SolidColorBrush(Color.Parse("#2A2A2A"));
+
+    private static readonly IBrush s_chordToggleOn       = new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0));
+    private static readonly IBrush s_chordToggleOff      = new SolidColorBrush(Color.Parse("#191919"));
+    private static readonly IBrush s_chordBorderOff      = new SolidColorBrush(Color.Parse("#2E2E2E"));
+    private static readonly IBrush s_chordTextOff        = new SolidColorBrush(Color.Parse("#444444"));
+    private static readonly IBrush s_chordBorderUnsync   = new SolidColorBrush(Color.Parse("#252525"));
+    private static readonly IBrush s_chordTextUnsync     = new SolidColorBrush(Color.Parse("#333333"));
+
+    private static readonly IBrush s_droneBgOff       = new SolidColorBrush(Color.Parse("#161616"));
+    private static readonly IBrush s_droneBorderOff   = new SolidColorBrush(Color.Parse("#2E2E2E"));
+    private static readonly IBrush s_droneLedOff      = new SolidColorBrush(Color.Parse("#2A2A2A"));
+    private static readonly IBrush s_droneLabelOff    = new SolidColorBrush(Color.Parse("#555555"));
+    private static readonly IBrush s_droneBorderUnsync = new SolidColorBrush(Color.Parse("#252525"));
+    private static readonly IBrush s_droneLabelUnsync  = new SolidColorBrush(Color.Parse("#404040"));
+
+    private static readonly IBrush s_seqGridBar  = new SolidColorBrush(Color.Parse("#484848"));
+    private static readonly IBrush s_seqGridBeat = new SolidColorBrush(Color.Parse("#282828"));
+
     public MainWindow()
     {
         _viewModel = new S1EditorViewModel(_patch);
@@ -406,17 +432,15 @@ public partial class MainWindow : Window
                 bool on = i == active;
                 if (isSynced)
                 {
-                    borders[i].Background  = on
-                        ? new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0))
-                        : new SolidColorBrush(Color.Parse("#191919"));
-                    borders[i].BorderBrush = on ? accent : new SolidColorBrush(Color.Parse("#303030"));
-                    setColor[i](on ? accent : new SolidColorBrush(Color.Parse("#4A4A4A")));
+                    borders[i].Background  = on ? s_ledCellOn  : s_ledCellOff;
+                    borders[i].BorderBrush = on ? accent       : s_ledBorderOff;
+                    setColor[i](on ? accent : s_ledTextOff);
                 }
                 else
                 {
-                    borders[i].Background  = new SolidColorBrush(Color.Parse("#191919"));
-                    borders[i].BorderBrush = new SolidColorBrush(Color.Parse("#252525"));
-                    setColor[i](new SolidColorBrush(Color.Parse("#2A2A2A")));
+                    borders[i].Background  = s_ledCellOff;
+                    borders[i].BorderBrush = s_ledBorderUnsync;
+                    setColor[i](s_ledTextUnsync);
                 }
             }
         }
@@ -532,11 +556,14 @@ public partial class MainWindow : Window
         canvas.Children.Add(linePath);
         canvas.Children.Add(marker);
 
+        const int FilterCurveN = 200;
+        var pts = new Point[FilterCurveN]; // reused every frame; Update runs at 60fps
+
         void Update()
         {
             const double logMin = 1.30103; // log10(20 Hz)
             const double logMax = 4.30103; // log10(20 kHz)
-            const int    N      = 200;
+            const int    N      = FilterCurveN;
             const double sigma  = 0.15;    // gaussian width in omega space
 
             double fN          = Math.Clamp(freqParam.Value / 127.0 + _viewModel.FilterModOffset, 0.0, 1.0);
@@ -551,7 +578,6 @@ public partial class MainWindow : Window
 
             double AmplToY(double amp) => (H - 2) - Math.Clamp(amp, 0.0, 1.0) * (H - 4);
 
-            var pts = new Point[N];
             for (int i = 0; i < N; i++)
             {
                 double frac    = i / (double)(N - 1);
@@ -765,15 +791,15 @@ public partial class MainWindow : Window
             bool on = toggleParam.Value > 0;
             if (toggleIsSynced)
             {
-                toggle.Background    = on ? new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0)) : new SolidColorBrush(Color.Parse("#191919"));
-                toggle.BorderBrush   = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
-                toggleLbl.Foreground = on ? accent : new SolidColorBrush(Color.Parse("#444444"));
+                toggle.Background    = on ? s_chordToggleOn : s_chordToggleOff;
+                toggle.BorderBrush   = on ? accent          : s_chordBorderOff;
+                toggleLbl.Foreground = on ? accent          : s_chordTextOff;
             }
             else
             {
-                toggle.Background    = new SolidColorBrush(Color.Parse("#191919"));
-                toggle.BorderBrush   = new SolidColorBrush(Color.Parse("#252525"));
-                toggleLbl.Foreground = new SolidColorBrush(Color.Parse("#333333"));
+                toggle.Background    = s_chordToggleOff;
+                toggle.BorderBrush   = s_chordBorderUnsync;
+                toggleLbl.Foreground = s_chordTextUnsync;
             }
         }
         RefreshToggle();
@@ -875,25 +901,26 @@ public partial class MainWindow : Window
         ToolTip.SetTip(btn, "Click to latch / release held notes");
 
         bool droneIsSynced = param.IsSynced;
+        // Accent-tinted "on" background (0x14 alpha over accent colour) — stable per instance.
+        var col = ((SolidColorBrush)accent).Color;
+        IBrush droneBgOn = new SolidColorBrush(Color.FromArgb(0x14, col.R, col.G, col.B));
 
         void Refresh()
         {
-            bool on  = param.Value > 0;
-            var  col = ((SolidColorBrush)accent).Color;
+            bool on = param.Value > 0;
             if (droneIsSynced)
             {
-                btn.Background   = on ? new SolidColorBrush(Color.FromArgb(0x14, col.R, col.G, col.B))
-                                      : new SolidColorBrush(Color.Parse("#161616"));
-                btn.BorderBrush  = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
-                led.Background   = on ? accent : new SolidColorBrush(Color.Parse("#2A2A2A"));
-                label.Foreground = on ? accent : new SolidColorBrush(Color.Parse("#555555"));
+                btn.Background   = on ? droneBgOn : s_droneBgOff;
+                btn.BorderBrush  = on ? accent    : s_droneBorderOff;
+                led.Background   = on ? accent    : s_droneLedOff;
+                label.Foreground = on ? accent    : s_droneLabelOff;
             }
             else
             {
-                btn.Background   = new SolidColorBrush(Color.Parse("#161616"));
-                btn.BorderBrush  = new SolidColorBrush(Color.Parse("#252525"));
-                led.Background   = new SolidColorBrush(Color.Parse("#2A2A2A"));
-                label.Foreground = new SolidColorBrush(Color.Parse("#404040"));
+                btn.Background   = s_droneBgOff;
+                btn.BorderBrush  = s_droneBorderUnsync;
+                led.Background   = s_droneLedOff;
+                label.Foreground = s_droneLabelUnsync;
             }
         }
         Refresh();
@@ -1395,6 +1422,12 @@ public partial class MainWindow : Window
             });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
+        return MakeKnobContainer(knob, valueLabel, nameLabel, containerWidth);
+    }
+
+    // Standard 3-row knob container: knob (56px) / value label (14px) / name label.
+    private static Grid MakeKnobContainer(RotaryKnob knob, TextBlock valueLabel, TextBlock nameLabel, double containerWidth = 68)
+    {
         bool small = containerWidth <= 58;
         var container = new Grid
         {
@@ -1511,20 +1544,7 @@ public partial class MainWindow : Window
         param.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() => { knob.IsSynced = synced; Refresh(); });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
-        var container = new Grid
-        {
-            Width          = 68,
-            Margin         = new Thickness(3, 4),
-            RowDefinitions = new RowDefinitions("56,14,26"),
-        };
-        knob.HorizontalAlignment = HorizontalAlignment.Center;
-        Grid.SetRow(knob,       0);
-        Grid.SetRow(valueLabel, 1);
-        Grid.SetRow(nameLabel,  2);
-        container.Children.Add(knob);
-        container.Children.Add(valueLabel);
-        container.Children.Add(nameLabel);
-        return container;
+        return MakeKnobContainer(knob, valueLabel, nameLabel);
     }
 
     // ── LFO Rate knob — context-aware: free 0-127 when sync off, 32 values when sync on ──
@@ -1582,20 +1602,7 @@ public partial class MainWindow : Window
         param.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() => { knob.IsSynced = synced; Refresh(); });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
-        var container = new Grid
-        {
-            Width          = 68,
-            Margin         = new Thickness(3, 4),
-            RowDefinitions = new RowDefinitions("56,14,26"),
-        };
-        knob.HorizontalAlignment = HorizontalAlignment.Center;
-        Grid.SetRow(knob,       0);
-        Grid.SetRow(valueLabel, 1);
-        Grid.SetRow(nameLabel,  2);
-        container.Children.Add(knob);
-        container.Children.Add(valueLabel);
-        container.Children.Add(nameLabel);
-        return container;
+        return MakeKnobContainer(knob, valueLabel, nameLabel);
     }
 
     // ── Tab 2: PRM Viewer ─────────────────────────────────────────────────────
@@ -2317,6 +2324,24 @@ public partial class MainWindow : Window
         new SolidColorBrush(Color.Parse("#B070D8")),  // V4 purple
     };
 
+    // Adds vertical bar/beat grid lines to a sequencer canvas at every 4-step boundary.
+    // Thicker line at every 16-step (bar) boundary; thinner at every 4-step (beat) boundary.
+    private static void AddSequencerGridLines(Canvas target, int stepCount, double labelW, double colW, double laneHeight)
+    {
+        for (int s = 0; s <= stepCount; s += 4)
+        {
+            var line = new Border
+            {
+                Width      = 1,
+                Height     = laneHeight,
+                Background = s % 16 == 0 ? s_seqGridBar : s_seqGridBeat,
+            };
+            Canvas.SetLeft(line, labelW + s * colW);
+            Canvas.SetTop(line, 0);
+            target.Children.Add(line);
+        }
+    }
+
     private (Control, Action) MakeSequencerControl()
     {
         const double RowH     =  5.0;
@@ -2379,19 +2404,7 @@ public partial class MainWindow : Window
             }
 
             // Vertical grid lines: thick at bars (every 16), thin at beats (every 4)
-            for (int s = 0; s <= count; s++)
-            {
-                if (s % 4 != 0) continue;
-                var line = new Border
-                {
-                    Width      = 1,
-                    Height     = totalH,
-                    Background = new SolidColorBrush(Color.Parse(s % 16 == 0 ? "#484848" : "#282828")),
-                };
-                Canvas.SetLeft(line, LabelW + s * ColW);
-                Canvas.SetTop(line,  0);
-                canvas.Children.Add(line);
-            }
+            AddSequencerGridLines(canvas, count, LabelW, ColW, totalH);
 
             // Pitch labels (C notes only)
             for (int p = minNote; p <= maxNote; p++)
@@ -2499,18 +2512,7 @@ public partial class MainWindow : Window
                     lc.Children.Add(bar);
                 }
 
-                for (int s = 0; s <= count; s++)
-                {
-                    if (s % 4 != 0) continue;
-                    var ln = new Border
-                    {
-                        Width      = 1,
-                        Height     = LaneH,
-                        Background = new SolidColorBrush(Color.Parse(s % 16 == 0 ? "#484848" : "#282828")),
-                    };
-                    Canvas.SetLeft(ln, LabelW + s * ColW); Canvas.SetTop(ln, 0);
-                    lc.Children.Add(ln);
-                }
+                AddSequencerGridLines(lc, count, LabelW, ColW, LaneH);
 
                 tempLanes.Add(lc);
             }
@@ -2564,18 +2566,7 @@ public partial class MainWindow : Window
                     lc.Children.Add(bar);
                 }
 
-                for (int s = 0; s <= count; s++)
-                {
-                    if (s % 4 != 0) continue;
-                    var ln = new Border
-                    {
-                        Width      = 1,
-                        Height     = LaneH,
-                        Background = new SolidColorBrush(Color.Parse(s % 16 == 0 ? "#484848" : "#282828")),
-                    };
-                    Canvas.SetLeft(ln, LabelW + s * ColW); Canvas.SetTop(ln, 0);
-                    lc.Children.Add(ln);
-                }
+                AddSequencerGridLines(lc, count, LabelW, ColW, LaneH);
 
                 tempLanes.Add(lc);
             }
