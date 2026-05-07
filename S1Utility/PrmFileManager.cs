@@ -84,6 +84,15 @@ public sealed class PrmFileManager
 
     public event EventHandler<PrmMetaArgs>? MetaLoaded;
     public event EventHandler<(string Message, string Color)>? StatusChanged;
+    public event EventHandler? CcSnapshotChanged;
+
+    // ── CC snapshot ───────────────────────────────────────────────────────────
+    // Frozen CC values from the most recently loaded PRM file. Tab 2 (Patch
+    // Inspector) reads from this so it shows on-disk patch state, not live
+    // editor edits.
+
+    private Dictionary<int, int> _ccSnapshot = new();
+    public IReadOnlyDictionary<int, int> CcSnapshot => _ccSnapshot;
 
     // ── Construction ─────────────────────────────────────────────────────────
 
@@ -171,6 +180,26 @@ public sealed class PrmFileManager
         _patch.HandleIncomingCC(1,  0);    // Mod Wheel = 0
         _patch.HandleIncomingCC(11, 127);  // Expression = 127
 
+        LoadInspectorData(data);
+    }
+
+    // Update Tab 2 (inspector) state from a parsed PRM file without writing to
+    // the live patch. Used when navigating to a dirty slot — the user's edits
+    // in _patch are preserved while the inspector reflects the on-disk file.
+    public bool TryLoadInspectorOnly(int program)
+    {
+        string path = PrmFileForProgram(program);
+        if (!File.Exists(path)) return false;
+        try
+        {
+            LoadInspectorData(PrmFileParser.Parse(path));
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private void LoadInspectorData(PrmFileData data)
+    {
         LoadPrmOnly(data, DelayMain);
         LoadPrmOnly(data, new[] { DelayTempo });
         LoadPrmOnly(data, ReverbMain);
@@ -199,6 +228,20 @@ public sealed class PrmFileManager
         LoadPrmOnly(data, new[] { Leng, Shuffle, Level, Scale, TempoSync, ArpType, ArpRate });
         LoadPrmOnly(data, new[] { RiserSw, RiserMode, RiserCtrl, RiserBeat, RiserShape, RiserReso, RiserLevel });
         LoadPrmOnly(data, new[] { DmAssignX, DmAssignY, DmAssignTap, DmAssignFf, DmSensX, DmSensY });
+
+        // Build CC snapshot directly from file data so it never reflects
+        // _patch's live (possibly dirty) state.
+        var snap = new Dictionary<int, int>();
+        foreach (var (key, rawValue) in data.Parameters)
+        {
+            if (!PrmCcMap.Map.TryGetValue(key, out var info)) continue;
+            if (!int.TryParse(rawValue, out int prmValue)) continue;
+            snap[info.Cc] = info.ToCc(prmValue);
+        }
+        snap[1]  = 0;    // Mod Wheel
+        snap[11] = 127;  // Expression
+        _ccSnapshot = snap;
+        CcSnapshotChanged?.Invoke(this, EventArgs.Empty);
 
         // Tempo: stored as integer × 100 (e.g. 10000 = 100.0 BPM)
         string tempo = data.Parameters.TryGetValue("TEMPO", out var tempoRaw)
