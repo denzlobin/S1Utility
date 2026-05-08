@@ -461,18 +461,37 @@ public partial class MainWindow
             );
         }
 
+        const int segSamples = 16; // points per A/D/R curve
+
         void Update()
         {
             var (aT, dT, hw, rT, sL) = ComputeAdsrLayout();
 
-            var pts = new[]
+            var pts = new List<Point>(segSamples * 3 + 4) { new(0, H) };
+
+            // Attack: y rises from H to 3 along capacitor-charge curve.
+            for (int i = 1; i <= segSamples; i++)
             {
-                new Point(0,                    H),
-                new Point(aT,                   3),
-                new Point(aT + dT,              sL),
-                new Point(aT + dT + hw,         sL),
-                new Point(aT + dT + hw + rT,    H),
-            };
+                double t = (double)i / segSamples;
+                double y = H + (3 - H) * S1EditorViewModel.AttackCurve(t);
+                pts.Add(new Point(aT * t, y));
+            }
+            // Decay: y falls from 3 to sL along exponential curve.
+            for (int i = 1; i <= segSamples; i++)
+            {
+                double t = (double)i / segSamples;
+                double y = 3 + (sL - 3) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
+                pts.Add(new Point(aT + dT * t, y));
+            }
+            // Sustain: flat hold at sL.
+            pts.Add(new Point(aT + dT + hw, sL));
+            // Release: y falls from sL to H along exponential curve.
+            for (int i = 1; i <= segSamples; i++)
+            {
+                double t = (double)i / segSamples;
+                double y = sL + (H - sL) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
+                pts.Add(new Point(aT + dT + hw + rT * t, y));
+            }
 
             strokePoly.Points = new Avalonia.Collections.AvaloniaList<Point>(pts);
             fillPoly.Points   = new Avalonia.Collections.AvaloniaList<Point>(pts);
@@ -501,31 +520,26 @@ public partial class MainWindow
             }
 
             var (aT2, dT2, hw2, rT2, sL2) = ComputeAdsrLayout();
-            double lvl  = _viewModel.EnvLevel;
+            double t = _viewModel.SegmentProgress;
 
             double dx, dy;
             switch (_viewModel.CurrentPhase)
             {
                 case EnvPhase.Attack:
-                    dx = lvl * aT2;
-                    dy = H - lvl * (H - 3);
+                    dx = aT2 * t;
+                    dy = H + (3 - H) * S1EditorViewModel.AttackCurve(t);
                     break;
                 case EnvPhase.Decay:
-                    double sN = sustainP.Value / 127.0;
-                    double dd = 1.0 - sN > 0.001
-                        ? Math.Clamp((1.0 - lvl) / (1.0 - sN), 0, 1) : 1.0;
-                    dx = aT2 + dd * dT2;
-                    dy = 3 + dd * (sL2 - 3);
+                    dx = aT2 + dT2 * t;
+                    dy = 3 + (sL2 - 3) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
                     break;
                 case EnvPhase.Sustain:
                     dx = aT2 + dT2;
                     dy = sL2;
                     break;
                 case EnvPhase.Release:
-                    double rp = _viewModel.EnvLevelAtRelease > 0.001
-                        ? Math.Clamp(1.0 - lvl / _viewModel.EnvLevelAtRelease, 0, 1) : 1.0;
-                    dx = aT2 + dT2 + hw2 + rp * rT2;
-                    dy = sL2 + rp * (H - sL2);
+                    dx = aT2 + dT2 + hw2 + rT2 * t;
+                    dy = sL2 + (H - sL2) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
                     break;
                 default:
                     dot.IsVisible = false;
