@@ -6,8 +6,18 @@ namespace S1Utility.Core;
 
 public static class PrmFileParser
 {
+    // Real S-1 .PRM files are ~10–30 KB. Anything larger is almost certainly
+    // not a PRM file; cap before reading to avoid OOM on malicious/corrupt input.
+    private const long MaxFileBytes = 1 * 1024 * 1024;
+    private const int  MaxLineChars = 8 * 1024;
+
     public static PrmFileData Parse(string path)
     {
+        var info = new FileInfo(path);
+        if (info.Length > MaxFileBytes)
+            throw new InvalidDataException(
+                $"PRM file too large ({info.Length:N0} bytes; max {MaxFileBytes:N0}).");
+
         using var reader = new StreamReader(path);
         return Parse(reader);
     }
@@ -18,6 +28,9 @@ public static class PrmFileParser
         string? raw;
         while ((raw = reader.ReadLine()) is not null)
         {
+            if (raw.Length > MaxLineChars)
+                throw new InvalidDataException(
+                    $"PRM line exceeds {MaxLineChars} characters; file is likely not a valid PRM.");
             var line = raw.Trim();
             if (line.Length == 0 || line.StartsWith(';') || line.StartsWith('#'))
                 continue;
@@ -47,6 +60,11 @@ public static class PrmFileParser
                 data.Parameters[key] = value;
             }
         }
+
+        if (data.Parameters.Count == 0 && data.StepNotes.Count == 0 && data.StepMotions.Count == 0)
+            throw new InvalidDataException(
+                "No recognizable KEY=VALUE entries found; file is not a valid PRM.");
+
         return data;
     }
 }
