@@ -114,7 +114,8 @@ public partial class MainWindow
     {
         _isConnected                 = false;
         PatchGridContainer.IsEnabled = false;
-        SendAllButton.IsEnabled      = false;
+        _initPatchButton!.IsEnabled      = false;
+        PanicButton.IsEnabled        = false;
         ConnectButton.Content        = "Reconnect";
         SetStatus("Device disconnected.", "#FF6B6B");
         UpdateSyncIndicator(_patch.UnsyncedCount);
@@ -142,7 +143,8 @@ public partial class MainWindow
 
         _isConnected                 = true;
         ConnectButton.Content        = "Reconnect";
-        SendAllButton.IsEnabled      = true;
+        _initPatchButton!.IsEnabled      = true;
+        PanicButton.IsEnabled        = true;
         PatchGridContainer.IsEnabled = true;
         UpdateSyncIndicator(_patch.UnsyncedCount);
         if (_prm.PatternSync)
@@ -214,15 +216,21 @@ public partial class MainWindow
         }
     }
 
-    private async void OnSendAllClicked(object? sender, RoutedEventArgs e)
+    private async void OnInitPatchClicked(object? sender, RoutedEventArgs e)
     {
-        SendAllButton.IsEnabled = false;
+        _initPatchButton!.IsEnabled = false;
         SetStatus("Initializing…", "#AAAAAA");
         _prm.ApplyInitPatch();
         await _patch.SendAllAsync();
         _patch.MarkAllSynced();
-        SendAllButton.IsEnabled = true;
-        SetStatus("Settings initialized.", "#70C870");
+        _initPatchButton!.IsEnabled = true;
+        SetStatus("Patch initialized.", "#70C870");
+    }
+
+    private void OnPanicClicked(object? sender, RoutedEventArgs e)
+    {
+        _patch.SendPanic();
+        SetStatus("Panic — All Sound Off / All Notes Off sent.", "#F0A040");
     }
 
     // ── Preset save / load ────────────────────────────────────────────────────

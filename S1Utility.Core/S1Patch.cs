@@ -90,7 +90,7 @@ public class S1Patch : IDisposable
             new("Noise",        cc:  23, S1Section.Oscillator),
             new("Fine Tune",    cc:  76, S1Section.Oscillator, initialValue: 64),
             new("Noise Mode",         cc:  78, S1Section.Oscillator, initialValue: 0, Dropdown,
-                new[] { "White", "Pink" }),
+                new[] { "Pink", "White" }),
             new("Draw Multiply",      cc: 102, S1Section.Oscillator, initialValue: 0),
             new("Chop Overtone",      cc: 103, S1Section.Oscillator),
             new("Chop Comb",          cc: 104, S1Section.Oscillator),
@@ -246,6 +246,15 @@ public class S1Patch : IDisposable
             SendOne(param);
             await Task.Delay(5);
         }
+    }
+
+    // Sends MIDI panic on the configured channel: All Sound Off (CC 120) silences
+    // any ringing voices immediately; All Notes Off (CC 123) clears held notes.
+    public void SendPanic()
+    {
+        if (_transport == null) return;
+        _transport.SendCC(_channel, 120, 0);
+        _transport.SendCC(_channel, 123, 0);
     }
 
     // Sends a MIDI Program Change on the connected channel.

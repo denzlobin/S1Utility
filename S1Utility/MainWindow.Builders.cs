@@ -1001,23 +1001,72 @@ public partial class MainWindow
 
         PatchGridContainer.Children.Add(rows);
 
+        _initPatchButton = new Button
+        {
+            Content   = "Init Patch",
+            Classes   = { "toolbar" },
+            IsEnabled = false,
+        };
+        _initPatchButton.Click += OnInitPatchClicked;
+
         _restorePatchButton = new Button
         {
-            Content          = "Restore Patch",
-            FontSize         = 9,
-            Height           = 18,
-            Margin           = new Thickness(0, 4, 0, 0),
-            Padding          = new Thickness(6, 0),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            Background       = new SolidColorBrush(Color.Parse("#281800")),
-            Foreground       = new SolidColorBrush(Color.Parse("#B07828")),
-            BorderBrush      = new SolidColorBrush(Color.Parse("#6A4A18")),
-            CornerRadius     = new CornerRadius(2),
-            IsEnabled        = false,
-            IsVisible        = false,
+            Content   = "Restore Patch",
+            Classes   = { "toolbar" },
+            IsEnabled = false,
+            IsVisible = false,
         };
         _restorePatchButton.Click += (_, _) => OnRestorePatchClicked();
-        PatchGridContainer.Children.Add(_restorePatchButton);
+
+        // Tab-2-only PRM controls. Visibility toggled by MainTabs.SelectionChanged.
+        OpenPrmButton = new Button
+        {
+            Content   = "Open PRM File",
+            Classes   = { "toolbar" },
+            IsVisible = false,
+        };
+        PrmInfoToggle = new Button
+        {
+            Content   = "ⓘ",
+            Classes   = { "toolbar" },
+            Padding   = new Thickness(6, 4),
+            IsVisible = false,
+        };
+        ToolTip.SetTip(PrmInfoToggle, "Show / hide file access instructions");
+
+        _initRestoreGroup = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing     = 6,
+        };
+        _initRestoreGroup.Children.Add(_initPatchButton);
+        _initRestoreGroup.Children.Add(_restorePatchButton);
+
+        var actionRow = new StackPanel
+        {
+            Orientation         = Orientation.Horizontal,
+            Spacing             = 6,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin              = new Thickness(0, 6, 0, 0),
+        };
+        actionRow.Children.Add(_initRestoreGroup);
+        actionRow.Children.Add(OpenPrmButton);
+        actionRow.Children.Add(PrmInfoToggle);
+        PatchGridContainer.Children.Add(actionRow);
+
+        PrmInfoText = new TextBlock
+        {
+            IsVisible     = false,
+            Foreground    = new SolidColorBrush(Color.Parse("#7878A0")),
+            FontSize      = 9.5,
+            TextWrapping  = TextWrapping.Wrap,
+            MaxWidth      = 860,
+            TextAlignment = TextAlignment.Center,
+            Margin        = new Thickness(0, 4, 0, 0),
+            Text          = "To access patch files on the S-1: connect USB, then hold PLAY while powering on. " +
+                            "Files are in the BACKUP folder. To restore: copy files to RESTORE folder, eject, then press HOLD on the device.",
+        };
+        PatchGridContainer.Children.Add(PrmInfoText);
     }
 
     // ── Knob factories and value display ──────────────────────────────────────
@@ -1301,21 +1350,24 @@ public partial class MainWindow
             mainOscForViewer.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
 
         oscContent.Children.Add(MakeSubSectionHeader("OSC DRAW", OscAccent));
-        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(102)));  // Draw Multiply
-        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(107)));  // Draw Step/Slope
-        oscContent.Children.Add(new Viewbox
+        oscContent.Children.Add(MakeTwoColumnGrid(new List<Control>
         {
-            Stretch   = Stretch.Uniform,
-            MaxHeight = 60,
-            Margin    = new Thickness(0, 4, 0, 4),
-            Child     = MakeDrawBarsControl(),
-        });
+            MakePrmViewerCcRowCompact(RequireCC(102)),  // Draw Multiply
+            MakePrmViewerCcRowCompact(RequireCC(107)),  // Draw Step/Slope
+        }));
+        var drawBars = MakeDrawBarsControl();
+        drawBars.HorizontalAlignment = HorizontalAlignment.Right;
+        drawBars.Margin              = new Thickness(0, 4, 0, 4);
+        oscContent.Children.Add(drawBars);
 
         oscContent.Children.Add(MakeSubSectionHeader("OSC CHOP", OscAccent));
-        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(103)));  // Chop Overtone
-        oscContent.Children.Add(MakePrmViewerCcRow(RequireCC(104)));  // Chop Comb
-        oscContent.Children.Add(MakePrmInfoRow(_prm.ChopType));
-        oscContent.Children.Add(MakePrmInfoRow(_prm.ChopCombType));
+        oscContent.Children.Add(MakeTwoColumnGrid(new List<Control>
+        {
+            MakePrmViewerCcRowCompact(RequireCC(103)),       // Chop Overtone
+            MakePrmViewerCcRowCompact(RequireCC(104)),       // Chop Comb
+            MakePrmInfoRow(_prm.ChopType,     compact: true),
+            MakePrmInfoRow(_prm.ChopCombType, compact: true),
+        }));
         oscContent.Children.Add(MakeChopPatternControl());
 
         var riserCard = MakeSectionCard("RISER", FxAccent, out var riserContent);
@@ -1418,7 +1470,9 @@ public partial class MainWindow
         PrmViewerGrid.Children.Add(col2Grid);
 
         // ── Row 3: SEQUENCER (full width) ────────────────────────────────
-        var seqCard = MakeSectionCard("SEQUENCER", SeqAccent, out var seqContent);
+        // Built manually (instead of MakeSectionCard) so the body can use a Grid
+        // with a star row, letting the bottom button vertically center in the
+        // empty space below the data columns.
 
         var seqMetaGrid = new Grid
         {
@@ -1464,8 +1518,6 @@ public partial class MainWindow
         Grid.SetColumn(dmCol, 3);
         seqMetaGrid.Children.Add(dmCol);
 
-        seqContent.Children.Add(seqMetaGrid);
-
         var seqBtnLabel = new TextBlock
         {
             FontSize      = 10.5,
@@ -1478,6 +1530,7 @@ public partial class MainWindow
             CornerRadius        = new CornerRadius(4),
             Padding             = new Thickness(20, 9),
             HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment   = VerticalAlignment.Center,
             Cursor              = new Cursor(StandardCursorType.Hand),
             Child               = seqBtnLabel,
         };
@@ -1500,7 +1553,22 @@ public partial class MainWindow
         _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(RefreshSeqBtn);
         seqBtn.PointerPressed     += (_, _) => ShowSequencerWindow();
 
-        seqContent.Children.Add(seqBtn);
+        var seqBody = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
+        var seqTitle = new TextBlock
+        {
+            Classes    = { "section-title" },
+            Text       = "SEQUENCER",
+            Foreground = SeqAccent,
+        };
+        Grid.SetRow(seqTitle, 0);     seqBody.Children.Add(seqTitle);
+        Grid.SetRow(seqMetaGrid, 1);  seqBody.Children.Add(seqMetaGrid);
+        Grid.SetRow(seqBtn, 2);       seqBody.Children.Add(seqBtn);
+
+        var seqCard = new Border
+        {
+            Classes = { "section-card" },
+            Child   = seqBody,
+        };
 
         Grid.SetColumn(seqCard, 0); Grid.SetRow(seqCard, 3); Grid.SetColumnSpan(seqCard, 3);
         PrmViewerGrid.Children.Add(seqCard);
@@ -1603,8 +1671,10 @@ public partial class MainWindow
     // 16-bar bipolar draw waveform display (lo byte first, then hi byte per PRM value).
     private Panel MakeDrawBarsControl()
     {
+        // Cell width matches OSC Chop tile structure: Width=14 + Margin(1,0) = 16px per slot,
+        // so 16 slots = 256px total — perfectly aligned with the chop pattern row.
         const double CellH = 22.0;
-        const double BarW  = 18.75;
+        const double BarW  = 14.0;
 
         var posBars   = new Border[16];
         var negBars   = new Border[16];
@@ -1632,12 +1702,8 @@ public partial class MainWindow
             }
         }
 
-        const double Gap    = 2.0;
-        const double TotalW = 16 * BarW + 15 * Gap;
-        const double TotalH = CellH * 2 + 1;
-
-        var barsRow   = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Gap };
-        var labelsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = Gap,
+        var barsRow   = new StackPanel { Orientation = Orientation.Horizontal };
+        var labelsRow = new StackPanel { Orientation = Orientation.Horizontal,
                                          Margin = new Thickness(0, 2, 0, 0) };
 
         for (int i = 0; i < 16; i++)
@@ -1659,6 +1725,7 @@ public partial class MainWindow
             barsRow.Children.Add(new StackPanel
             {
                 Width    = BarW,
+                Margin   = new Thickness(1, 0),
                 Children =
                 {
                     posCell,
@@ -1669,8 +1736,9 @@ public partial class MainWindow
 
             var lbl = new TextBlock
             {
-                FontSize      = 8,
+                FontSize      = 7.5,
                 Width         = BarW,
+                Margin        = new Thickness(1, 0),
                 Foreground    = new SolidColorBrush(Color.Parse("#AAAAAA")),
                 Text          = "0",
                 TextAlignment = TextAlignment.Center,
@@ -1679,57 +1747,31 @@ public partial class MainWindow
             labelsRow.Children.Add(lbl);
         }
 
-        // Faint horizontal reference lines at ±100%, ±50%, 0% levels.
-        var lineColor       = new SolidColorBrush(Color.FromArgb(0x35, 0x88, 0x88, 0x88));
-        var gridLinesCanvas = new Canvas { Width = TotalW, Height = TotalH, IsHitTestVisible = false };
-        foreach (double y in new[] { 0.5, CellH / 2, CellH, CellH + 1 + CellH / 2, TotalH - 0.5 })
-        {
-            var gridLine = new Rectangle { Width = TotalW, Height = 1, Fill = lineColor };
-            Canvas.SetTop(gridLine, y);
-            gridLinesCanvas.Children.Add(gridLine);
-        }
-
-        // Layer grid lines behind bars in a single-cell Grid, then wrap in a styled Border.
-        gridLinesCanvas.HorizontalAlignment = HorizontalAlignment.Left;
-        gridLinesCanvas.VerticalAlignment   = VerticalAlignment.Top;
-        barsRow.HorizontalAlignment         = HorizontalAlignment.Left;
-        barsRow.VerticalAlignment           = VerticalAlignment.Top;
-
-        var innerGrid = new Grid();
-        innerGrid.Children.Add(gridLinesCanvas);
-        innerGrid.Children.Add(barsRow);
-
-        var barsContainer = new Border
-        {
-            Background      = new SolidColorBrush(Color.Parse("#1A1A1A")),
-            BorderBrush     = new SolidColorBrush(Color.FromArgb(0x66, 0x38, 0x38, 0x48)),
-            BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(3),
-            Padding         = new Thickness(3),
-            Child           = innerGrid,
-        };
-
         UpdateBars();
         _prm.DrawWave.PointsChanged += (_, _) => Dispatcher.UIThread.Post(UpdateBars);
 
-        return new StackPanel { Children = { barsContainer, labelsRow } };
+        return new StackPanel { Children = { barsRow, labelsRow } };
     }
 
     // Chop step-pattern grid display.
     private Panel MakeChopPatternControl()
     {
-        var grid = new StackPanel { Spacing = 4, Margin = new Thickness(0, 4, 0, 2) };
+        var grid = new StackPanel
+        {
+            Spacing = 4,
+            Margin  = new Thickness(0, 4, 0, 4),
+        };
 
         for (int w = 0; w < ChopPattern.Waveforms; w++)
         {
             int waveform    = w;
             var stepSquares = new Border[ChopPattern.Steps];
 
-            // Fixed-height Grid row: label | separator | steps — guarantees vertical alignment.
+            // Row label at left (aligned with other CC labels), spacer, tiles at right.
             var row = new Grid
             {
                 Height            = 18,
-                ColumnDefinitions = new ColumnDefinitions("42,Auto,Auto"),
+                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
             };
 
             var rowLabel = new TextBlock
@@ -1742,27 +1784,18 @@ public partial class MainWindow
             Grid.SetColumn(rowLabel, 0);
             row.Children.Add(rowLabel);
 
-            var sep = new Border
-            {
-                Width             = 1,
-                Margin            = new Thickness(3, 2, 4, 2),
-                Background        = new SolidColorBrush(Color.Parse("#2A2A38")),
-                VerticalAlignment = VerticalAlignment.Stretch,
-            };
-            Grid.SetColumn(sep, 1);
-            row.Children.Add(sep);
-
             var stepsContainer = new StackPanel
             {
-                Orientation       = Orientation.Horizontal,
-                VerticalAlignment = VerticalAlignment.Center,
+                Orientation         = Orientation.Horizontal,
+                VerticalAlignment   = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right,
             };
             for (int s = 0; s < ChopPattern.Steps; s++)
             {
                 bool on = _prm.ChopPattern.GetStep(w, s);
                 var sq = new Border
                 {
-                    Width           = 16,
+                    Width           = 14,
                     Height          = 16,
                     Margin          = new Thickness(1, 0),
                     Background      = on ? s_chopOnBrush  : s_chopOffBrush,

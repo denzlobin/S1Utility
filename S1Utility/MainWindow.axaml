@@ -244,10 +244,11 @@
                     <Button x:Name="ConnectButton"
                             Classes="toolbar"
                             Content="Connect"/>
-                    <Button x:Name="SendAllButton"
+                    <Button x:Name="PanicButton"
                             Classes="toolbar"
-                            Content="Init Settings"
-                            IsEnabled="False"/>
+                            Content="Panic"
+                            IsEnabled="False"
+                            ToolTip.Tip="Send All Sound Off + All Notes Off"/>
                     <Border Width="1" Height="16" Background="#2C2C36" Margin="4,0"/>
                     <TextBlock x:Name="StatusText"
                                Foreground="#9090A8"
@@ -348,7 +349,7 @@
         </Border>
 
         <!-- ── Tabs ───────────────────────────────────────────────────────── -->
-        <TabControl>
+        <TabControl x:Name="MainTabs">
 
             <!-- ── Tab 1: Realtime Editor ──────────────────────────────── -->
             <TabItem Header="Realtime Editor">
@@ -431,33 +432,6 @@
             <!-- ── Tab 2: Patch Inspector ──────────────────────────────── -->
             <TabItem Header="Patch Inspector">
                 <DockPanel>
-
-                    <!-- PRM toolbar row -->
-                    <Border DockPanel.Dock="Top"
-                            Background="#1A1A1E"
-                            BorderBrush="#2C2C36"
-                            BorderThickness="0,0,0,1"
-                            Padding="12,10">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Button x:Name="OpenPrmButton"
-                                        Classes="toolbar"
-                                        Content="Open PRM File"/>
-                                <Button x:Name="PrmInfoToggle"
-                                        Classes="toolbar"
-                                        Content="ⓘ"
-                                        Padding="6,4"
-                                        ToolTip.Tip="Show / hide file access instructions"/>
-                            </StackPanel>
-                            <TextBlock x:Name="PrmInfoText"
-                                       IsVisible="False"
-                                       Foreground="#7878A0"
-                                       FontSize="9.5"
-                                       TextWrapping="Wrap"
-                                       MaxWidth="860"
-                                       Text="To access patch files on the S-1: connect USB, then hold PLAY while powering on. Files are in the BACKUP folder. To restore: copy files to RESTORE folder, eject, then press HOLD on the device."/>
-                        </StackPanel>
-                    </Border>
 
                     <!-- PRM viewer sections (populated by code) -->
                     <Grid x:Name="PrmViewerGrid"

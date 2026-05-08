@@ -28,6 +28,13 @@ public partial class MainWindow : Window
     private int    _currentSlotIndex      = -1;
     private bool   _suppressDirtyTracking;
     private Button? _restorePatchButton;
+    private Button? _initPatchButton;
+
+    // Tab-2-only PRM controls (created in BuildPatchPanel, visibility toggled by MainTabs).
+    private Button?    OpenPrmButton;
+    private Button?    PrmInfoToggle;
+    private TextBlock? PrmInfoText;
+    private StackPanel? _initRestoreGroup;
 
     private bool   _autoConnect;
     private bool   _isConnected;
@@ -115,11 +122,20 @@ public partial class MainWindow : Window
 
         ConnectButton.Click          += OnConnectClicked;
         RefreshDevicesButton.Click   += (_, _) => RefreshDevices();
-        SendAllButton.Click          += OnSendAllClicked;
+        PanicButton.Click            += OnPanicClicked;
         SaveButton.Click             += OnSaveClicked;
         LoadButton.Click             += OnLoadClicked;
-        OpenPrmButton.Click          += OnOpenPrmClicked;
-        PrmInfoToggle.Click          += (_, _) => PrmInfoText.IsVisible = !PrmInfoText.IsVisible;
+        OpenPrmButton!.Click         += OnOpenPrmClicked;
+        PrmInfoToggle!.Click         += (_, _) => PrmInfoText!.IsVisible = !PrmInfoText.IsVisible;
+        MainTabs.SelectionChanged    += (_, _) =>
+        {
+            bool onTab2 = MainTabs.SelectedIndex == 1;
+            // Tab 1 (Realtime Editor): Init / Restore. Tab 2 (Patch Inspector, read-only): Open PRM / info.
+            if (_initRestoreGroup != null) _initRestoreGroup.IsVisible = !onTab2;
+            OpenPrmButton.IsVisible = onTab2;
+            PrmInfoToggle.IsVisible = onTab2;
+            if (!onTab2 && PrmInfoText != null) PrmInfoText.IsVisible = false;
+        };
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
 
         PrmFolderBox.Text = _prm.PrmFolder;
