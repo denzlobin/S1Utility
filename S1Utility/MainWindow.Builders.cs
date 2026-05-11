@@ -385,11 +385,13 @@ public partial class MainWindow
         var sawP       = RequireCC(20);
         var sqP        = RequireCC(19);
         var pwP        = RequireCC(15);
-        var pwmSrcP    = RequireCC(16); // 0=Envelope, 1=Manual, 2=LFO
+        var pwmSrcP    = RequireCC(16);  // 0=Envelope, 1=Manual, 2=LFO
         var subModeP   = RequireCC(22);
         var subP       = RequireCC(21);
         var noiseP     = RequireCC(23);
         var noiseModeP = RequireCC(78);
+        var drawP      = RequireCC(107); // 0=Off, 1=Step, 2=Slope
+        var chopOvP    = RequireCC(103); // non-zero → chop active
 
         var fillPath = new Path { Fill = new SolidColorBrush(Color.FromArgb(0x1F, 0xF0, 0xA0, 0x40)) };
         var linePath = new Path
@@ -403,11 +405,38 @@ public partial class MainWindow
         {
             Width        = W,
             Height       = H,
-            Margin       = new Thickness(4, 0, 2, 3),
             ClipToBounds = true,
+            // Transparent background so the entire canvas area registers pointer
+            // hits — without it, only the rendered strokes are hit-testable and
+            // the tooltip would only fire when hovering directly on the line.
+            Background   = Brushes.Transparent,
         };
         canvas.Children.Add(fillPath);
         canvas.Children.Add(linePath);
+
+        // Warning glyph in the top-right corner — appears when the rendered shape
+        // cannot faithfully represent the synth's output (LFO PWM, Draw, Chop).
+        // Tooltip is attached to the wrapping panel so hovering anywhere over the
+        // visualisation reveals the explanation.
+        var warnGlyph = new TextBlock
+        {
+            Text                = "⚠",
+            FontSize            = 11,
+            Foreground          = WarnBrush,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment   = VerticalAlignment.Top,
+            Margin              = new Thickness(0, 0, 2, 0),
+            IsHitTestVisible    = false,
+            IsVisible           = false,
+        };
+
+        var container = new Grid
+        {
+            Width  = W,
+            Height = H,
+            Margin = new Thickness(4, 0, 2, 3),
+            Children = { canvas, warnGlyph },
+        };
 
         var buf = new double[OscWaveformN];
 
@@ -476,14 +505,30 @@ public partial class MainWindow
                 ctx.EndFigure(true);
             }
             fillPath.Data = fillSg;
+
+            // Warning state: surface caveats where the rendered shape diverges
+            // from what the synth actually outputs.
+            bool drawOrChop = drawP.Value != 0 || chopOvP.Value != 0;
+            bool lfoPwm     = pwmSrcP.Value == 2;
+            var messages = new List<string>();
+            if (drawOrChop) messages.Add("Draw / Chop output is not represented in this preview.");
+            if (lfoPwm)     messages.Add("With PWM Source set to LFO the shape reflects maximum modulation extent, not the live value.");
+
+            warnGlyph.IsVisible = messages.Count > 0;
+            ToolTip.SetTip(canvas, messages.Count > 0 ? string.Join("\n\n", messages) : null);
+
+            // Dim the visualisation when Draw or Chop are active: the rendered
+            // shape is missing components that materially affect the output, so
+            // its accuracy claim is weaker than the LFO-PWM caveat alone.
+            canvas.Opacity = drawOrChop ? 0.45 : 1.0;
         }
 
         Update();
-        foreach (var p in new[] { sawP, sqP, pwP, pwmSrcP, subModeP, subP, noiseP, noiseModeP })
+        foreach (var p in new[] { sawP, sqP, pwP, pwmSrcP, subModeP, subP, noiseP, noiseModeP, drawP, chopOvP })
             p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
 
         _oscWaveformUpdate = Update;
-        return canvas;
+        return container;
     }
 
     // Un-normalised capacitor discharge: starts at vStart, asymptotes toward vEnd.
