@@ -52,6 +52,7 @@ public partial class MainWindow : Window
 
     private Action?  _filterCurveUpdate;
     private Action?  _envelopeDotUpdate;
+    private Action?  _oscWaveformUpdate;
     private DateTime _lastModTick;
     private DateTime _lastMidiActivity = DateTime.MinValue;
     private bool     _midiDotLit;

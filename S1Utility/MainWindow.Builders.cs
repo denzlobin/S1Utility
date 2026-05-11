@@ -81,6 +81,8 @@ public partial class MainWindow
 
     private void BuildOscPanel()
     {
+        OscillatorPanel.Children.Add(MakeOscWaveform());
+
         // Row 1: level knobs
         var knobRow1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 19, 20, 21, 23 })
@@ -333,6 +335,266 @@ public partial class MainWindow
             new Point(24,7), new Point(26,5),
         },
     };
+
+    // ── Oscillator waveform preview ───────────────────────────────────────────────
+    //
+    // Frozen one-cycle visualisation summing saw, square, sub and noise contributions.
+    // The S-1 is analogue-modelled so every component carries RC-circuit character:
+    // exponential capacitor discharge on every "flat" region, PolyBLEP at every reset.
+    //
+    // Constants below were tuned against oscilloscope captures in E:/S-1 Shapes/.
+    // The saw is a RISING concave wave (capacitor charge → dump) — it starts at
+    // SawTarget, climbs toward +1 over the cycle, then resets sharply downward
+    // at the boundary. The visible spike therefore points down (matches Saw255).
+    // Square HIGH/LOW plateaus droop toward 0 but never reach it — the cycle ends
+    // with HIGH ≈ +0.37 and LOW ≈ −0.37 at k=1.0 (matches SquarePW0.png).
+    //
+    // PolyBLEP is intentionally NOT applied here. At this canvas resolution
+    // (≈64 samples/cycle) the band-limiting either lands on a single sample or
+    // not at all, which produced spurious spikes rather than smoothing. Letting
+    // the polyline render each discontinuity directly gives a cleaner match to
+    // the captures.
+    //
+    // Tuning knobs if shapes drift from hardware:
+    //   • SawDischargeK / SawTarget  — saw rise curvature and starting value
+    //   • PulseDischargeK            — square / sub pulse droop
+    //   • SubAsymPhase (0.62)        — second pulse offset for CC22 mode 0 (-2 Asym)
+    //
+    // Hardware CC mapping (verified against S1Patch.cs):
+    //   CC19 = Square level   CC20 = Saw level   CC15 = Square PW
+    //   CC21 = Sub level      CC22 = Sub Oct Type (0 = -2 Asym, 1 = -2 Sym, 2 = -1 Oct)
+    //   CC23 = Noise level    CC78 = Noise Mode (0 = Pink, 1 = White)
+
+    private const double SawDischargeK     = 1.8;   // body curvature — gentler than before, matches hardware
+    private const double SawTarget         = -0.10; // body baseline sits just below zero; deep negative belongs to undershoot
+    private const double SawUndershootFrac = 0.035; // fraction of cycle spent recovering from reset dip
+    private const double SawUndershootMin  = -0.95; // depth of the AC-coupling dip immediately after reset
+    private const double SawUndershootK    = 6.0;   // fast climb out of the dip back to baseline
+    private const double PulseDischargeK   = 1.0;
+    private const double PwMinDuty         = 0.008; // PW=255 still shows a thin positive spike, not zero
+    private const double SubAsymPhase    = 0.62;
+    private const int    OscWaveformN    = 256;
+    // 4 cycles of the main oscillator fit across the canvas. Sub modes inherit
+    // this scale: -1 oct → 2 sub cycles, -2 oct (sym/asym) → 1 sub cycle.
+    private const int    OscMainCycles   = 4;
+
+    private Control MakeOscWaveform()
+    {
+        const double W = 252, H = 34;
+
+        var sawP       = RequireCC(20);
+        var sqP        = RequireCC(19);
+        var pwP        = RequireCC(15);
+        var pwmSrcP    = RequireCC(16); // 0=Envelope, 1=Manual, 2=LFO
+        var subModeP   = RequireCC(22);
+        var subP       = RequireCC(21);
+        var noiseP     = RequireCC(23);
+        var noiseModeP = RequireCC(78);
+
+        var fillPath = new Path { Fill = new SolidColorBrush(Color.FromArgb(0x1F, 0xF0, 0xA0, 0x40)) };
+        var linePath = new Path
+        {
+            Stroke          = OscAccent,
+            StrokeThickness = 1.5,
+            StrokeLineCap   = PenLineCap.Round,
+        };
+
+        var canvas = new Canvas
+        {
+            Width        = W,
+            Height       = H,
+            Margin       = new Thickness(4, 0, 2, 3),
+            ClipToBounds = true,
+        };
+        canvas.Children.Add(fillPath);
+        canvas.Children.Add(linePath);
+
+        var buf = new double[OscWaveformN];
+
+        void Update()
+        {
+            // Amplitudes follow the user-spec /255 scaling. Live CC range is 0..127,
+            // so absolute peaks land around 0.5 before re-normalisation — relative
+            // balance between sources is what matters and the spec keeps that intact.
+            double sawAmp   = sawP.Value   / 255.0;
+            double sqAmp    = sqP.Value    / 255.0;
+            double subAmp   = subP.Value   / 255.0;
+            double noiseAmp = noiseP.Value / 255.0 * 0.35;
+            // PW knob is 0..127. Hardware PW range tops out narrower than what the
+            // full knob sweep would suggest — calibration against the captures put
+            // the max-knob shape at roughly the internal PW=215 capture, not PW=255.
+            const double PwInternalMax = 215.0 / 255.0;
+            double pwVal    = pwP.Value;
+            // PWM Source = Envelope: knob value sets modulation depth; live PW
+            // sweeps from 0 (50% duty / square) up to the knob value as the env
+            // rises, mirroring how the synth modulates pulse width over A/D/S/R.
+            // Only animates when the Animations toggle is on and a note is active.
+            if (pwmSrcP.Value == 0 && _viewModel.FilterModEnabled)
+                pwVal *= _viewModel.EnvLevel;
+            double duty     = Math.Max(PwMinDuty, 0.5 * (1.0 - pwVal / 127.0 * PwInternalMax));
+
+            Array.Clear(buf, 0, OscWaveformN);
+
+            if (sawAmp   > 0) AddSaw(buf,    sawAmp,                    OscMainCycles);
+            if (sqAmp    > 0) AddSquare(buf, duty, sqAmp,               OscMainCycles);
+            if (subAmp   > 0) AddSub(buf,    subModeP.Value, subAmp);
+            if (noiseAmp > 0) AddNoise(buf,  noiseModeP.Value, noiseAmp);
+
+            double peak = 0;
+            for (int i = 0; i < OscWaveformN; i++)
+            {
+                double a = Math.Abs(buf[i]);
+                if (a > peak) peak = a;
+            }
+
+            // Soft floor on the peak so very small amplitudes (PRM ≈ 0–8) shrink
+            // smoothly toward a flat line instead of snapping to one. Above the
+            // floor the wave still fills 85% of the half-canvas as before.
+            const double softFloor = 0.05;
+            double yMid  = H / 2.0;
+            double scale = (0.85 * (H / 2.0)) / Math.Max(peak, softFloor);
+
+            var pts = new Point[OscWaveformN];
+            for (int i = 0; i < OscWaveformN; i++)
+                pts[i] = new Point(i * (W / (OscWaveformN - 1)), yMid - buf[i] * scale);
+
+            var sg = new StreamGeometry();
+            using (var ctx = sg.Open())
+            {
+                ctx.BeginFigure(pts[0], false);
+                for (int i = 1; i < OscWaveformN; i++) ctx.LineTo(pts[i]);
+                ctx.EndFigure(false);
+            }
+            linePath.Data = sg;
+
+            var fillSg = new StreamGeometry();
+            using (var ctx = fillSg.Open())
+            {
+                ctx.BeginFigure(new Point(0, yMid), false);
+                for (int i = 0; i < OscWaveformN; i++) ctx.LineTo(pts[i]);
+                ctx.LineTo(new Point(W, yMid));
+                ctx.EndFigure(true);
+            }
+            fillPath.Data = fillSg;
+        }
+
+        Update();
+        foreach (var p in new[] { sawP, sqP, pwP, pwmSrcP, subModeP, subP, noiseP, noiseModeP })
+            p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
+
+        _oscWaveformUpdate = Update;
+        return canvas;
+    }
+
+    // Un-normalised capacitor discharge: starts at vStart, asymptotes toward vEnd.
+    // The curve does NOT reach vEnd at t=1 — that is the whole point. Real RC
+    // circuits never quite reach their target inside one cycle, which is what
+    // produces the residual droop we see on the hardware plateaus.
+    private static double Discharge(double t, double k, double vStart, double vEnd) =>
+        vEnd + (vStart - vEnd) * Math.Exp(-k * t);
+
+    private static void AddSaw(double[] buf, double amp, int cycles)
+    {
+        int N = buf.Length;
+        for (int i = 0; i < N; i++)
+        {
+            double tFull = i * cycles / (double)N;
+            double t     = tFull - Math.Floor(tFull); // phase within current saw cycle
+            double v;
+            if (t < SawUndershootFrac)
+            {
+                // AC-coupling dip immediately after the reset: starts deep negative,
+                // climbs quickly back to the body baseline. Produces the brief
+                // downward bump just past each spike that is visible on the captures.
+                double u = t / SawUndershootFrac;
+                v = Discharge(u, SawUndershootK, SawUndershootMin, SawTarget);
+            }
+            else
+            {
+                // Main body: gentle concave rise from baseline toward +1. Cycle ends
+                // near the peak; the next sample resets via the undershoot above,
+                // so the polyline draws a tall downward spike at the boundary.
+                double u = (t - SawUndershootFrac) / (1.0 - SawUndershootFrac);
+                v = Discharge(u, SawDischargeK, SawTarget, 1.0);
+            }
+            buf[i] += v * amp;
+        }
+    }
+
+    private static void AddSquare(double[] buf, double duty, double amp, int cycles)
+    {
+        int N = buf.Length;
+        duty = Math.Clamp(duty, 0.005, 0.995);
+        for (int i = 0; i < N; i++)
+        {
+            double tFull = i * cycles / (double)N;
+            double t     = tFull - Math.Floor(tFull);
+            double v = t < duty
+                ? Discharge(t / duty,                  PulseDischargeK,  1.0, 0.0)
+                : Discharge((t - duty) / (1.0 - duty), PulseDischargeK, -1.0, 0.0);
+            buf[i] += v * amp;
+        }
+    }
+
+    // Sub is a 50%-duty pulse running below the main oscillator. Octave below
+    // (-1 oct) packs OscMainCycles/2 sub cycles into the buffer; -2 oct sym/asym
+    // pack OscMainCycles/4. Shape is identical to the square at duty=0.5 except
+    // the asym variant which adds a second compressed pulse at SubAsymPhase.
+    private static void AddSub(double[] buf, int mode, double amp)
+    {
+        switch (mode)
+        {
+            case 2: AddSquare(buf, 0.5, amp, OscMainCycles / 2); return; // -1 oct
+            case 1: AddSquare(buf, 0.5, amp, OscMainCycles / 4); return; // -2 oct sym
+            default: AddSubAsymmetric(buf, amp, OscMainCycles / 4); return; // -2 oct asym
+        }
+    }
+
+    // Two pulses per sub cycle at phase 0 and SubAsymPhase. The second pulse fits
+    // into the remaining (1 − phase2) of the cycle, so it appears compressed.
+    private static void AddSubAsymmetric(double[] buf, double amp, int cycles)
+    {
+        int N = buf.Length;
+        double phase2 = SubAsymPhase;
+        double w1 = phase2 * 0.5;             // first pulse high-time
+        double w2 = (1.0 - phase2) * 0.5;     // second pulse high-time (compressed)
+        for (int i = 0; i < N; i++)
+        {
+            double tFull = i * cycles / (double)N;
+            double t     = tFull - Math.Floor(tFull);
+            double v;
+            if      (t < w1)              v = Discharge(t / w1,                                   PulseDischargeK,  1.0, 0.0);
+            else if (t < phase2)          v = Discharge((t - w1) / (phase2 - w1),                 PulseDischargeK, -1.0, 0.0);
+            else if (t < phase2 + w2)     v = Discharge((t - phase2) / w2,                        PulseDischargeK,  1.0, 0.0);
+            else                          v = Discharge((t - phase2 - w2) / (1.0 - phase2 - w2),  PulseDischargeK, -1.0, 0.0);
+            buf[i] += v * amp;
+        }
+    }
+
+    private static void AddNoise(double[] buf, int mode, double amp)
+    {
+        int N = buf.Length;
+        // Fixed seed → stable frozen frame across redraws.
+        var rng = new Random(42);
+        // CC78 mapping per S1Patch.cs (hardware-confirmed): 0 = Pink, 1 = White.
+        bool pink = mode == 0;
+        double b0 = 0, b1 = 0, b2 = 0;
+        for (int i = 0; i < N; i++)
+        {
+            double white = rng.NextDouble() * 2.0 - 1.0;
+            double v;
+            if (pink)
+            {
+                // Paul Kellett's 3-pole pink-noise approximation.
+                b0 = 0.99886 * b0 + white * 0.0555179;
+                b1 = 0.99332 * b1 + white * 0.0750759;
+                b2 = 0.96900 * b2 + white * 0.1538520;
+                v = b0 + b1 + b2 + white * 0.5362;
+            }
+            else v = white;
+            buf[i] += v * amp;
+        }
+    }
 
     // ── Filter curve (live lowpass SVG-style visualizer) ─────────────────────────
 
@@ -838,6 +1100,7 @@ public partial class MainWindow
             _liveViewToggle?.SetActive(false);
             _filterCurveUpdate?.Invoke();
             _envelopeDotUpdate?.Invoke();
+            _oscWaveformUpdate?.Invoke();
         }
     }
 
@@ -846,9 +1109,9 @@ public partial class MainWindow
         // ── Auto-connect ──────────────────────────────────────────────────────
         var (autoBtn, autoState) = MakeHeuristicToggle(
             "AUTO-CONNECT",
-            "Heuristic: searches MIDI device names for \"S-1\" and connects automatically on launch " +
-            "and after a device refresh. Name matching only; any device containing \"S-1\" will match " +
-            "regardless of model. Verify the right device is selected after auto-connect.",
+            "Heuristic feature: searches MIDI device names for \"S-1\" and connects automatically on launch " +
+            "or refresh. Any device containing \"S-1\" will match regardless of model. " +
+            "Verify the right device is selected after auto-connect.",
             DmAccent);
 
         autoState.SetActive(_autoConnect);
@@ -862,10 +1125,10 @@ public partial class MainWindow
         // ── Live View: filter curve + ADSR animation (requires Patch Mirror) ──
         var (liveViewBtn, liveViewState) = MakeHeuristicToggle(
             "ANIMATIONS",
-            "Heuristic: animates the filter curve and ADSR dot at 60 fps using the editor's current " +
-            "CC values as model inputs. The envelope and LFO routing is an approximation; it responds " +
-            "to note events but will not match the S-1 hardware signal path exactly.\n\n" +
-            "Requires Patch Mirror so the editor values reflect what is on the device.",
+            "Heuristic feature: animates the ADSR and its modulation targets using the editor's current " +
+            "CC values as model inputs. The animation is an approximation; it responds to note events " +
+            "but will not match the S-1 hardware signal path exactly.\n\n" +
+            "Requires Patch Mirror enabled so the editor values reflect what is on the device.",
             EnvAccent);
 
         _liveViewToggle = liveViewState;
@@ -894,9 +1157,8 @@ public partial class MainWindow
         // ── Patch Mirror ──────────────────────────────────────────────────────
         var (patchMirrorBtn, patchMirrorState) = MakeHeuristicToggle(
             "PATCH MIRROR",
-            "Heuristic: auto-loads the PRM file matching the current pattern number when you switch " +
-            "patterns (via the editor or a MIDI Program Change). The editor is updated only; no values " +
-            "are sent back to the S-1.\n\n" +
+            "Heuristic feature: loads the backed up PRM file matching the current pattern number when you switch " +
+            "patterns via the editor or a MIDI Program Change.\n\n" +
             "Requires a PRM folder containing valid .PRM files. Accuracy depends on keeping the " +
             "folder in sync with what is stored on the device.",
             WarnBrush);

@@ -587,6 +587,7 @@ public partial class MainWindow
         {
             _filterCurveUpdate?.Invoke();
             _envelopeDotUpdate?.Invoke();
+            _oscWaveformUpdate?.Invoke();
         }
     }
 
