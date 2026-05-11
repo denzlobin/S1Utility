@@ -60,18 +60,20 @@ public partial class MainWindow
         ChannelCombo.SelectionChanged += (_, _) => SaveSettings();
         ProgramChangeChannelCombo.SelectionChanged += (_, _) => SaveSettings();
 
+        DeviceCombo.DropDownOpened += (_, _) => ReenumerateDevices();
+        InputCombo.DropDownOpened  += (_, _) => ReenumerateDevices();
+
         if (DeviceCombo.Items.Count > 0) DeviceCombo.SelectedIndex = 0;
         if (InputCombo.Items.Count  > 0) InputCombo.SelectedIndex  = 0;
     }
 
-    private void RefreshDevices()
+    private void ReenumerateDevices()
     {
         string? prevOut = DeviceCombo.SelectedIndex >= 0
             ? DeviceCombo.Items[DeviceCombo.SelectedIndex] as string : null;
-        string? prevIn = _midiMgr.InputDeviceNames.Count > 0
-            ? (InputCombo.SelectedIndex >= 0
-                ? _midiMgr.InputDeviceNames[InputCombo.SelectedIndex] : null)
-            : null;
+        string? prevIn = InputCombo.SelectedIndex >= 0
+            && InputCombo.SelectedIndex < _midiMgr.InputDeviceNames.Count
+            ? _midiMgr.InputDeviceNames[InputCombo.SelectedIndex] : null;
 
         _midiMgr.EnumerateDevices();
 
@@ -99,11 +101,6 @@ public partial class MainWindow
         }
         else if (InputCombo.Items.Count > 0)
             InputCombo.SelectedIndex = 0;
-
-        if (_autoConnect)
-            TryAutoConnect();
-        else
-            SetStatus("Devices refreshed.", "#A0A0B8");
     }
 
     // ── Toolbar actions ───────────────────────────────────────────────────────
@@ -113,17 +110,29 @@ public partial class MainWindow
     private void OnDeviceDisconnected()
     {
         _isConnected                 = false;
-        PatchGridContainer.IsEnabled = false;
         _initPatchButton!.IsEnabled      = false;
         PanicButton.IsEnabled        = false;
         ConnectButton.Content        = "Reconnect";
         SetStatus("Device disconnected.", "#FF6B6B");
         UpdateSyncIndicator(_patch.UnsyncedCount);
         ClearDirtyTracking();
+        UpdatePatchGridAvailability();
+    }
+
+    private void UpdatePatchGridAvailability()
+    {
+        // Inspector tab is browse-only and works without the device. The editor
+        // tab gates the grid on connection so clicks there always correspond to
+        // something happening on the hardware.
+        bool onInspector = MainTabs.SelectedIndex == 1;
+        PatchGridContainer.IsEnabled = _isConnected || onInspector;
     }
 
     private async Task PerformConnectAsync()
     {
+        // Re-enumerate first so unplug/replug recovers without a separate refresh step.
+        ReenumerateDevices();
+
         if (DeviceCombo.SelectedIndex < 0 || DeviceCombo.SelectedIndex >= _midiMgr.OutputPorts.Count)
         {
             SetStatus("Select a MIDI output device first.", "#FF6B6B");
@@ -145,7 +154,7 @@ public partial class MainWindow
         ConnectButton.Content        = "Reconnect";
         _initPatchButton!.IsEnabled      = true;
         PanicButton.IsEnabled        = true;
-        PatchGridContainer.IsEnabled = true;
+        UpdatePatchGridAvailability();
         UpdateSyncIndicator(_patch.UnsyncedCount);
         if (_prm.PatternSync)
             GoToPattern1();
@@ -570,6 +579,7 @@ public partial class MainWindow
     {
         _patch.SendProgramChange(0, PcChannel);
         HighlightPatchButton(0);
+        if (_patchButtons.Count > 0) _patchButtons[0].Focus();
     }
 
     // ── Filter modulation: 60 fps tick ───────────────────────────────────────

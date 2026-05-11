@@ -37,9 +37,6 @@ public sealed class PrmFileManager
         "128", "64t", "128d", "1_64", "32t", "64d", "1_32", "16t",
         "32d", "1_16", "8t", "16d", "1_8", "4t", "8d", "1_4" });
 
-    public PrmParameter ChopType     { get; } = new("Chop Type",  "OSC_CHOP_TYPE",      prmMax: 7);
-    public PrmParameter ChopCombType { get; } = new("Comb Type",  "OSC_CHOP_COMB_TYPE", prmMax: 7);
-
     public PrmParameter Leng      { get; } = new("Length",     "LENG",       prmMax: 64);
     public PrmParameter Shuffle   { get; } = new("Shuffle",    "SHUFFLE",    prmMax: 50);
     public PrmParameter Level     { get; } = new("Level",      "LEVEL",      prmMax: 127);
@@ -113,7 +110,6 @@ public sealed class PrmFileManager
         all.AddRange(ReverbMain);
         all.AddRange(ReverbAdv);
         all.AddRange(new[] {
-            ChopType, ChopCombType,
             Leng, Shuffle, Level, Scale, TempoSync,
             ArpType, ArpRate,
             RiserSw, RiserMode, RiserCtrl, RiserBeat,
@@ -224,7 +220,6 @@ public sealed class PrmFileManager
 
         _sequence.LoadFromPrm(data);
 
-        LoadPrmOnly(data, new[] { ChopType, ChopCombType });
         LoadPrmOnly(data, new[] { Leng, Shuffle, Level, Scale, TempoSync, ArpType, ArpRate });
         LoadPrmOnly(data, new[] { RiserSw, RiserMode, RiserCtrl, RiserBeat, RiserShape, RiserReso, RiserLevel });
         LoadPrmOnly(data, new[] { DmAssignX, DmAssignY, DmAssignTap, DmAssignFf, DmSensX, DmSensY });

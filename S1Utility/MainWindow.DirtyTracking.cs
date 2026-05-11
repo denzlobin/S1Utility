@@ -1,5 +1,6 @@
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Input;
 
 namespace S1Utility;
 
@@ -9,6 +10,42 @@ public partial class MainWindow
     {
         _patch.SendProgramChange(program, PcChannel);
         HighlightPatchButton(program);
+        btn.Focus();
+    }
+
+    private void OnPatchGridKeyDown(object? sender, KeyEventArgs e)
+    {
+        int dx = 0, dy = 0;
+        switch (e.Key)
+        {
+            case Key.Left:  dx = -1; break;
+            case Key.Right: dx =  1; break;
+            case Key.Up:    dy = -1; break;
+            case Key.Down:  dy =  1; break;
+            default: return;
+        }
+
+        e.Handled = true;
+
+        int program;
+        if (_currentSlotIndex < 0)
+        {
+            program = 0;
+        }
+        else
+        {
+            int bank = _currentSlotIndex / 16;
+            int slot = _currentSlotIndex % 16;
+            int newBank = bank + dy;
+            int newSlot = slot + dx;
+            if ((uint)newBank >= 4u || (uint)newSlot >= 16u) return;
+            program = newBank * 16 + newSlot;
+        }
+
+        _patch.SendProgramChange(program, PcChannel);
+        HighlightPatchButton(program);
+        if ((uint)program < (uint)_patchButtons.Count)
+            _patchButtons[program].Focus();
     }
 
     private void HighlightPatchButton(int program)
@@ -49,6 +86,8 @@ public partial class MainWindow
         {
             ClearDirtyTracking();
             _patch.ResetAllSync();
+            if (!string.IsNullOrEmpty(_prm.PrmFolder))
+                _prm.TryLoadInspectorOnly(program);
         }
     }
 

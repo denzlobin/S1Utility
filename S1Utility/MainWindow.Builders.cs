@@ -1672,8 +1672,6 @@ public partial class MainWindow
         {
             MakePrmViewerCcRowCompact(RequireCC(103)),       // Chop Overtone
             MakePrmViewerCcRowCompact(RequireCC(104)),       // Chop Comb
-            MakePrmInfoRow(_prm.ChopType,     compact: true),
-            MakePrmInfoRow(_prm.ChopCombType, compact: true),
         }));
         oscContent.Children.Add(MakeChopPatternControl());
 

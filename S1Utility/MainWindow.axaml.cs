@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using S1Utility.Core;
@@ -122,7 +124,6 @@ public partial class MainWindow : Window
         _prm.ApplyInitPatch();
 
         ConnectButton.Click          += OnConnectClicked;
-        RefreshDevicesButton.Click   += (_, _) => RefreshDevices();
         PanicButton.Click            += OnPanicClicked;
         SaveButton.Click             += OnSaveClicked;
         LoadButton.Click             += OnLoadClicked;
@@ -136,8 +137,13 @@ public partial class MainWindow : Window
             OpenPrmButton.IsVisible = onTab2;
             PrmInfoToggle.IsVisible = onTab2;
             if (!onTab2 && PrmInfoText != null) PrmInfoText.IsVisible = false;
+            UpdatePatchGridAvailability();
         };
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
+
+        AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
+
+        UpdatePatchGridAvailability();
 
         PrmFolderBox.Text = _prm.PrmFolder;
         BuildLiveFeaturesPanel();
@@ -152,6 +158,45 @@ public partial class MainWindow : Window
         _modTimer.Interval = TimeSpan.FromMilliseconds(16);
         _modTimer.Tick += OnModTimerTick;
         _modTimer.Start();
+    }
+
+    private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
+    {
+        bool ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
+
+        if (ctrl && e.Key == Key.S)
+        {
+            OnSaveClicked(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Tab)
+        {
+            // Preserve focus traversal inside text fields.
+            if (FocusManager?.GetFocusedElement() is TextBox) return;
+
+            int count = MainTabs.ItemCount;
+            if (count <= 0) return;
+            int dir = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? -1 : 1;
+            MainTabs.SelectedIndex = (MainTabs.SelectedIndex + dir + count) % count;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
+        {
+            var focused = FocusManager?.GetFocusedElement();
+
+            // Tab strip: suppress arrows so they don't switch tabs.
+            if (focused is TabItem) { e.Handled = true; return; }
+
+            // Don't hijack arrows while editing in input controls.
+            if (focused is TextBox or ComboBox or Slider) return;
+
+            if (!PatchGridContainer.IsEnabled) return;
+            OnPatchGridKeyDown(this, e);
+        }
     }
 
     protected override void OnClosed(EventArgs e)

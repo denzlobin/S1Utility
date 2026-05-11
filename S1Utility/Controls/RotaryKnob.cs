@@ -89,9 +89,13 @@ public class RotaryKnob : Control
 
     // ── Drag state ────────────────────────────────────────────────────────────
 
+    private const double CoarseFactor = 0.8;
+    private const double FineFactor   = 0.15;   // Ctrl-drag sensitivity
+
     private bool   _isDragging;
-    private double _dragStartY;
+    private double _lastY;
     private int    _dragStartValue;
+    private double _accumulator;       // fractional running total in value units
 
     public RotaryKnob()
     {
@@ -199,9 +203,10 @@ public class RotaryKnob : Control
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            _isDragging    = true;
-            _dragStartY    = e.GetPosition(this).Y;
+            _isDragging     = true;
+            _lastY          = e.GetPosition(this).Y;
             _dragStartValue = Value;
+            _accumulator    = 0;
             e.Pointer.Capture(this);
             e.Handled = true;
         }
@@ -211,8 +216,23 @@ public class RotaryKnob : Control
     {
         if (!_isDragging) return;
         // Dragging up (negative delta) increases value; down decreases it.
-        var delta = _dragStartY - e.GetPosition(this).Y;
-        Value = Math.Clamp(_dragStartValue + (int)(delta * 0.8), MinValue, 127);
+        // Track incremental motion so Ctrl can be toggled mid-drag without a jump.
+        double y     = e.GetPosition(this).Y;
+        double dy    = _lastY - y;
+        _lastY       = y;
+        bool fine    = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        _accumulator += dy * (fine ? FineFactor : CoarseFactor);
+        Value = Math.Clamp(_dragStartValue + (int)_accumulator, MinValue, 127);
+        e.Handled = true;
+    }
+
+    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    {
+        bool fine = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        int step = fine ? 1 : 4;
+        int delta = (int)Math.Sign(e.Delta.Y) * step;
+        if (delta == 0) return;
+        Value = Math.Clamp(Value + delta, MinValue, 127);
         e.Handled = true;
     }
 

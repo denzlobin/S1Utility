@@ -228,11 +228,6 @@
 
                 <!-- Left: MIDI device selection -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                    <Button x:Name="RefreshDevicesButton"
-                            Classes="toolbar"
-                            Content="↻"
-                            Padding="7,4"
-                            ToolTip.Tip="Refresh device list"/>
                     <ComboBox x:Name="DeviceCombo"
                               Width="130" Height="26" FontSize="10"
                               PlaceholderText="MIDI Out…"
@@ -302,7 +297,7 @@
                 Padding="12,8,12,10">
             <Grid ColumnDefinitions="*,Auto,440">
 
-                <StackPanel x:Name="PatchGridContainer" IsEnabled="False" Grid.Column="0"/>
+                <StackPanel x:Name="PatchGridContainer" Grid.Column="0"/>
 
                 <Border Grid.Column="1" Width="1" Background="#2C2C36" Margin="14,0"/>
 
