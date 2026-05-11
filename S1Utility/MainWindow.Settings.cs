@@ -229,7 +229,10 @@ public partial class MainWindow
     {
         _initPatchButton!.IsEnabled = false;
         SetStatus("Initializing…", "#AAAAAA");
-        _prm.ApplyInitPatch();
+        _suppressUndoTracking = true;
+        try { _prm.ApplyInitPatch(); }
+        finally { _suppressUndoTracking = false; }
+        ClearUndoHistory();
         await _patch.SendAllAsync();
         _patch.MarkAllSynced();
         _initPatchButton!.IsEnabled = true;
@@ -292,17 +295,23 @@ public partial class MainWindow
         if (preset is null) return;
 
         PresetNameBox.Text = preset.Name;
-        _patch.LoadPreset(preset);
-
-        if (preset.PrmOnly.Count > 0)
+        _suppressUndoTracking = true;
+        try
         {
-            var prmLookup = _prm.AllPrmOnlyParams().ToDictionary(p => p.PrmKey);
-            foreach (var entry in preset.PrmOnly)
+            _patch.LoadPreset(preset);
+
+            if (preset.PrmOnly.Count > 0)
             {
-                if (prmLookup.TryGetValue(entry.PrmKey, out var prm))
-                    prm.Value = entry.Value;
+                var prmLookup = _prm.AllPrmOnlyParams().ToDictionary(p => p.PrmKey);
+                foreach (var entry in preset.PrmOnly)
+                {
+                    if (prmLookup.TryGetValue(entry.PrmKey, out var prm))
+                        prm.Value = entry.Value;
+                }
             }
         }
+        finally { _suppressUndoTracking = false; }
+        ClearUndoHistory();
 
         await _patch.SendAllAsync();
         SetStatus($"Loaded: {preset.Name}", "#70C870");
@@ -440,7 +449,10 @@ public partial class MainWindow
         }
 
         // LoadIntoEditor: write to live patch + push to synth (if connected).
-        _prm.ApplyPrmData(parsed);
+        _suppressUndoTracking = true;
+        try { _prm.ApplyPrmData(parsed); }
+        finally { _suppressUndoTracking = false; }
+        ClearUndoHistory();
         PresetNameBox.Text = fileName;
         SetStatus("Sending PRM values…", "#AAAAAA");
         await _patch.SendAllAsync();

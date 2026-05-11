@@ -267,8 +267,18 @@
                                Foreground="#F0A040"/>
                 </StackPanel>
 
-                <!-- Right: Preset management -->
+                <!-- Right: Edit history + preset management -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <Button x:Name="UndoButton"
+                            Classes="toolbar"
+                            Content="Undo"
+                            IsEnabled="False"
+                            ToolTip.Tip="Undo last edit (Ctrl+Z)"/>
+                    <Button x:Name="RedoButton"
+                            Classes="toolbar"
+                            Content="Redo"
+                            IsEnabled="False"
+                            ToolTip.Tip="Redo (Ctrl+Y or Ctrl+Shift+Z)"/>
                     <Border Width="1" Height="16" Background="#2C2C36" Margin="0,0,4,0"/>
                     <TextBox x:Name="PresetNameBox"
                              Width="110" Height="26" FontSize="10"

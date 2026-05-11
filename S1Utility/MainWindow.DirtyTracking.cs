@@ -76,7 +76,9 @@ public partial class MainWindow
             else
             {
                 _suppressDirtyTracking = true;
+                _suppressUndoTracking  = true;
                 bool loaded = _prm.TryLoadPatternPrm(program);
+                _suppressUndoTracking  = false;
                 _suppressDirtyTracking = false;
                 if (loaded) _slotSnapshots[program] = CaptureSnapshot();
             }
@@ -89,6 +91,11 @@ public partial class MainWindow
             if (!string.IsNullOrEmpty(_prm.PrmFolder))
                 _prm.TryLoadInspectorOnly(program);
         }
+
+        // Undo/redo is scoped to edits made within a single slot. Switching slots
+        // is a major navigation action; whatever was on the stack belongs to the
+        // previous editing context and would behave confusingly here.
+        ClearUndoHistory();
     }
 
     private int[] CaptureSnapshot() =>
@@ -97,8 +104,10 @@ public partial class MainWindow
     private void RestoreSnapshotValues(int[] snapshot)
     {
         _suppressDirtyTracking = true;
+        _suppressUndoTracking  = true;
         for (int i = 0; i < _patch.AllParameters.Count; i++)
             _patch.HandleIncomingCC(_patch.AllParameters[i].CcNumber, snapshot[i]);
+        _suppressUndoTracking  = false;
         _suppressDirtyTracking = false;
     }
 
@@ -152,7 +161,9 @@ public partial class MainWindow
         if (_currentSlotIndex < 0 || !_dirtySlots.Contains(_currentSlotIndex)) return;
 
         _suppressDirtyTracking = true;
+        _suppressUndoTracking  = true;
         bool loaded = _prm.TryLoadPatternPrm(_currentSlotIndex);
+        _suppressUndoTracking  = false;
         _suppressDirtyTracking = false;
         if (!loaded) return;
 
@@ -161,6 +172,7 @@ public partial class MainWindow
         _slotSnapshots[_currentSlotIndex] = CaptureSnapshot();
         RefreshPatchButtonStyle(_currentSlotIndex);
         UpdateRestorePatchButton();
+        ClearUndoHistory();
         await _patch.SendAllAsync();
         _patch.MarkAllSynced();
     }

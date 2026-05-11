@@ -127,6 +127,8 @@ public partial class MainWindow : Window
         PanicButton.Click            += OnPanicClicked;
         SaveButton.Click             += OnSaveClicked;
         LoadButton.Click             += OnLoadClicked;
+        UndoButton.Click             += OnUndoClicked;
+        RedoButton.Click             += OnRedoClicked;
         OpenPrmButton!.Click         += OnOpenPrmClicked;
         PrmInfoToggle!.Click         += (_, _) => PrmInfoText!.IsVisible = !PrmInfoText.IsVisible;
         MainTabs.SelectionChanged    += (_, _) =>
@@ -150,9 +152,11 @@ public partial class MainWindow : Window
         UpdateSyncIndicator(_patch.UnsyncedCount);
         if (_autoConnect) TryAutoConnect();
 
-        // Subscribe after ApplyInitPatch so the init run does not trigger dirty marks.
+        // Subscribe after ApplyInitPatch so the init run does not trigger dirty marks
+        // or seed undo entries before the user has done anything.
         foreach (var param in _patch.AllParameters)
             param.ValueChanged += (_, _) => MarkCurrentSlotDirty();
+        InitializeUndoTracking();
 
         _lastModTick = DateTime.UtcNow;
         _modTimer.Interval = TimeSpan.FromMilliseconds(16);
@@ -162,11 +166,29 @@ public partial class MainWindow : Window
 
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
-        bool ctrl = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        bool ctrl  = (e.KeyModifiers & KeyModifiers.Control) != 0;
+        bool shift = (e.KeyModifiers & KeyModifiers.Shift)   != 0;
 
         if (ctrl && e.Key == Key.S)
         {
             OnSaveClicked(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        // Don't hijack Ctrl+Z/Y inside a text field — keep native text undo.
+        bool inTextBox = FocusManager?.GetFocusedElement() is TextBox;
+
+        if (!inTextBox && ctrl && e.Key == Key.Z && !shift)
+        {
+            Undo();
+            e.Handled = true;
+            return;
+        }
+
+        if (!inTextBox && ctrl && (e.Key == Key.Y || (e.Key == Key.Z && shift)))
+        {
+            Redo();
             e.Handled = true;
             return;
         }
