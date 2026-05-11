@@ -121,11 +121,19 @@ public partial class MainWindow
 
     private void UpdatePatchGridAvailability()
     {
-        // Inspector tab is browse-only and works without the device. The editor
-        // tab gates the grid on connection so clicks there always correspond to
-        // something happening on the hardware.
-        bool onInspector = MainTabs.SelectedIndex == 1;
-        PatchGridContainer.IsEnabled = _isConnected || onInspector;
+        // Inspector tab is browse-only and works without the device, but only
+        // if there is actually PRM data on disk to browse. The editor tab gates
+        // the grid on connection so clicks always correspond to hardware action.
+        bool onInspector  = MainTabs.SelectedIndex == 1;
+        bool inspectorOk  = onInspector && PrmFolderHasValidFiles();
+        PatchGridContainer.IsEnabled = _isConnected || inspectorOk;
+    }
+
+    private void UpdateInspectorBanner()
+    {
+        bool hasData = PrmFolderHasValidFiles();
+        InspectorBanner.IsVisible = !hasData;
+        PrmViewerGrid.IsVisible   =  hasData;
     }
 
     private async Task PerformConnectAsync()
@@ -406,6 +414,8 @@ public partial class MainWindow
         _prm.PrmFolder    = folders[0].TryGetLocalPath() ?? "";
         PrmFolderBox.Text = _prm.PrmFolder;
         RefreshLiveFeaturesState();
+        UpdateInspectorBanner();
+        UpdatePatchGridAvailability();
         SaveSettings();
     }
 

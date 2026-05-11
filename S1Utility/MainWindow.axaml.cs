@@ -146,6 +146,7 @@ public partial class MainWindow : Window
         AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
 
         UpdatePatchGridAvailability();
+        UpdateInspectorBanner();
 
         PrmFolderBox.Text = _prm.PrmFolder;
         BuildLiveFeaturesPanel();
