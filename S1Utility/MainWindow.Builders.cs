@@ -514,7 +514,10 @@ public partial class MainWindow
             if (drawOrChop) messages.Add("Draw / Chop output is not represented in this preview.");
             if (lfoPwm)     messages.Add("With PWM Source set to LFO the shape reflects maximum modulation extent, not the live value.");
 
-            warnGlyph.IsVisible = messages.Count > 0;
+            // LFO-PWM is a deliberate selection the user made on a clearly-labelled
+            // control — surfacing a warning glyph for it adds visual noise. Keep
+            // the tooltip available on hover so the caveat is still discoverable.
+            warnGlyph.IsVisible = drawOrChop;
             ToolTip.SetTip(canvas, messages.Count > 0 ? string.Join("\n\n", messages) : null);
 
             // Dim the visualisation when Draw or Chop are active: the rendered
