@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -42,8 +43,43 @@ public partial class MainWindow : Window
     private bool   _isConnected;
     private bool   _patternSyncDialogOpen;
     private Window? _seqWindow;
+    private Window? _settingsWindow;
     private int    _midiChannel  = 3;
     private int    _pcChannel    = 3;
+
+    // Settings popup controls — declared here so they survive the popup being closed
+    // and can be re-parented next time it opens. Populated/wired in PopulateDeviceLists
+    // and the constructor, exactly as the equivalent x:Name'd XAML controls used to be.
+    private readonly ComboBox ChannelCombo = new()
+    {
+        Height      = 26,
+        FontSize    = 11,
+        Background  = new SolidColorBrush(Color.Parse("#1E1E28")),
+        BorderBrush = new SolidColorBrush(Color.Parse("#3A3A46")),
+    };
+    private readonly ComboBox ProgramChangeChannelCombo = new()
+    {
+        Height      = 26,
+        FontSize    = 11,
+        Background  = new SolidColorBrush(Color.Parse("#1E1E28")),
+        BorderBrush = new SolidColorBrush(Color.Parse("#3A3A46")),
+    };
+    private readonly TextBox PrmFolderBox = new()
+    {
+        Height          = 26,
+        FontSize        = 11,
+        IsReadOnly      = true,
+        PlaceholderText = "(not set)",
+        Background      = new SolidColorBrush(Color.Parse("#1A1A24")),
+        BorderBrush     = new SolidColorBrush(Color.Parse("#333344")),
+        Foreground      = new SolidColorBrush(Color.Parse("#9090A8")),
+        CornerRadius    = new CornerRadius(3),
+    };
+    private readonly Button BrowsePrmFolderButton = new()
+    {
+        Content  = "Browse…",
+        Classes  = { "toolbar" },
+    };
 
     private sealed record HeuristicToggleState(Action<bool> SetActive, Action<bool> SetEnabled);
 
@@ -63,7 +99,7 @@ public partial class MainWindow : Window
     // ── Aspect-ratio scaling ──────────────────────────────────────────────────
 
     private const  double DesignWidth  = 1100;
-    private const  double DesignHeight = 1100;
+    private const  double DesignHeight = 1130;
     private const  double AspectRatio  = DesignWidth / DesignHeight;
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -142,6 +178,7 @@ public partial class MainWindow : Window
             UpdatePatchGridAvailability();
         };
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
+        SettingsButton.Click         += OnSettingsClicked;
 
         AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
 

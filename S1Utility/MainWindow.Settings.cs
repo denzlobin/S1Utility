@@ -208,7 +208,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[Settings] Load failed: {ex.Message}");
-            SetStatus("Settings failed to load — using defaults.", "#F0A040");
+            SetStatus("Settings failed to load. Using defaults.", "#F0A040");
         }
     }
 
@@ -250,7 +250,7 @@ public partial class MainWindow
     private void OnPanicClicked(object? sender, RoutedEventArgs e)
     {
         _patch.SendPanic();
-        SetStatus("Panic — All Sound Off / All Notes Off sent.", "#F0A040");
+        SetStatus("All Sound Off / All Notes Off sent.", "#F0A040");
     }
 
     // ── Preset save / load ────────────────────────────────────────────────────
@@ -538,7 +538,7 @@ public partial class MainWindow
                         Foreground   = new SolidColorBrush(Color.Parse("#BBBBCC")),
                         TextWrapping = TextWrapping.Wrap,
                         Text         = "Sends the file's CC-mapped values to the editor (and to the synth, if connected). " +
-                                       "Covers Oscillator, Filter, Envelope, LFO, Voice, and Effect levels — " +
+                                       "Covers Oscillator, Filter, Envelope, LFO, Voice, and Effect levels: " +
                                        "around 50 parameters with MIDI equivalents.\n\n" +
                                        "PRM-only data (sequencer steps, chop pattern, draw waveform, riser, " +
                                        "D-Motion, advanced FX) has no MIDI equivalent and stays in the Inspector tab only.",
@@ -690,5 +690,136 @@ public partial class MainWindow
             Marshal.StructureToPtr(rect, lParam, false);
         }
         return CallWindowProcW(_arOldWndProc, hWnd, msg, wParam, lParam);
+    }
+
+    // ── Settings popup ────────────────────────────────────────────────────────
+    //
+    // Hosts the "set once" config: MIDI channel, Program Change channel, PRM folder.
+    // The controls are field-owned by MainWindow, so they keep their state, items,
+    // and event-handler wiring across opens — we just re-parent them into the popup
+    // each time and detach on close so the next open can re-add them.
+
+    private void OnSettingsClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_settingsWindow != null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        static TextBlock SectionHeader(string text) => new()
+        {
+            Text          = text,
+            FontSize      = 10.5,
+            FontWeight    = FontWeight.Bold,
+            LetterSpacing = 1.5,
+            Foreground    = new SolidColorBrush(Color.Parse("#9090A8")),
+            Margin        = new Thickness(0, 0, 0, 8),
+        };
+        static TextBlock RowLabel(string text) => new()
+        {
+            Text              = text,
+            FontSize          = 11,
+            Foreground        = new SolidColorBrush(Color.Parse("#A0A0B8")),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        // Stretch the field controls inside the popup so they fill their cells.
+        ChannelCombo.HorizontalAlignment              = HorizontalAlignment.Stretch;
+        ProgramChangeChannelCombo.HorizontalAlignment = HorizontalAlignment.Stretch;
+        PrmFolderBox.HorizontalAlignment              = HorizontalAlignment.Stretch;
+
+        var grid = new Grid
+        {
+            Margin            = new Thickness(22, 18, 22, 18),
+            RowDefinitions    = RowDefinitions.Parse("Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
+            ColumnDefinitions = ColumnDefinitions.Parse("180,*,Auto"),
+            ColumnSpacing     = 12,
+            RowSpacing        = 8,
+        };
+
+        void Place(Control c, int row, int col, int colSpan = 1)
+        {
+            Grid.SetRow(c, row);
+            Grid.SetColumn(c, col);
+            if (colSpan > 1) Grid.SetColumnSpan(c, colSpan);
+            grid.Children.Add(c);
+        }
+
+        var midiHeader = SectionHeader("MIDI");
+        Place(midiHeader, 0, 0, 3);
+
+        Place(RowLabel("MIDI Channel"),               1, 0);
+        Place(ChannelCombo,                            1, 1, 2);
+
+        Place(RowLabel("Program Change Channel"),     2, 0);
+        Place(ProgramChangeChannelCombo,               2, 1, 2);
+
+        var sep = new Border
+        {
+            Height     = 1,
+            Background = new SolidColorBrush(Color.Parse("#2C2C36")),
+            Margin     = new Thickness(0, 10, 0, 8),
+        };
+        Place(sep, 3, 0, 3);
+
+        Place(SectionHeader("PRM FILES"), 4, 0, 3);
+
+        Place(RowLabel("PRM Folder"),     5, 0);
+        Place(PrmFolderBox,                5, 1);
+        Place(BrowsePrmFolderButton,       5, 2);
+
+        var prmHint = new TextBlock
+        {
+            Text         = "Folder of .PRM patch backups exported from the S-1. Used by Patch Mirror and the Patch Inspector.",
+            FontSize     = 10,
+            Foreground   = new SolidColorBrush(Color.Parse("#7878A0")),
+            TextWrapping = TextWrapping.Wrap,
+            Margin       = new Thickness(0, 2, 0, 0),
+        };
+        Grid.SetRow(prmHint, 6);
+        Grid.SetColumn(prmHint, 1);
+        Grid.SetColumnSpan(prmHint, 2);
+        grid.Children.Add(prmHint);
+
+        var closeBtn = new Button
+        {
+            Content             = "Close",
+            Classes             = { "toolbar" },
+            HorizontalAlignment = HorizontalAlignment.Right,
+            MinWidth            = 72,
+            Margin              = new Thickness(0, 18, 0, 0),
+        };
+        Grid.SetRow(closeBtn, 7);
+        Grid.SetColumn(closeBtn, 0);
+        Grid.SetColumnSpan(closeBtn, 3);
+        grid.Children.Add(closeBtn);
+
+        var window = new Window
+        {
+            Title                 = "Settings",
+            Width                 = 480,
+            SizeToContent         = SizeToContent.Height,
+            CanResize             = false,
+            ShowInTaskbar         = false,
+            Background            = new SolidColorBrush(Color.Parse("#18181E")),
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content               = grid,
+        };
+
+        closeBtn.Click += (_, _) => window.Close();
+
+        window.Closed += (_, _) =>
+        {
+            // Detach so the controls can be re-parented into the next popup.
+            (ChannelCombo.Parent              as Panel)?.Children.Remove(ChannelCombo);
+            (ProgramChangeChannelCombo.Parent as Panel)?.Children.Remove(ProgramChangeChannelCombo);
+            (PrmFolderBox.Parent              as Panel)?.Children.Remove(PrmFolderBox);
+            (BrowsePrmFolderButton.Parent     as Panel)?.Children.Remove(BrowsePrmFolderButton);
+            _settingsWindow = null;
+        };
+
+        _settingsWindow = window;
+        window.Show(this);
     }
 }

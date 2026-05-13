@@ -733,6 +733,7 @@ public partial class MainWindow
         S1Parameter attackP, S1Parameter decayP, S1Parameter sustainP, S1Parameter releaseP)
     {
         const double W = 252, H = 44;
+        var triggerP = RequireCC(29); // Trigger Mode: 0=LFO, 1=Gate, 2=Gate+Trig
 
         var fillPoly   = new Polygon  { Fill = new SolidColorBrush(Color.FromArgb(0x22, 0x70, 0xC8, 0x70)) };
         var strokePoly = new Polyline { Stroke = EnvAccent, StrokeThickness = 2, StrokeLineCap = PenLineCap.Round };
@@ -743,7 +744,14 @@ public partial class MainWindow
         var lblS = new TextBlock { Text = "S", FontSize = 7, Foreground = new SolidColorBrush(Color.Parse("#506050")) };
         var lblR = new TextBlock { Text = "R", FontSize = 7, Foreground = new SolidColorBrush(Color.Parse("#506050")) };
 
-        var canvas = new Canvas { Width = W, Height = H, Margin = new Thickness(4, 0, 2, 4) };
+        var canvas = new Canvas
+        {
+            Width      = W,
+            Height     = H,
+            // Transparent background so the entire canvas area registers pointer hits
+            // for the warning tooltip — without it only the stroked polyline does.
+            Background = Brushes.Transparent,
+        };
         canvas.Children.Add(fillPoly);
         canvas.Children.Add(strokePoly);
         canvas.Children.Add(lblA);
@@ -861,14 +869,52 @@ public partial class MainWindow
             Canvas.SetTop(dot, dy - 3.5);
         }
 
-        _envelopeDotUpdate = UpdateDot;
+        // Warning glyph in the top-right — mirrors the OSC waveform overlay. Shown
+        // when CC29 Trigger Mode = LFO, since the envelope is retriggered by the LFO
+        // rather than the held note and the static A→D→S→R shape does not represent
+        // what the synth is actually doing.
+        var warnGlyph = new TextBlock
+        {
+            Text                = "⚠",
+            FontSize            = 11,
+            Foreground          = WarnBrush,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment   = VerticalAlignment.Top,
+            Margin              = new Thickness(0, 0, 2, 0),
+            IsHitTestVisible    = false,
+            IsVisible           = false,
+        };
+
+        var container = new Grid
+        {
+            Width  = W,
+            Height = H,
+            Margin = new Thickness(4, 0, 2, 4),
+            Children = { canvas, warnGlyph },
+        };
+
+        void UpdateWarning()
+        {
+            bool lfoTrigger = triggerP.Value == 0;
+            warnGlyph.IsVisible = lfoTrigger;
+            canvas.Opacity      = lfoTrigger ? 0.45 : 1.0;
+            ToolTip.SetTip(canvas, lfoTrigger
+                ? "The envelope is retriggered on LFO cycles. Animation is disabled."
+                : null);
+            // Hide the animated dot immediately when entering LFO mode.
+            if (lfoTrigger) dot.IsVisible = false;
+        }
+
+        _envelopeDotUpdate = () => { if (triggerP.Value != 0) UpdateDot(); else dot.IsVisible = false; };
         Update();
+        UpdateWarning();
         attackP.ValueChanged  += (_, _) => Dispatcher.UIThread.Post(Update);
         decayP.ValueChanged   += (_, _) => Dispatcher.UIThread.Post(Update);
         sustainP.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
         releaseP.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
+        triggerP.ValueChanged += (_, _) => Dispatcher.UIThread.Post(UpdateWarning);
 
-        return canvas;
+        return container;
     }
 
     // ── Chord voice row (LED toggle + semitone slider) ────────────────────────────
@@ -1095,10 +1141,11 @@ public partial class MainWindow
 
         var btn = new Border
         {
+            Height              = 32,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             BorderThickness     = new Thickness(1),
             CornerRadius        = new CornerRadius(4),
-            Padding             = new Thickness(9, 8),
+            Padding             = new Thickness(12, 0),
             Cursor              = new Cursor(StandardCursorType.Hand),
             Child               = nameRow,
         };
@@ -1248,28 +1295,11 @@ public partial class MainWindow
         };
 
         // ── Assemble panel ────────────────────────────────────────────────────
-        LiveFeaturesPanel.Children.Add(new TextBlock
-        {
-            Text          = "LIVE FEATURES",
-            FontSize      = 8,
-            FontWeight    = FontWeight.Bold,
-            LetterSpacing = 1.5,
-            Foreground    = new SolidColorBrush(Color.Parse("#44445A")),
-            Margin        = new Thickness(0, 0, 0, 3),
-        });
-        var btnGrid = new Grid
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ColumnDefinitions   = new ColumnDefinitions("*,*,*"),
-            ColumnSpacing       = 4,
-        };
-        Grid.SetColumn(autoBtn,        0);
-        Grid.SetColumn(patchMirrorBtn, 1);
-        Grid.SetColumn(liveViewBtn,    2);
-        btnGrid.Children.Add(autoBtn);
-        btnGrid.Children.Add(patchMirrorBtn);
-        btnGrid.Children.Add(liveViewBtn);
-        LiveFeaturesPanel.Children.Add(btnGrid);
+        // LiveFeaturesPanel is a horizontal StackPanel sitting on the tab strip row;
+        // buttons size to their content rather than stretching.
+        LiveFeaturesPanel.Children.Add(autoBtn);
+        LiveFeaturesPanel.Children.Add(patchMirrorBtn);
+        LiveFeaturesPanel.Children.Add(liveViewBtn);
     }
 
     private void BuildPatchPanel()
@@ -1285,23 +1315,37 @@ public partial class MainWindow
 
         var rows = new StackPanel { Spacing = 2 };
 
+        // Each row: BANK label column (46) + 16 stretchy button columns + mirror
+        // 46px spacer on the right so the 16 tiles are visually centred under the
+        // bottom dock. Tiles widen to fill whatever room the dock has.
+        var colSpec = "46";
+        for (int i = 0; i < 16; i++) colSpec += ",*";
+        colSpec += ",46";
+
         for (int g = 0; g < 4; g++)
         {
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
-            row.Children.Add(new TextBlock
+            var row = new Grid
+            {
+                ColumnSpacing     = 3,
+                ColumnDefinitions = ColumnDefinitions.Parse(colSpec),
+            };
+
+            var bankLbl = new TextBlock
             {
                 Text              = $"BANK {g + 1}",
                 FontSize          = 9,
                 Foreground        = new SolidColorBrush(Color.Parse("#505050")),
-                Width             = 46,
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            Grid.SetColumn(bankLbl, 0);
+            row.Children.Add(bankLbl);
 
             for (int p = 0; p < 16; p++)
             {
                 int program = g * 16 + p;
                 var btn = new Button { Content = (p + 1).ToString(), Classes = { "patch-btn" } };
                 btn.Click += (_, _) => OnPatchClicked(program, btn);
+                Grid.SetColumn(btn, p + 1);
                 _patchButtons.Add(btn);
                 row.Children.Add(btn);
             }

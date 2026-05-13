@@ -3,8 +3,8 @@
         x:Class="S1Utility.MainWindow"
         Title="S-1 Utility"
         Background="#1A1A1A"
-        Width="1100" Height="1100"
-        MinWidth="550" MinHeight="550">
+        Width="1100" Height="1130"
+        MinWidth="550" MinHeight="565">
 
     <Window.Resources>
         <!-- ── Background scale ──────────────────────────────────────────── -->
@@ -39,10 +39,12 @@
             <Setter Property="Foreground"      Value="#404050"/>
             <Setter Property="BorderBrush"     Value="#2C2C36"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius"    Value="3"/>
-            <Setter Property="Padding"         Value="18,6"/>
-            <Setter Property="FontSize"        Value="11"/>
-            <Setter Property="Margin"          Value="3,4,3,4"/>
+            <Setter Property="CornerRadius"    Value="4"/>
+            <Setter Property="Padding"         Value="12,0"/>
+            <Setter Property="Height"          Value="32"/>
+            <Setter Property="FontSize"        Value="9.5"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Margin"          Value="3,7,3,7"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -151,7 +153,8 @@
 
         <!-- Patch bank buttons -->
         <Style Selector="Button.patch-btn">
-            <Setter Property="Width"                      Value="30"/>
+            <Setter Property="HorizontalAlignment"        Value="Stretch"/>
+            <Setter Property="MinWidth"                   Value="30"/>
             <Setter Property="Height"                     Value="22"/>
             <Setter Property="FontSize"                   Value="9"/>
             <Setter Property="FontFamily"                 Value="Cascadia Mono,Consolas,monospace"/>
@@ -189,14 +192,14 @@
     </Window.Styles>
 
     <Viewbox Stretch="Uniform">
-        <DockPanel Width="1100" Height="1100">
+        <DockPanel Width="1100" Height="1130">
 
         <!-- ── Plugin title bar ─────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
                 Background="#111113"
                 BorderBrush="#2C2C36"
                 BorderThickness="0,0,0,1"
-                Padding="12,0"
+                Padding="7,0"
                 Height="30">
             <Grid>
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -217,7 +220,7 @@
                 Background="#1A1A1E"
                 BorderBrush="#2C2C36"
                 BorderThickness="0,0,0,1"
-                Padding="10,0"
+                Padding="7,0"
                 Height="40">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -294,6 +297,13 @@
                     <Button x:Name="LoadButton"
                             Classes="toolbar"
                             Content="Load"/>
+                    <Border Width="1" Height="16" Background="#2C2C36" Margin="4,0,0,0"/>
+                    <Button x:Name="SettingsButton"
+                            Classes="toolbar"
+                            Content="⚙"
+                            FontSize="14"
+                            Padding="8,2"
+                            ToolTip.Tip="Settings"/>
                 </StackPanel>
 
             </Grid>
@@ -304,56 +314,23 @@
                 Background="#1C1C22"
                 BorderBrush="#2C2C36"
                 BorderThickness="0,1,0,0"
-                Padding="12,8,12,10">
-            <Grid ColumnDefinitions="*,Auto,440">
-
-                <StackPanel x:Name="PatchGridContainer" Grid.Column="0"/>
-
-                <Border Grid.Column="1" Width="1" Background="#2C2C36" Margin="14,0"/>
-
-                <StackPanel Grid.Column="2" Spacing="5" VerticalAlignment="Center" Margin="14,0,0,0">
-
-                    <!-- Live heuristic feature toggles (built in code-behind) -->
-                    <StackPanel x:Name="LiveFeaturesPanel" Spacing="3"/>
-
-                    <Border Height="1" Background="#2C2C36" Margin="0,1"/>
-
-                    <!-- Channels -->
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,*" HorizontalAlignment="Stretch">
-                        <TextBlock Grid.Column="0" Text="MIDI Channel" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Column="1" x:Name="ChannelCombo"
-                                  Margin="6,0,0,0" Height="24" FontSize="10"
-                                  Background="#1E1E28" BorderBrush="#3A3A46"/>
-                        <Border Grid.Column="2" Width="1" Height="14" Background="#2C2C36" Margin="4,0"/>
-                        <TextBlock Grid.Column="3" Text="Program Change Channel" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
-                        <ComboBox Grid.Column="4" x:Name="ProgramChangeChannelCombo"
-                                  Margin="6,0,0,0" Height="24" FontSize="10"
-                                  Background="#1E1E28" BorderBrush="#3A3A46"/>
-                    </Grid>
-
-                    <!-- PRM Folder -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" HorizontalAlignment="Stretch">
-                        <TextBlock Grid.Column="0" Text="PRM Folder" FontSize="9.5" Foreground="#7878A0" VerticalAlignment="Center"/>
-                        <TextBox Grid.Column="1" x:Name="PrmFolderBox"
-                                 Margin="6,0,0,0" Height="24" FontSize="10"
-                                 IsReadOnly="True"
-                                 PlaceholderText="(not set)"
-                                 Background="#1A1A24"
-                                 BorderBrush="#333344"
-                                 Foreground="#9090A8"
-                                 CornerRadius="3"/>
-                        <Button Grid.Column="2" x:Name="BrowsePrmFolderButton"
-                                Margin="6,0,0,0"
-                                Classes="toolbar"
-                                Content="Browse…"/>
-                    </Grid>
-
-                </StackPanel>
-
-            </Grid>
+                Padding="7,8,7,10">
+            <StackPanel x:Name="PatchGridContainer"/>
         </Border>
 
         <!-- ── Tabs ───────────────────────────────────────────────────────── -->
+        <Grid>
+        <!-- Overlay: live heuristic feature toggles, aligned to the right edge of the
+             section cards (cards have Margin=3 inside a content Grid with Margin=4
+             → ~7px from the TabControl right edge). Built in code-behind. -->
+        <StackPanel x:Name="LiveFeaturesPanel"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,7,7,0"
+                    ZIndex="1"/>
+
         <TabControl x:Name="MainTabs">
 
             <!-- ── Tab 1: Realtime Editor ──────────────────────────────── -->
@@ -488,6 +465,7 @@
             </TabItem>
 
         </TabControl>
+        </Grid>
 
         </DockPanel>
     </Viewbox>
