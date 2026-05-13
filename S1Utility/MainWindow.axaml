@@ -419,8 +419,8 @@
                     <!-- PRM viewer sections (populated by code) -->
                     <Grid x:Name="PrmViewerGrid"
                           Margin="4"
-                          ColumnDefinitions="*,*,*"
-                          RowDefinitions="Auto,Auto,Auto,*"
+                          ColumnDefinitions="*,*"
+                          RowDefinitions="*,Auto,Auto"
                           ColumnSpacing="4"
                           RowSpacing="4"/>
 

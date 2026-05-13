@@ -1700,239 +1700,529 @@ public partial class MainWindow
 
     // ── Tab 2: PRM Viewer ─────────────────────────────────────────────────────
 
+    // Accent palette specific to the PRM viewer dashboard cards.
+    // Defined here so the chrome (header dot + accent gradient) is single-sourced.
+    private static readonly IBrush PrmRiserAccent = FxAccent;     // riser shares teal with effects per spec
+    private static readonly IBrush PrmDmAccent    = new SolidColorBrush(Color.Parse("#7080F0"));
+
+    // Cell brushes for the OSC CHOP LED grid (amber on, dark off).
+    private static readonly IBrush s_chopLedOff = new SolidColorBrush(Color.Parse("#1A1A20"));
+    private static readonly IBrush s_chopVizBg  = new SolidColorBrush(Color.Parse("#0E0E12"));
+
+    // Row label / value brushes for the dashboard data rows.
+    private static readonly IBrush s_dashLabelBrush = new SolidColorBrush(Color.Parse("#7878A0"));
+    private static readonly IBrush s_dashValueBrush = new SolidColorBrush(Color.Parse("#A0A0B5"));
+    private static readonly IBrush s_dashRowBorder  = new SolidColorBrush(Color.Parse("#1d1d1d"));
+    private static readonly IBrush s_dashCardBg     = new SolidColorBrush(Color.Parse("#161616"));
+    private static readonly IBrush s_dashCardBorder = new SolidColorBrush(Color.Parse("#232323"));
+
+    // Mono font stack for value labels — Cascadia/Consolas only (no IBM Plex dependency).
+    private static readonly FontFamily s_dashMonoFont = new("Cascadia Mono,Consolas,monospace");
+
     private void BuildPrmViewerContent()
     {
-        // ── Column 0: OSCILLATOR (spans all rows) ─────────────────────────
-        var oscCard = MakeSectionCard("OSCILLATOR", OscAccent, out var oscContent);
+        PrmViewerGrid.Children.Clear();
 
-        var mainOscForViewer = _patch.Oscillator
-            .Where(p => p.CcNumber != 102 && p.CcNumber != 103 && p.CcNumber != 104 && p.CcNumber != 107)
-            .ToList();
-        oscContent.Children.Add(MakeTwoColumnGrid(
-            mainOscForViewer.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
-
-        oscContent.Children.Add(MakeSubSectionHeader("OSC DRAW", OscAccent));
-        oscContent.Children.Add(MakeTwoColumnGrid(new List<Control>
+        // ── Row 0 — top columns: sound engine (left) / mod & voice (right) ─
+        var colA = new StackPanel
         {
-            MakePrmViewerCcRowCompact(RequireCC(102)),  // Draw Multiply
-            MakePrmViewerCcRowCompact(RequireCC(107)),  // Draw Step/Slope
-        }));
-        var drawBars = MakeDrawBarsControl();
-        drawBars.HorizontalAlignment = HorizontalAlignment.Right;
-        drawBars.Margin              = new Thickness(0, 4, 0, 4);
-        oscContent.Children.Add(drawBars);
-
-        oscContent.Children.Add(MakeSubSectionHeader("OSC CHOP", OscAccent));
-        oscContent.Children.Add(MakeTwoColumnGrid(new List<Control>
-        {
-            MakePrmViewerCcRowCompact(RequireCC(103)),       // Chop Overtone
-            MakePrmViewerCcRowCompact(RequireCC(104)),       // Chop Comb
-        }));
-        oscContent.Children.Add(MakeChopPatternControl());
-
-        var riserCard = MakeSectionCard("RISER", FxAccent, out var riserContent);
-        riserContent.Children.Add(MakeTwoColumnGrid(new List<Control>
-        {
-            MakePrmInfoRow(_prm.RiserSw,    compact: true),
-            MakePrmInfoRow(_prm.RiserMode,  compact: true),
-            MakePrmInfoRow(_prm.RiserCtrl,  compact: true),
-            MakePrmInfoRow(_prm.RiserBeat,  compact: true),
-            MakePrmInfoRow(_prm.RiserShape, compact: true),
-            MakePrmInfoRow(_prm.RiserReso,  compact: true),
-            MakePrmInfoRow(_prm.RiserLevel, compact: true),
-        }));
-
-        Grid.SetColumn(oscCard, 0); Grid.SetRow(oscCard, 0); Grid.SetRowSpan(oscCard, 3);
-        PrmViewerGrid.Children.Add(oscCard);
-
-        // ── Column 1: FILTER / ENVELOPE / LFO ────────────────────────────
-        var filterCard = MakeSectionCard("FILTER", FiltAccent, out var filterContent);
-        var filterParams = _patch.Filter.ToList();
-        var filterGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*, *"),
-            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("Auto", (filterParams.Count + 1) / 2))),
-            RowSpacing        = 2,
+            Spacing            = 4,
+            VerticalAlignment  = VerticalAlignment.Top,
         };
-        for (int i = 0; i < filterParams.Count; i++)
+        colA.Children.Add(BuildOscillatorCard());
+        colA.Children.Add(BuildPrmCard("FILTER", FiltAccent,
+            BuildThreeColGrid(_patch.Filter.Select(p => (Control)BuildCcDataRow(p)))));
+        colA.Children.Add(BuildPrmCard("ENVELOPE", EnvAccent,
+            BuildThreeColGrid(_patch.Envelope.Select(p => (Control)BuildCcDataRow(p)))));
+        colA.Children.Add(BuildPrmCard("LFO", LfoAccent,
+            BuildThreeColGrid(_patch.Lfo.Select(p => (Control)BuildCcDataRow(p)))));
+        Grid.SetColumn(colA, 0); Grid.SetRow(colA, 0);
+        PrmViewerGrid.Children.Add(colA);
+
+        var colB = new StackPanel
         {
-            var ctrl = MakePrmViewerCcRowCompact(filterParams[i]);
-            Grid.SetRow(ctrl, i / 2);
-            Grid.SetColumn(ctrl, i % 2);
-            filterGrid.Children.Add(ctrl);
-        }
-        filterContent.Children.Add(filterGrid);
-
-        var envCard = MakeSectionCard("ENVELOPE", EnvAccent, out var envContent);
-        envContent.Children.Add(MakeTwoColumnGrid(
-            _patch.Envelope.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
-
-        var lfoCard = MakeSectionCard("LFO", LfoAccent, out var lfoContent);
-        lfoContent.Children.Add(MakeTwoColumnGrid(
-            _patch.Lfo.Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList()));
-        var col1Row2Grid = new Grid { RowDefinitions = new RowDefinitions("*,*"), RowSpacing = 4 };
-        Grid.SetRow(lfoCard,   0);
-        Grid.SetRow(riserCard, 1);
-        col1Row2Grid.Children.Add(lfoCard);
-        col1Row2Grid.Children.Add(riserCard);
-
-        var col1Grid = new Grid { RowDefinitions = new RowDefinitions("*,*,*"), RowSpacing = 4 };
-        Grid.SetRow(filterCard,   0);
-        Grid.SetRow(envCard,      1);
-        Grid.SetRow(col1Row2Grid, 2);
-        col1Grid.Children.Add(filterCard);
-        col1Grid.Children.Add(envCard);
-        col1Grid.Children.Add(col1Row2Grid);
-        Grid.SetColumn(col1Grid, 1); Grid.SetRow(col1Grid, 0); Grid.SetRowSpan(col1Grid, 3);
-        PrmViewerGrid.Children.Add(col1Grid);
-
-        // ── Column 2: EFFECTS / VOICE ─────────────────────────────────────
-        var fxCard = MakeSectionCard("REVERB", FxAccent, out var fxContent);
-
-        // Reverb — 2-column compact grid
-        var revItems = new List<Control>
-        {
-            MakePrmViewerCcRowCompact(RequireCC(91)),  // Level
-            MakePrmViewerCcRowCompact(RequireCC(89)),  // Time
+            Spacing            = 4,
+            VerticalAlignment  = VerticalAlignment.Top,
         };
-        foreach (var p in _prm.ReverbMain) revItems.Add(MakePrmInfoRow(p, compact: true));
-        foreach (var p in _prm.ReverbAdv)  revItems.Add(MakePrmInfoRow(p, compact: true));
-        fxContent.Children.Add(MakeTwoColumnGrid(revItems));
-
-        // Delay — 2-column compact grid
-        fxContent.Children.Add(MakeSubSectionHeader("DELAY", FxAccent));
-        var delItems = new List<Control>
+        colB.Children.Add(BuildPrmCard("RISER", PrmRiserAccent, BuildThreeColGrid(new[]
         {
-            MakePrmViewerCcRowCompact(RequireCC(92)),  // Level
-            MakeDelayTimeViewerRow(),
-        };
-        foreach (var p in _prm.DelayMain) delItems.Add(MakePrmInfoRow(p, compact: true));
-        delItems.Add(MakePrmInfoRow(_prm.DelayTempo, compact: true));
-        foreach (var p in _prm.DelayAdv)  delItems.Add(MakePrmInfoRow(p, compact: true));
-        fxContent.Children.Add(MakeTwoColumnGrid(delItems));
+            BuildPrmDataRow(_prm.RiserSw),
+            BuildPrmDataRow(_prm.RiserMode),
+            BuildPrmDataRow(_prm.RiserCtrl),
+            BuildPrmDataRow(_prm.RiserBeat),
+            BuildPrmDataRow(_prm.RiserShape),
+            BuildPrmDataRow(_prm.RiserReso),
+            BuildPrmDataRow(_prm.RiserLevel),
+        })));
+        colB.Children.Add(BuildEffectsCard());
+        colB.Children.Add(BuildVoiceCard());
+        Grid.SetColumn(colB, 1); Grid.SetRow(colB, 0);
+        PrmViewerGrid.Children.Add(colB);
 
-        // Chorus
-        fxContent.Children.Add(MakeSubSectionHeader("CHORUS", FxAccent));
-        fxContent.Children.Add(MakePrmViewerCcRow(RequireCC(93)));  // Chorus Type
+        // ── Row 1 — OSC DRAW (col 0) + OSC CHOP (col 1), guaranteed same height ─
+        var drawCard = BuildOscDrawCard();
+        var chopCard = BuildOscChopCard();
+        Grid.SetColumn(drawCard, 0); Grid.SetRow(drawCard, 1);
+        Grid.SetColumn(chopCard, 1); Grid.SetRow(chopCard, 1);
+        PrmViewerGrid.Children.Add(drawCard);
+        PrmViewerGrid.Children.Add(chopCard);
 
-        var voiceCard = MakeSectionCard("VOICE", VoiceAccent, out var voiceContent);
-        var voiceItems = _patch.Controls.Concat(_patch.Voice)
-            .Where(p => p.CcNumber != 65)
-            .Select(p => (Control)MakePrmViewerCcRowCompact(p)).ToList();
-        voiceContent.Children.Add(MakeTwoColumnGrid(voiceItems));
-
-        var col2Grid = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), RowSpacing = 4 };
-        Grid.SetRow(fxCard, 0);
-        Grid.SetRow(voiceCard, 1);
-        col2Grid.Children.Add(fxCard);
-        col2Grid.Children.Add(voiceCard);
-        Grid.SetColumn(col2Grid, 2); Grid.SetRow(col2Grid, 0); Grid.SetRowSpan(col2Grid, 3);
-        PrmViewerGrid.Children.Add(col2Grid);
-
-        // ── Row 3: SEQUENCER (full width) ────────────────────────────────
-        // Built manually (instead of MakeSectionCard) so the body can use a Grid
-        // with a star row, letting the bottom button vertically center in the
-        // empty space below the data columns.
-
-        var seqMetaGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*,*"),
-            ColumnSpacing     = 20,
-            Margin            = new Thickness(0, 0, 0, 8),
-        };
-
-        var patCol = new StackPanel { Spacing = 2 };
-        patCol.Children.Add(MakeSubSectionHeader("PATTERN", SeqAccent));
-        patCol.Children.Add(MakeInfoRow("Tempo:",     _tempoLabel));
-        patCol.Children.Add(MakeInfoRow("Transpose:", _transposeLabel));
-        patCol.Children.Add(MakePrmInfoRow(_prm.Leng));
-        patCol.Children.Add(MakePrmInfoRow(_prm.Shuffle));
-        patCol.Children.Add(MakePrmInfoRow(_prm.Level));
-        patCol.Children.Add(MakePrmInfoRow(_prm.Scale));
-        patCol.Children.Add(MakePrmInfoRow(_prm.TempoSync));
-        Grid.SetColumn(patCol, 0);
-        seqMetaGrid.Children.Add(patCol);
-
-        var arpCol = new StackPanel { Spacing = 2 };
-        arpCol.Children.Add(MakeSubSectionHeader("ARPEGGIATOR", SeqAccent));
-        arpCol.Children.Add(MakePrmInfoRow(_prm.ArpType));
-        arpCol.Children.Add(MakePrmInfoRow(_prm.ArpRate));
-        Grid.SetColumn(arpCol, 1);
-        seqMetaGrid.Children.Add(arpCol);
-
-        var motCol = new StackPanel { Spacing = 2 };
-        motCol.Children.Add(MakeSubSectionHeader("AUTOMATION", SeqAccent));
-        for (int i = 0; i < 8; i++)
-            motCol.Children.Add(MakeInfoRow($"Lane {i + 1}:", _motionCcLabels[i]));
-        Grid.SetColumn(motCol, 2);
-        seqMetaGrid.Children.Add(motCol);
-
-        var dmCol = new StackPanel { Spacing = 2 };
-        dmCol.Children.Add(MakeSubSectionHeader("D-MOTION", DmAccent));
-        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignX));
-        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignY));
-        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignTap));
-        dmCol.Children.Add(MakePrmInfoRow(_prm.DmAssignFf));
-        dmCol.Children.Add(MakePrmInfoRow(_prm.DmSensX));
-        dmCol.Children.Add(MakePrmInfoRow(_prm.DmSensY));
-        Grid.SetColumn(dmCol, 3);
-        seqMetaGrid.Children.Add(dmCol);
-
-        var seqBtnLabel = new TextBlock
-        {
-            FontSize      = 10.5,
-            FontWeight    = FontWeight.SemiBold,
-            LetterSpacing = 0.8,
-        };
-        var seqBtn = new Border
-        {
-            BorderThickness     = new Thickness(1),
-            CornerRadius        = new CornerRadius(4),
-            Padding             = new Thickness(20, 9),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment   = VerticalAlignment.Center,
-            Cursor              = new Cursor(StandardCursorType.Hand),
-            Child               = seqBtnLabel,
-        };
-
-        var seqAccentClr = ((SolidColorBrush)SeqAccent).Color;
-        void RefreshSeqBtn()
-        {
-            bool has              = HasSequencerContent();
-            seqBtn.IsEnabled      = has;
-            seqBtn.Opacity        = has ? 1.0 : 0.35;
-            seqBtn.Background     = has
-                ? new SolidColorBrush(Color.FromArgb(0x18, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B))
-                : new SolidColorBrush(Color.Parse("#161616"));
-            seqBtn.BorderBrush    = has ? SeqAccent : new SolidColorBrush(Color.Parse("#2E2E2E"));
-            seqBtnLabel.Text       = "STEPS & AUTOMATION" + (has ? "  ↗" : "");
-            seqBtnLabel.Foreground = has ? SeqAccent : new SolidColorBrush(Color.Parse("#555555"));
-        }
-
-        RefreshSeqBtn();
-        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(RefreshSeqBtn);
-        seqBtn.PointerPressed     += (_, _) => ShowSequencerWindow();
-
-        var seqBody = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
-        var seqTitle = new TextBlock
-        {
-            Classes    = { "section-title" },
-            Text       = "SEQUENCER",
-            Foreground = SeqAccent,
-        };
-        Grid.SetRow(seqTitle, 0);     seqBody.Children.Add(seqTitle);
-        Grid.SetRow(seqMetaGrid, 1);  seqBody.Children.Add(seqMetaGrid);
-        Grid.SetRow(seqBtn, 2);       seqBody.Children.Add(seqBtn);
-
-        var seqCard = new Border
-        {
-            Classes = { "section-card" },
-            Child   = seqBody,
-        };
-
-        Grid.SetColumn(seqCard, 0); Grid.SetRow(seqCard, 3); Grid.SetColumnSpan(seqCard, 3);
+        // ── Row 2 — full-width SEQUENCER card ────────────────────────────
+        var seqCard = BuildSequencerCard();
+        Grid.SetColumn(seqCard, 0); Grid.SetRow(seqCard, 2); Grid.SetColumnSpan(seqCard, 2);
         PrmViewerGrid.Children.Add(seqCard);
     }
+
+    // ── Card chrome ──────────────────────────────────────────────────────────
+
+    private Border BuildPrmCard(string title, IBrush accent, Control body)
+    {
+        var accentClr = ((SolidColorBrush)accent).Color;
+
+        var dot = new Ellipse
+        {
+            Width             = 6,
+            Height            = 6,
+            Fill              = accent,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var titleText = new TextBlock
+        {
+            Text              = title,
+            FontSize          = 8.5,
+            FontWeight        = FontWeight.Bold,
+            LetterSpacing     = 1.5,
+            Foreground        = accent,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin            = new Thickness(6, 0, 0, 0),
+        };
+
+        var headerRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children    = { dot, titleText },
+        };
+
+        // Faint accent gradient under the header.
+        var headerUnderline = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 4, 0, 6),
+            Background = new LinearGradientBrush
+            {
+                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                EndPoint   = new RelativePoint(1, 0, RelativeUnit.Relative),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(0x60, accentClr.R, accentClr.G, accentClr.B), 0),
+                    new GradientStop(Color.FromArgb(0x00, accentClr.R, accentClr.G, accentClr.B), 1),
+                },
+            },
+        };
+
+        var content = new StackPanel
+        {
+            Children = { headerRow, headerUnderline, body },
+        };
+
+        return new Border
+        {
+            Background      = s_dashCardBg,
+            BorderBrush     = s_dashCardBorder,
+            BorderThickness = new Thickness(1),
+            CornerRadius    = new CornerRadius(4),
+            Padding         = new Thickness(8, 6),
+            Child           = content,
+        };
+    }
+
+    // Single label · value row, with a 1px dashed bottom border between rows.
+    private static Border BuildDataRow(string label, TextBlock valueLabel)
+    {
+        valueLabel.FontSize           = 9.5;
+        valueLabel.Foreground         = s_dashValueBrush;
+        valueLabel.FontFamily         = s_dashMonoFont;
+        valueLabel.VerticalAlignment  = VerticalAlignment.Center;
+        valueLabel.TextAlignment      = TextAlignment.Right;
+
+        var labelText = new TextBlock
+        {
+            Text              = label,
+            FontSize          = 9.5,
+            Foreground        = s_dashLabelBrush,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming      = TextTrimming.CharacterEllipsis,
+        };
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+        };
+        Grid.SetColumn(labelText, 0);   grid.Children.Add(labelText);
+        Grid.SetColumn(valueLabel, 1);  grid.Children.Add(valueLabel);
+
+        return new Border
+        {
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            BorderBrush     = s_dashRowBorder,
+            Padding         = new Thickness(0, 2, 0, 2),
+            Child           = grid,
+        };
+    }
+
+    // CC-mapped parameter → live data row (subscribes to snapshot changes).
+    private Control BuildCcDataRow(S1Parameter param)
+    {
+        var lbl = new TextBlock { Text = GetPrmViewerCcValue(param, SnapshotValue(param)) };
+        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
+            () => lbl.Text = GetPrmViewerCcValue(param, SnapshotValue(param)));
+        return BuildDataRow(param.Name, lbl);
+    }
+
+    // PRM-only parameter → live data row.
+    private Control BuildPrmDataRow(PrmParameter p)
+    {
+        var lbl = new TextBlock { Text = GetPrmDisplayString(p) };
+        p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(
+            () => lbl.Text = GetPrmDisplayString(p));
+        return BuildDataRow(p.Name, lbl);
+    }
+
+    // 3-column grid of data rows. Items lay out left-to-right, wrapping rows.
+    private static Grid BuildThreeColGrid(IEnumerable<Control> items)
+    {
+        var list = items.ToList();
+        int rows = (list.Count + 2) / 3;
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("Auto", Math.Max(rows, 1)))),
+            ColumnSpacing     = 10,
+        };
+        for (int i = 0; i < list.Count; i++)
+        {
+            Grid.SetRow(list[i], i / 3);
+            Grid.SetColumn(list[i], i % 3);
+            grid.Children.Add(list[i]);
+        }
+        return grid;
+    }
+
+    // ── OSC card composition ─────────────────────────────────────────────────
+
+    private Border BuildOscillatorCard()
+    {
+        // 12 simple parameters (excludes Draw Multiply, Chop Overtone, Chop Comb, Draw Step/Slope)
+        var simple = _patch.Oscillator
+            .Where(p => p.CcNumber != 102 && p.CcNumber != 103 && p.CcNumber != 104 && p.CcNumber != 107)
+            .Select(p => (Control)BuildCcDataRow(p))
+            .ToList();
+        return BuildPrmCard("OSCILLATOR", OscAccent, BuildThreeColGrid(simple));
+    }
+
+    private Border BuildOscDrawCard()
+    {
+        var body = new StackPanel
+        {
+            Spacing = 4,
+            Children =
+            {
+                MakeDrawBarsControl(),
+                BuildCcDataRow(RequireCC(102)),  // Multiply
+                BuildCcDataRow(RequireCC(107)),  // Step/Slope
+            },
+        };
+        return BuildPrmCard("OSC DRAW", OscAccent, body);
+    }
+
+    private Border BuildOscChopCard()
+    {
+        // PRM-level "Type" / "Comb Type" aren't surfaced as displayable parameters in the
+        // current data model, so this card omits them and keeps the canonical CC mapping.
+        var body = new StackPanel
+        {
+            Spacing = 4,
+            Children =
+            {
+                MakeChopPatternControl(),
+                BuildCcDataRow(RequireCC(103)),  // Overtone
+                BuildCcDataRow(RequireCC(104)),  // Comb
+            },
+        };
+        return BuildPrmCard("OSC CHOP", OscAccent, body);
+    }
+
+    // ── Effects card composition (3 sub-columns) ─────────────────────────────
+
+    private Border BuildEffectsCard()
+    {
+        var revCol = BuildEffectsSubCol("REVERB", new[]
+        {
+            BuildCcDataRow(RequireCC(91)),                 // Level
+            BuildCcDataRow(RequireCC(89)),                 // Time
+            BuildPrmDataRow(_prm.ReverbMain[0]),           // Type
+            BuildPrmDataRow(_prm.ReverbAdv[0]),            // Pre-Delay
+            BuildPrmDataRow(_prm.ReverbAdv[1]),            // Density
+        });
+
+        var delItems = new List<Control>
+        {
+            BuildCcDataRow(RequireCC(92)),                 // Level
+            BuildEffectsDelayTimeRow(),                    // Time (context-aware ms or tempo)
+            BuildPrmDataRow(_prm.DelayMain[0]),            // Sync (DELAY_SW)
+            BuildPrmDataRow(_prm.DelayTempo),              // Tempo
+            BuildPrmDataRow(_prm.DelayAdv[0]),             // Feedback
+        };
+        var delCol = BuildEffectsSubCol("DELAY", delItems);
+
+        var chorusCol = BuildEffectsSubCol("CHORUS", new[]
+        {
+            BuildCcDataRow(RequireCC(93)),                 // Type
+        });
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            ColumnSpacing     = 14,
+        };
+        Grid.SetColumn(revCol,    0); grid.Children.Add(revCol);
+        Grid.SetColumn(delCol,    1); grid.Children.Add(delCol);
+        Grid.SetColumn(chorusCol, 2); grid.Children.Add(chorusCol);
+
+        return BuildPrmCard("EFFECTS", FxAccent, grid);
+    }
+
+    private static StackPanel BuildEffectsSubCol(string title, IEnumerable<Control> rows)
+    {
+        var panel = new StackPanel { Spacing = 1 };
+        panel.Children.Add(BuildSubHeader(title, FxAccent));
+        foreach (var r in rows) panel.Children.Add(r);
+        return panel;
+    }
+
+    // Like MakeDelayTimeViewerRow but using the new dashboard row chrome.
+    private Control BuildEffectsDelayTimeRow()
+    {
+        var delaySw     = _prm.DelayMain[0];
+        var delayTimeCC = RequireCC(90);
+
+        var lbl = new TextBlock();
+        void Refresh()
+        {
+            int delayTimeVal = SnapshotValue(delayTimeCC);
+            lbl.Text = delaySw.Value == 0
+                ? $"{1 + (int)Math.Round(delayTimeVal * 739.0 / 127)}ms"
+                : GetPrmDisplayString(_prm.DelayTempo);
+        }
+        Refresh();
+        delaySw.ValueChanged         += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        _prm.CcSnapshotChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        _prm.DelayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
+
+        return BuildDataRow("Time", lbl);
+    }
+
+    // ── Voice card composition (main grid + CHORD subgrid) ──────────────────
+
+    private Border BuildVoiceCard()
+    {
+        // Main = Controls + Voice without the CC65 toggle, V2/V3/V4 toggles, V2/V3/V4 shifts.
+        var chordCcs = new HashSet<int> { 65, 81, 82, 83, 85, 86, 87 };
+        var mainItems = _patch.Controls.Concat(_patch.Voice)
+            .Where(p => !chordCcs.Contains(p.CcNumber))
+            .Select(p => (Control)BuildCcDataRow(p))
+            .ToList();
+
+        var chordItems = new List<Control>
+        {
+            BuildCcDataRow(RequireCC(81)),  // V2
+            BuildCcDataRow(RequireCC(82)),  // V3
+            BuildCcDataRow(RequireCC(83)),  // V4
+            BuildCcDataRow(RequireCC(85)),  // V2 Shift
+            BuildCcDataRow(RequireCC(86)),  // V3 Shift
+            BuildCcDataRow(RequireCC(87)),  // V4 Shift
+        };
+
+        var body = new StackPanel
+        {
+            Children =
+            {
+                BuildThreeColGrid(mainItems),
+                BuildSubHeader("CHORD", VoiceAccent),
+                BuildThreeColGrid(chordItems),
+            },
+        };
+        return BuildPrmCard("VOICE", VoiceAccent, body);
+    }
+
+    // ── Sequencer card composition (PATTERN / ARP / MOTION / D-MOTION) ──────
+
+    private Border BuildSequencerCard()
+    {
+        var seqAccentClr = ((SolidColorBrush)SeqAccent).Color;
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*,*,Auto,*"),  // pattern, arp, motion, divider, d-motion
+            ColumnSpacing     = 14,
+        };
+
+        var patCol = new StackPanel { Spacing = 1 };
+        patCol.Children.Add(BuildSubHeader("PATTERN", SeqAccent));
+        patCol.Children.Add(BuildDataRow("Tempo",     _tempoLabel));
+        patCol.Children.Add(BuildDataRow("Transpose", _transposeLabel));
+        patCol.Children.Add(BuildPrmDataRow(_prm.Leng));
+        patCol.Children.Add(BuildPrmDataRow(_prm.Shuffle));
+        patCol.Children.Add(BuildPrmDataRow(_prm.Level));
+        patCol.Children.Add(BuildPrmDataRow(_prm.Scale));
+        patCol.Children.Add(BuildPrmDataRow(_prm.TempoSync));
+        Grid.SetColumn(patCol, 0); grid.Children.Add(patCol);
+
+        var arpCol = new StackPanel { Spacing = 1 };
+        arpCol.Children.Add(BuildSubHeader("ARPEGGIATOR", SeqAccent));
+        arpCol.Children.Add(BuildPrmDataRow(_prm.ArpType));
+        arpCol.Children.Add(BuildPrmDataRow(_prm.ArpRate));
+        Grid.SetColumn(arpCol, 1); grid.Children.Add(arpCol);
+
+        var motCol = new StackPanel { Spacing = 1 };
+        motCol.Children.Add(BuildSubHeader("MOTION ASSIGN", SeqAccent));
+        var laneGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            ColumnSpacing     = 6,
+        };
+        for (int i = 0; i < 8; i++)
+        {
+            var row = BuildDataRow($"Lane {i + 1}", _motionCcLabels[i]);
+            Grid.SetRow(row, i / 2);
+            Grid.SetColumn(row, i % 2);
+            if (laneGrid.RowDefinitions.Count <= i / 2)
+                laneGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            laneGrid.Children.Add(row);
+        }
+        motCol.Children.Add(laneGrid);
+        Grid.SetColumn(motCol, 2); grid.Children.Add(motCol);
+
+        // Left divider rule before D-MOTION.
+        var divider = new Border
+        {
+            Width      = 1,
+            Background = s_dashCardBorder,
+            Margin     = new Thickness(4, 18, 4, 4),
+        };
+        Grid.SetColumn(divider, 3); grid.Children.Add(divider);
+
+        var dmCol = new StackPanel { Spacing = 1 };
+        dmCol.Children.Add(BuildSubHeader("D-MOTION", PrmDmAccent));
+        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignX));
+        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignY));
+        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignTap));
+        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignFf));
+        dmCol.Children.Add(BuildPrmDataRow(_prm.DmSensX));
+        dmCol.Children.Add(BuildPrmDataRow(_prm.DmSensY));
+        Grid.SetColumn(dmCol, 4); grid.Children.Add(dmCol);
+
+        // Header with right-aligned VIEW STEPS → button.
+        var viewStepsLabel = new TextBlock
+        {
+            Text          = "VIEW STEPS  →",
+            FontSize      = 9.5,
+            FontWeight    = FontWeight.SemiBold,
+            LetterSpacing = 0.8,
+            Foreground    = SeqAccent,
+        };
+        var viewStepsBtn = new Border
+        {
+            BorderThickness = new Thickness(1),
+            BorderBrush     = SeqAccent,
+            Background      = new SolidColorBrush(Color.FromArgb(0x18, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B)),
+            CornerRadius    = new CornerRadius(3),
+            Padding         = new Thickness(8, 3),
+            Cursor          = new Cursor(StandardCursorType.Hand),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment   = VerticalAlignment.Center,
+            Child           = viewStepsLabel,
+        };
+
+        void RefreshViewBtn()
+        {
+            bool has = HasSequencerContent();
+            viewStepsBtn.IsEnabled = has;
+            viewStepsBtn.Opacity   = has ? 1.0 : 0.35;
+        }
+        RefreshViewBtn();
+        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(RefreshViewBtn);
+        viewStepsBtn.PointerPressed += (_, _) => ShowSequencerWindow();
+
+        // Header: dot + SEQUENCER + spacer + VIEW STEPS button
+        var seqAccentDot = new Ellipse
+        {
+            Width = 6, Height = 6, Fill = SeqAccent,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var seqTitle = new TextBlock
+        {
+            Text              = "SEQUENCER",
+            FontSize          = 8.5,
+            FontWeight        = FontWeight.Bold,
+            LetterSpacing     = 1.5,
+            Foreground        = SeqAccent,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin            = new Thickness(6, 0, 0, 0),
+        };
+        var headerGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+        };
+        var headerLeft = new StackPanel { Orientation = Orientation.Horizontal,
+                                          Children = { seqAccentDot, seqTitle } };
+        Grid.SetColumn(headerLeft, 0);   headerGrid.Children.Add(headerLeft);
+        Grid.SetColumn(viewStepsBtn, 2); headerGrid.Children.Add(viewStepsBtn);
+
+        var headerUnderline = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 4, 0, 8),
+            Background = new LinearGradientBrush
+            {
+                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                EndPoint   = new RelativePoint(1, 0, RelativeUnit.Relative),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(0x60, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B), 0),
+                    new GradientStop(Color.FromArgb(0x00, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B), 1),
+                },
+            },
+        };
+
+        var body = new StackPanel { Children = { headerGrid, headerUnderline, grid } };
+        return new Border
+        {
+            Background      = s_dashCardBg,
+            BorderBrush     = s_dashCardBorder,
+            BorderThickness = new Thickness(1),
+            CornerRadius    = new CornerRadius(4),
+            Padding         = new Thickness(8, 6),
+            Child           = body,
+        };
+    }
+
+    // Sub-section header used inside cards (small accent label).
+    private static StackPanel BuildSubHeader(string title, IBrush accent) => new()
+    {
+        Margin = new Thickness(0, 4, 0, 4),
+        Children =
+        {
+            new TextBlock
+            {
+                Text          = title,
+                FontSize      = 8.5,
+                FontWeight    = FontWeight.Bold,
+                LetterSpacing = 1.2,
+                Foreground    = accent,
+            },
+        },
+    };
 
     // Creates a section card (Border + title + content StackPanel).
     private static Border MakeSectionCard(string title, IBrush accent, out StackPanel contentPanel)
@@ -2029,12 +2319,11 @@ public partial class MainWindow
     }
 
     // 16-bar bipolar draw waveform display (lo byte first, then hi byte per PRM value).
+    // Visual style: dashed centerline, opacity scales with magnitude, signed numeric value below.
     private Panel MakeDrawBarsControl()
     {
-        // Cell width matches OSC Chop tile structure: Width=14 + Margin(1,0) = 16px per slot,
-        // so 16 slots = 256px total — perfectly aligned with the chop pattern row.
-        const double CellH = 22.0;
-        const double BarW  = 14.0;
+        const double BarH = 140.0;    // total visualization height (matches OSC CHOP grid)
+        const double Half = BarH / 2.0;
 
         var posBars   = new Border[16];
         var negBars   = new Border[16];
@@ -2045,7 +2334,6 @@ public partial class MainWindow
             for (int pt = 0; pt < DrawWave.Points; pt++)
             {
                 int signed = _prm.DrawWave.GetPoint(pt);
-                // Re-encode as uint16 to split the two signed pad bytes (lo = pad 0, hi = pad 1).
                 int raw    = signed < 0 ? signed + 65536 : signed;
                 int lo     = raw & 0xFF;
                 int hi     = (raw >> 8) & 0xFF;
@@ -2053,122 +2341,174 @@ public partial class MainWindow
 
                 for (int b = 0; b < 2; b++)
                 {
-                    int idx = pt * 2 + b;
-                    int v   = pads[b];
-                    posBars[idx].Height = v > 0 ? Math.Max(1, v  / 100.0 * CellH) : 0;
-                    negBars[idx].Height = v < 0 ? Math.Max(1, -v / 100.0 * CellH) : 0;
-                    valLabels[idx].Text = v.ToString();
+                    int    idx  = pt * 2 + b;
+                    int    v    = pads[b];
+                    double norm = Math.Clamp(v / 100.0, -1.0, 1.0);
+                    double mag  = Math.Abs(norm);
+                    double h    = Math.Max(1.0, mag * (Half - 2));
+
+                    posBars[idx].Height  = v > 0 ? h : 0;
+                    posBars[idx].Opacity = 0.5 + mag * 0.5;
+                    negBars[idx].Height  = v < 0 ? h : 0;
+                    negBars[idx].Opacity = 0.5 + mag * 0.5;
+                    valLabels[idx].Text  = v > 0 ? $"+{v}" : v.ToString();
                 }
             }
         }
 
-        var barsRow   = new StackPanel { Orientation = Orientation.Horizontal };
-        var labelsRow = new StackPanel { Orientation = Orientation.Horizontal,
-                                         Margin = new Thickness(0, 2, 0, 0) };
+        // Bar row: a Grid that lays each bar in its own column over a dashed centerline.
+        var barsCanvas = new Grid
+        {
+            Height = BarH,
+            ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", 16))),
+        };
+
+        // Dashed centerline spanning all columns.
+        var centerline = new Rectangle
+        {
+            Height          = 1,
+            Fill            = Brushes.Transparent,
+            Stroke          = new SolidColorBrush(Color.Parse("#2A2A33")),
+            StrokeThickness = 1,
+            StrokeDashArray = new Avalonia.Collections.AvaloniaList<double> { 2, 2 },
+            VerticalAlignment   = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        Grid.SetColumnSpan(centerline, 16);
+        barsCanvas.Children.Add(centerline);
 
         for (int i = 0; i < 16; i++)
         {
-            var posBar = new Border { Width = BarW, Height = 0, Background = OscAccent,
-                                      VerticalAlignment = VerticalAlignment.Bottom,
-                                      CornerRadius = new CornerRadius(2, 2, 0, 0) };
-            var negBar = new Border { Width = BarW, Height = 0, Background = OscAccent,
-                                      VerticalAlignment = VerticalAlignment.Top,
-                                      CornerRadius = new CornerRadius(0, 0, 2, 2) };
+            // Each column hosts one stacked Grid: top half = pos bar grows up, bottom half = neg bar grows down.
+            var colGrid = new Grid
+            {
+                RowDefinitions = new RowDefinitions("*,*"),
+                Margin         = new Thickness(1, 0),
+            };
+
+            var posBar = new Border
+            {
+                Background          = OscAccent,
+                Width               = double.NaN,
+                Height              = 0,
+                VerticalAlignment   = VerticalAlignment.Bottom,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                CornerRadius        = new CornerRadius(1, 1, 0, 0),
+                Margin              = new Thickness(0, 0, 0, 1),  // sit just above centerline
+            };
+            var negBar = new Border
+            {
+                Background          = OscAccent,
+                Width               = double.NaN,
+                Height              = 0,
+                VerticalAlignment   = VerticalAlignment.Top,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                CornerRadius        = new CornerRadius(0, 0, 1, 1),
+                Margin              = new Thickness(0, 1, 0, 0),
+            };
             posBars[i] = posBar;
             negBars[i] = negBar;
 
-            var posCell = new Grid { Height = CellH };
-            posCell.Children.Add(posBar);
-            var negCell = new Grid { Height = CellH };
-            negCell.Children.Add(negBar);
+            Grid.SetRow(posBar, 0); colGrid.Children.Add(posBar);
+            Grid.SetRow(negBar, 1); colGrid.Children.Add(negBar);
 
-            barsRow.Children.Add(new StackPanel
-            {
-                Width    = BarW,
-                Margin   = new Thickness(1, 0),
-                Children =
-                {
-                    posCell,
-                    new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#444444")) },
-                    negCell,
-                },
-            });
+            Grid.SetColumn(colGrid, i);
+            barsCanvas.Children.Add(colGrid);
+        }
 
+        // Container border with #0E0E12 background.
+        var barsBorder = new Border
+        {
+            Background   = s_chopVizBg,
+            CornerRadius = new CornerRadius(2),
+            Padding      = new Thickness(2, 0),
+            Child        = barsCanvas,
+        };
+
+        // Label row: 16 columns aligned with the bars, signed numeric values.
+        var labelsGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", 16))),
+            Margin            = new Thickness(2, 2, 2, 0),
+        };
+        for (int i = 0; i < 16; i++)
+        {
             var lbl = new TextBlock
             {
                 FontSize      = 7.5,
-                Width         = BarW,
-                Margin        = new Thickness(1, 0),
-                Foreground    = new SolidColorBrush(Color.Parse("#AAAAAA")),
+                FontFamily    = s_dashMonoFont,
+                Foreground    = s_dashLabelBrush,
                 Text          = "0",
                 TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
             };
             valLabels[i] = lbl;
-            labelsRow.Children.Add(lbl);
+            Grid.SetColumn(lbl, i);
+            labelsGrid.Children.Add(lbl);
         }
 
         UpdateBars();
         _prm.DrawWave.PointsChanged += (_, _) => Dispatcher.UIThread.Post(UpdateBars);
 
-        return new StackPanel { Children = { barsRow, labelsRow } };
+        return new StackPanel { Children = { barsBorder, labelsGrid } };
     }
 
-    // Chop step-pattern grid display.
-    private Panel MakeChopPatternControl()
+    // OSC CHOP — 16×4 LED matrix with waveform row labels.
+    // Cells are small rounded rectangles (crisp, no AA blur from circles or glow).
+    private Control MakeChopPatternControl()
     {
-        var grid = new StackPanel
+        var labelColumn = new Grid
         {
-            Spacing = 4,
-            Margin  = new Thickness(0, 4, 0, 4),
+            RowDefinitions = new RowDefinitions(string.Join(",", Enumerable.Repeat("*", ChopPattern.Waveforms))),
+            Margin         = new Thickness(0, 0, 6, 0),
         };
-
         for (int w = 0; w < ChopPattern.Waveforms; w++)
         {
-            int waveform    = w;
-            var stepSquares = new Border[ChopPattern.Steps];
-
-            // Row label at left (aligned with other CC labels), spacer, tiles at right.
-            var row = new Grid
+            var lbl = new TextBlock
             {
-                Height            = 18,
-                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-            };
-
-            var rowLabel = new TextBlock
-            {
-                Text              = ChopPattern.WaveformNames[w],
-                FontSize          = 10,
-                Foreground        = new SolidColorBrush(Color.Parse("#BBBBBB")),
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(rowLabel, 0);
-            row.Children.Add(rowLabel);
-
-            var stepsContainer = new StackPanel
-            {
-                Orientation         = Orientation.Horizontal,
+                Text                = ChopPattern.WaveformNames[w],
+                FontSize            = 9.5,
+                Foreground          = s_dashLabelBrush,
                 VerticalAlignment   = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right,
             };
+            Grid.SetRow(lbl, w);
+            labelColumn.Children.Add(lbl);
+        }
+
+        var ledGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", ChopPattern.Steps))),
+            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("*", ChopPattern.Waveforms))),
+            ColumnSpacing     = 3,
+            RowSpacing        = 3,
+            Height            = 140,
+        };
+
+        var cells = new Border[ChopPattern.Waveforms, ChopPattern.Steps];
+        for (int w = 0; w < ChopPattern.Waveforms; w++)
+        {
             for (int s = 0; s < ChopPattern.Steps; s++)
             {
                 bool on = _prm.ChopPattern.GetStep(w, s);
-                var sq = new Border
+                var cell = new Border
                 {
-                    Width           = 14,
-                    Height          = 16,
-                    Margin          = new Thickness(1, 0),
-                    Background      = on ? s_chopOnBrush  : s_chopOffBrush,
-                    BorderBrush     = on ? s_chopOnBorder : s_chopOffBorder,
-                    BorderThickness = new Thickness(1),
-                    CornerRadius    = new CornerRadius(2),
+                    Background          = on ? OscAccent : s_chopLedOff,
+                    CornerRadius        = new CornerRadius(2),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment   = VerticalAlignment.Stretch,
+                    MinWidth            = 8,
                 };
-                stepSquares[s] = sq;
-                stepsContainer.Children.Add(sq);
+                cells[w, s] = cell;
+                Grid.SetRow(cell, w);
+                Grid.SetColumn(cell, s);
+                ledGrid.Children.Add(cell);
             }
-            Grid.SetColumn(stepsContainer, 2);
-            row.Children.Add(stepsContainer);
+        }
 
+        for (int w = 0; w < ChopPattern.Waveforms; w++)
+        {
+            int waveform = w;
             _prm.ChopPattern.PatternChanged += (_, changedWaveform) =>
             {
                 if (changedWaveform != waveform) return;
@@ -2177,16 +2517,24 @@ public partial class MainWindow
                     for (int s = 0; s < ChopPattern.Steps; s++)
                     {
                         bool on = _prm.ChopPattern.GetStep(waveform, s);
-                        stepSquares[s].Background  = on ? s_chopOnBrush  : s_chopOffBrush;
-                        stepSquares[s].BorderBrush = on ? s_chopOnBorder : s_chopOffBorder;
+                        cells[waveform, s].Background = on ? OscAccent : s_chopLedOff;
                     }
                 });
             };
-
-            grid.Children.Add(row);
         }
 
-        return grid;
+        var ledArea = new Border
+        {
+            Background   = s_chopVizBg,
+            CornerRadius = new CornerRadius(2),
+            Padding      = new Thickness(3),
+            Child        = ledGrid,
+        };
+
+        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        Grid.SetColumn(labelColumn, 0); layout.Children.Add(labelColumn);
+        Grid.SetColumn(ledArea,     1); layout.Children.Add(ledArea);
+        return layout;
     }
 
     // ── Shared info-row helpers ───────────────────────────────────────────────
