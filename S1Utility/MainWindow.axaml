@@ -40,11 +40,12 @@
             <Setter Property="BorderBrush"     Value="#2C2C36"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius"    Value="4"/>
-            <Setter Property="Padding"         Value="12,0"/>
-            <Setter Property="Height"          Value="32"/>
-            <Setter Property="FontSize"        Value="9.5"/>
-            <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Margin"          Value="3,7,3,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
+            <Setter Property="MinHeight"       Value="28"/>
+            <Setter Property="MinWidth"        Value="110"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="FontWeight"      Value="Medium"/>
+            <Setter Property="Margin"          Value="0,7,6,7"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -82,7 +83,7 @@
             <Setter Property="BorderThickness"  Value="1"/>
             <Setter Property="CornerRadius"     Value="5"/>
             <Setter Property="Padding"          Value="12"/>
-            <Setter Property="Margin"           Value="3"/>
+            <Setter Property="Margin"           Value="0"/>
             <Setter Property="BoxShadow"        Value="inset 0 1 0 0 #FFFFFF0A"/>
         </Style>
 
@@ -331,11 +332,11 @@
                     Margin="0,7,7,0"
                     ZIndex="1"/>
 
-        <TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs" Margin="7,0,7,0">
 
             <!-- ── Tab 1: Realtime Editor ──────────────────────────────── -->
             <TabItem Header="Realtime Editor">
-                <Grid Margin="4"
+                <Grid Margin="0"
                           ColumnDefinitions="*,*,*"
                           RowDefinitions="Auto,Auto,*"
                           ColumnSpacing="4"

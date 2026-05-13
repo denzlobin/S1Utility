@@ -1126,8 +1126,8 @@ public partial class MainWindow
         var nameLbl = new TextBlock
         {
             Text              = name,
-            FontSize          = 9.5,
-            FontWeight        = FontWeight.SemiBold,
+            FontSize          = 11,
+            FontWeight        = FontWeight.Medium,
             LetterSpacing     = 0.5,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -1141,11 +1141,12 @@ public partial class MainWindow
 
         var btn = new Border
         {
-            Height              = 32,
+            Height              = 28,
+            MinWidth            = 110,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             BorderThickness     = new Thickness(1),
             CornerRadius        = new CornerRadius(4),
-            Padding             = new Thickness(12, 0),
+            Padding             = new Thickness(12, 5),
             Cursor              = new Cursor(StandardCursorType.Hand),
             Child               = nameRow,
         };
