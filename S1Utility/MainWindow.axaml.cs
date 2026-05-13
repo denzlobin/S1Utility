@@ -90,6 +90,7 @@ public partial class MainWindow : Window
 
     private Action?  _filterCurveUpdate;
     private Action?  _envelopeDotUpdate;
+    private Action?  _envelopeWarningUpdate;
     private Action?  _oscWaveformUpdate;
     private DateTime _lastModTick;
     private DateTime _lastMidiActivity = DateTime.MinValue;

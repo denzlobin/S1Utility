@@ -895,7 +895,10 @@ public partial class MainWindow
 
         void UpdateWarning()
         {
-            bool lfoTrigger = triggerP.Value == 0;
+            // Only nag about LFO-driven retrigger when the animations overlay is on —
+            // otherwise the static A→D→S→R shape is just the parameter readout and
+            // does not pretend to represent live dynamics.
+            bool lfoTrigger = triggerP.Value == 0 && _viewModel.FilterModEnabled;
             warnGlyph.IsVisible = lfoTrigger;
             canvas.Opacity      = lfoTrigger ? 0.45 : 1.0;
             ToolTip.SetTip(canvas, lfoTrigger
@@ -906,6 +909,7 @@ public partial class MainWindow
         }
 
         _envelopeDotUpdate = () => { if (triggerP.Value != 0) UpdateDot(); else dot.IsVisible = false; };
+        _envelopeWarningUpdate = UpdateWarning;
         Update();
         UpdateWarning();
         attackP.ValueChanged  += (_, _) => Dispatcher.UIThread.Post(Update);
@@ -1196,6 +1200,7 @@ public partial class MainWindow
             _liveViewToggle?.SetActive(false);
             _filterCurveUpdate?.Invoke();
             _envelopeDotUpdate?.Invoke();
+            _envelopeWarningUpdate?.Invoke();
             _oscWaveformUpdate?.Invoke();
         }
     }
@@ -1247,6 +1252,7 @@ public partial class MainWindow
                 _filterCurveUpdate?.Invoke();
                 _envelopeDotUpdate?.Invoke();
             }
+            _envelopeWarningUpdate?.Invoke();
             SaveSettings();
         };
 
@@ -1290,6 +1296,7 @@ public partial class MainWindow
                 liveViewState.SetActive(false);
                 _filterCurveUpdate?.Invoke();
                 _envelopeDotUpdate?.Invoke();
+                _envelopeWarningUpdate?.Invoke();
                 ClearDirtyTracking(); // also hides Restore button
             }
             SaveSettings();
