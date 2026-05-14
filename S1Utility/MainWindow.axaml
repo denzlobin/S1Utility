@@ -190,6 +190,30 @@
             <Setter Property="Foreground"  Value="#80CC80"/>
             <Setter Property="BorderBrush" Value="#C07828"/>
         </Style>
+        <!-- No backing PRM file: sunken / dim, still clickable (PC-only) -->
+        <Style Selector="Button.patch-btn-noprm">
+            <Setter Property="Background"  Value="#16161C"/>
+            <Setter Property="Foreground"  Value="#3E3E50"/>
+            <Setter Property="BorderBrush" Value="#2A2A36"/>
+        </Style>
+        <!-- No PRM + active: full active styling so selection still reads clearly -->
+        <Style Selector="Button.patch-btn-noprm.patch-btn-active">
+            <Setter Property="Background"  Value="#1C3C1C"/>
+            <Setter Property="Foreground"  Value="#80CC80"/>
+            <Setter Property="BorderBrush" Value="#3A6A3A"/>
+        </Style>
+        <!-- Malformed PRM file: red tint signalling parse error -->
+        <Style Selector="Button.patch-btn-malformed">
+            <Setter Property="Background"  Value="#2A0808"/>
+            <Setter Property="Foreground"  Value="#B04848"/>
+            <Setter Property="BorderBrush" Value="#6A2828"/>
+        </Style>
+        <!-- Malformed + active: green bg (selection) with red border (still flags error) -->
+        <Style Selector="Button.patch-btn-malformed.patch-btn-active">
+            <Setter Property="Background"  Value="#1C3C1C"/>
+            <Setter Property="Foreground"  Value="#80CC80"/>
+            <Setter Property="BorderBrush" Value="#C04848"/>
+        </Style>
     </Window.Styles>
 
     <Viewbox Stretch="Uniform">

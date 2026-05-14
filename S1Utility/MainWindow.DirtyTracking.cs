@@ -125,10 +125,38 @@ public partial class MainWindow
     {
         if ((uint)slot >= (uint)_patchButtons.Count) return;
         var btn = _patchButtons[slot];
-        if (_prm.PatternSync && _dirtySlots.Contains(slot))
-            btn.Classes.Add("patch-btn-dirty");
-        else
-            btn.Classes.Remove("patch-btn-dirty");
+
+        bool isDirty     = _prm.PatternSync && _dirtySlots.Contains(slot);
+        bool hasFolder   = !string.IsNullOrEmpty(_prm.PrmFolder);
+        bool isMalformed = hasFolder && _prm.MalformedPrograms.Contains(slot);
+        // Missing = folder is set but the file is neither available nor malformed.
+        // Suppress when dirty: dirty implies the user has edits worth preserving;
+        // the on-disk-state signal is secondary in that case.
+        bool isMissing   = hasFolder
+                           && !isMalformed
+                           && !_prm.AvailablePrograms.Contains(slot);
+
+        SetClass(btn, "patch-btn-dirty",     isDirty);
+        SetClass(btn, "patch-btn-malformed", isMalformed && !isDirty);
+        SetClass(btn, "patch-btn-noprm",     isMissing   && !isDirty);
+
+        // Tooltip mirrors the dominant state. Dirty wins (it's the user's own
+        // edit context); otherwise broken trumps missing because a parse
+        // failure is more actionable than a simple absence.
+        string? tip = null;
+        if (isDirty)
+            tip = "Modified — you've edited this slot since loading. Use Restore Patch to revert to the on-disk PRM.";
+        else if (isMalformed)
+            tip = "PRM file is malformed (unknown keys or parse failure). Inspector data is unreliable; clicking still sends Program Change.";
+        else if (isMissing)
+            tip = "No PRM file in folder for this slot. Clicking sends Program Change to the synth, but the inspector has no data to show.";
+        ToolTip.SetTip(btn, tip);
+    }
+
+    private static void SetClass(Button b, string cls, bool on)
+    {
+        if (on) b.Classes.Add(cls);
+        else    b.Classes.Remove(cls);
     }
 
     private void RefreshAllPatchButtonStyles()

@@ -131,8 +131,9 @@ public partial class MainWindow : Window
         _prm       = new PrmFileManager(_patch);
         _midiMgr   = new MidiManager(_patch);
 
-        _prm.MetaLoaded    += OnPrmMetaLoaded;
-        _prm.StatusChanged += (_, args) => SetStatus(args.Message, args.Color);
+        _prm.MetaLoaded               += OnPrmMetaLoaded;
+        _prm.StatusChanged            += (_, args) => SetStatus(args.Message, args.Color);
+        _prm.PatchAvailabilityChanged += (_, _) => RefreshAllPatchButtonStyles();
 
         _midiMgr.Disconnected          += (_, _) => Dispatcher.UIThread.Post(OnDeviceDisconnected);
         _midiMgr.NoteOnReceived        += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOn);
@@ -185,6 +186,9 @@ public partial class MainWindow : Window
 
         UpdatePatchGridAvailability();
         UpdateInspectorBanner();
+        // Initial scan: paints noprm/malformed states from the folder loaded in
+        // settings. RescanFolder fires PatchAvailabilityChanged → RefreshAllPatchButtonStyles.
+        _prm.RescanFolder();
 
         PrmFolderBox.Text = _prm.PrmFolder;
         BuildLiveFeaturesPanel();

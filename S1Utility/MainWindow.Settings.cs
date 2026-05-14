@@ -164,6 +164,8 @@ public partial class MainWindow
         PanicButton.IsEnabled        = true;
         UpdatePatchGridAvailability();
         UpdateSyncIndicator(_patch.UnsyncedCount);
+        // Re-scan in case the user added/edited PRM files while disconnected.
+        _prm.RescanFolder();
         if (_prm.PatternSync)
             GoToPattern1();
 
@@ -416,6 +418,7 @@ public partial class MainWindow
         RefreshLiveFeaturesState();
         UpdateInspectorBanner();
         UpdatePatchGridAvailability();
+        _prm.RescanFolder();
         SaveSettings();
     }
 

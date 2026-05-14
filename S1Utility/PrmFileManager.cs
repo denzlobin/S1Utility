@@ -82,6 +82,14 @@ public sealed class PrmFileManager
     public event EventHandler<PrmMetaArgs>? MetaLoaded;
     public event EventHandler<(string Message, string Color)>? StatusChanged;
     public event EventHandler? CcSnapshotChanged;
+    public event EventHandler? PatchAvailabilityChanged;
+
+    // ── Per-slot availability (populated by RescanFolder) ─────────────────────
+    // Programs (0..63) where the .PRM file exists and parses successfully.
+    public HashSet<int> AvailablePrograms { get; private set; } = new();
+    // Programs where the file exists but the parser threw — distinct from
+    // "missing" so the UI can flag broken files vs. simply absent ones.
+    public HashSet<int> MalformedPrograms { get; private set; } = new();
 
     // ── CC snapshot ───────────────────────────────────────────────────────────
     // Frozen CC values from the most recently loaded PRM file. Tab 2 (Patch
@@ -287,6 +295,69 @@ public sealed class PrmFileManager
     }
 
     public IEnumerable<PrmParameter> AllPrmOnlyParams() => _allPrmOnly;
+
+    // Walks all 64 program slots, partitioning them into available vs. malformed.
+    // Called on folder change and on (re)connect. Synchronous: 64 small files
+    // parse in well under a frame in practice.
+    public void RescanFolder()
+    {
+        var avail     = new HashSet<int>();
+        var malformed = new HashSet<int>();
+
+        if (!string.IsNullOrEmpty(PrmFolder) && Directory.Exists(PrmFolder))
+        {
+            var canonical = CanonicalKeys;
+            for (int program = 0; program < 64; program++)
+            {
+                string path = PrmFileForProgram(program);
+                if (!File.Exists(path)) continue;
+                try
+                {
+                    var data = PrmFileParser.Parse(path);
+                    if (HasUnknownKeys(data, canonical))
+                        malformed.Add(program);
+                    else
+                        avail.Add(program);
+                }
+                catch
+                {
+                    // Parser threw — file is truncated, oversized, or contains
+                    // no recognisable KEY=VALUE pairs at all.
+                    malformed.Add(program);
+                }
+            }
+        }
+
+        AvailablePrograms = avail;
+        MalformedPrograms = malformed;
+        PatchAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Lazy: parses InitPatch.prm once to capture the canonical PRM key set.
+    // Used as a schema check so typo'd keys (e.g. SHUFLE for SHUFFLE) are caught
+    // even when the file is syntactically valid.
+    private HashSet<string>? _canonicalKeys;
+    private HashSet<string> CanonicalKeys
+    {
+        get
+        {
+            if (_canonicalKeys is null)
+            {
+                using var stream = typeof(PrmFileManager).Assembly.GetManifestResourceStream("InitPatch.prm")!;
+                using var reader = new StreamReader(stream);
+                var data = PrmFileParser.Parse(reader);
+                _canonicalKeys = new HashSet<string>(data.Parameters.Keys, StringComparer.Ordinal);
+            }
+            return _canonicalKeys;
+        }
+    }
+
+    private static bool HasUnknownKeys(PrmFileData data, HashSet<string> canonical)
+    {
+        foreach (var key in data.Parameters.Keys)
+            if (!canonical.Contains(key)) return true;
+        return false;
+    }
 
     private string PrmFileForProgram(int program)
     {
