@@ -1724,27 +1724,33 @@ public partial class MainWindow
         PrmViewerGrid.Children.Clear();
 
         // ── Row 0 — top columns: sound engine (left) / mod & voice (right) ─
-        var colA = new StackPanel
+        // Grids (not StackPanels) so the last card in each column can stretch
+        // to fill the row's `*` height — no blank gap at the column bottom.
+        var colA = new Grid
         {
-            Spacing            = 4,
-            VerticalAlignment  = VerticalAlignment.Top,
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*"),
+            RowSpacing     = 4,
         };
-        colA.Children.Add(BuildOscillatorCard());
-        colA.Children.Add(BuildPrmCard("FILTER", FiltAccent,
-            BuildThreeColGrid(_patch.Filter.Select(p => (Control)BuildCcDataRow(p)))));
-        colA.Children.Add(BuildPrmCard("ENVELOPE", EnvAccent,
-            BuildThreeColGrid(_patch.Envelope.Select(p => (Control)BuildCcDataRow(p)))));
-        colA.Children.Add(BuildPrmCard("LFO", LfoAccent,
-            BuildThreeColGrid(_patch.Lfo.Select(p => (Control)BuildCcDataRow(p)))));
+        var oscCard      = BuildOscillatorCard();
+        var filterCard   = BuildPrmCard("FILTER", FiltAccent,
+            BuildThreeColGrid(_patch.Filter.Select(p => (Control)BuildCcDataRow(p))));
+        var envelopeCard = BuildPrmCard("ENVELOPE", EnvAccent,
+            BuildThreeColGrid(_patch.Envelope.Select(p => (Control)BuildCcDataRow(p))));
+        var lfoCard      = BuildPrmCard("LFO", LfoAccent,
+            BuildThreeColGrid(_patch.Lfo.Select(p => (Control)BuildCcDataRow(p))));
+        Grid.SetRow(oscCard,      0); colA.Children.Add(oscCard);
+        Grid.SetRow(filterCard,   1); colA.Children.Add(filterCard);
+        Grid.SetRow(envelopeCard, 2); colA.Children.Add(envelopeCard);
+        Grid.SetRow(lfoCard,      3); colA.Children.Add(lfoCard);
         Grid.SetColumn(colA, 0); Grid.SetRow(colA, 0);
         PrmViewerGrid.Children.Add(colA);
 
-        var colB = new StackPanel
+        var colB = new Grid
         {
-            Spacing            = 4,
-            VerticalAlignment  = VerticalAlignment.Top,
+            RowDefinitions = new RowDefinitions("Auto,Auto,*"),
+            RowSpacing     = 4,
         };
-        colB.Children.Add(BuildPrmCard("RISER", PrmRiserAccent, BuildThreeColGrid(new[]
+        var riserCard = BuildPrmCard("RISER", PrmRiserAccent, BuildThreeColGrid(new[]
         {
             BuildPrmDataRow(_prm.RiserSw),
             BuildPrmDataRow(_prm.RiserMode),
@@ -1753,9 +1759,12 @@ public partial class MainWindow
             BuildPrmDataRow(_prm.RiserShape),
             BuildPrmDataRow(_prm.RiserReso),
             BuildPrmDataRow(_prm.RiserLevel),
-        })));
-        colB.Children.Add(BuildEffectsCard());
-        colB.Children.Add(BuildVoiceCard());
+        }));
+        var effectsCard = BuildEffectsCard();
+        var voiceCard   = BuildVoiceCard();
+        Grid.SetRow(riserCard,   0); colB.Children.Add(riserCard);
+        Grid.SetRow(effectsCard, 1); colB.Children.Add(effectsCard);
+        Grid.SetRow(voiceCard,   2); colB.Children.Add(voiceCard);
         Grid.SetColumn(colB, 1); Grid.SetRow(colB, 0);
         PrmViewerGrid.Children.Add(colB);
 
@@ -2085,7 +2094,7 @@ public partial class MainWindow
         Grid.SetColumn(arpCol, 1); grid.Children.Add(arpCol);
 
         var motCol = new StackPanel { Spacing = 1 };
-        motCol.Children.Add(BuildSubHeader("MOTION ASSIGN", SeqAccent));
+        motCol.Children.Add(BuildSubHeader("AUTOMATION", SeqAccent));
         var laneGrid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,*"),
