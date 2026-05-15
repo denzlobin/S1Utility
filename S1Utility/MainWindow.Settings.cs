@@ -640,8 +640,7 @@ public partial class MainWindow
 
     private void OnPrmMetaLoaded(object? sender, PrmMetaArgs e)
     {
-        _tempoLabel.Text     = e.Tempo;
-        _transposeLabel.Text = e.Transpose;
+        _tempoLabel.Text = e.Tempo;
         for (int i = 0; i < 8; i++)
             _motionCcLabels[i].Text = e.MotionCcLabels[i];
     }

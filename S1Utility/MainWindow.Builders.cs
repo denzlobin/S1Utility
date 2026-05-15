@@ -1743,12 +1743,21 @@ public partial class MainWindow
             RowSpacing     = 4,
         };
         var oscCard      = BuildOscillatorCard();
+        // Row-major fills the 3-col grid: index ordering chosen so columns read top-to-bottom
+        // as requested (Col1 / Col2 / Col3).
+        int[] filterOrder   = { 74, 24, 26,    71, 25, 27 };
+        int[] envelopeOrder = { 73, 30, 28,    75, 72, 29 };
+        int[] lfoOrder      = { 12, 79, 105,   3, 106, 17 };
+
+        Control LfoRow(int cc) =>
+            cc == 3 ? BuildLfoRateViewerRow(RequireCC(3)) : BuildCcDataRow(RequireCC(cc));
+
         var filterCard   = BuildPrmCard("FILTER", FiltAccent,
-            BuildThreeColGrid(_patch.Filter.Select(p => (Control)BuildCcDataRow(p))));
+            BuildThreeColGrid(filterOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
         var envelopeCard = BuildPrmCard("ENVELOPE", EnvAccent,
-            BuildThreeColGrid(_patch.Envelope.Select(p => (Control)BuildCcDataRow(p))));
+            BuildThreeColGrid(envelopeOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
         var lfoCard      = BuildPrmCard("LFO", LfoAccent,
-            BuildThreeColGrid(_patch.Lfo.Select(p => (Control)BuildCcDataRow(p))));
+            BuildThreeColGrid(lfoOrder.Select(LfoRow)));
         Grid.SetRow(oscCard,      0); colA.Children.Add(oscCard);
         Grid.SetRow(filterCard,   1); colA.Children.Add(filterCard);
         Grid.SetRow(envelopeCard, 2); colA.Children.Add(envelopeCard);
@@ -1899,6 +1908,30 @@ public partial class MainWindow
         return BuildDataRow(param.Name, lbl);
     }
 
+    // LFO Rate has two distinct displays: a 1-31 sync-slot label when LFO_SYNC=1,
+    // or a 0-255 free-run value otherwise. PrmFileManager already stores the
+    // resolved CC value (0-30 sync index, or 0-127 free), so this row just picks
+    // the formatting based on the snapshot's LFO_SYNC value.
+    private Control BuildLfoRateViewerRow(S1Parameter param)
+    {
+        var lbl = new TextBlock();
+        string Format()
+        {
+            int cc       = SnapshotValue(param);
+            int syncMode = _prm.CcSnapshot.TryGetValue(106, out var s) ? s : 0;
+            if (syncMode != 0)
+            {
+                int idx = Math.Clamp(cc, 0, s_lfoSyncValues.Length - 1);
+                return s_lfoSyncValues[idx];
+            }
+            return ((int)Math.Round(cc * 255.0 / 127)).ToString();
+        }
+        lbl.Text = Format();
+        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
+            () => lbl.Text = Format());
+        return BuildDataRow(param.Name, lbl);
+    }
+
     // PRM-only parameter → live data row.
     private Control BuildPrmDataRow(PrmParameter p)
     {
@@ -1932,12 +1965,11 @@ public partial class MainWindow
 
     private Border BuildOscillatorCard()
     {
-        // 12 simple parameters (excludes Draw Multiply, Chop Overtone, Chop Comb, Draw Step/Slope)
-        var simple = _patch.Oscillator
-            .Where(p => p.CcNumber != 102 && p.CcNumber != 103 && p.CcNumber != 104 && p.CcNumber != 107)
-            .Select(p => (Control)BuildCcDataRow(p))
-            .ToList();
-        return BuildPrmCard("OSCILLATOR", OscAccent, BuildThreeColGrid(simple));
+        // Explicit row-major fill of the 3-col grid produces the requested column layout:
+        // Col 1 = Square/Saw/Sub/Noise · Col 2 = Range/PW/PWM Src/Sub Oct · Col 3 = LFO Pitch/Noise/Fine/Bend.
+        int[] order = { 19, 14, 13,    20, 15, 78,    21, 16, 76,    23, 22, 18 };
+        var rows = order.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)));
+        return BuildPrmCard("OSCILLATOR", OscAccent, BuildThreeColGrid(rows));
     }
 
     private Border BuildOscDrawCard()
@@ -2046,11 +2078,11 @@ public partial class MainWindow
 
     private Border BuildVoiceCard()
     {
-        // Main = Controls + Voice without the CC65 toggle, V2/V3/V4 toggles, V2/V3/V4 shifts.
-        var chordCcs = new HashSet<int> { 65, 81, 82, 83, 85, 86, 87 };
-        var mainItems = _patch.Controls.Concat(_patch.Voice)
-            .Where(p => !chordCcs.Contains(p.CcNumber))
-            .Select(p => (Control)BuildCcDataRow(p))
+        // Row-major fill of a 3-col grid (last cell empty since we have 8 params):
+        // Col 1 = Polyphony/Portamento/Glide · Col 2 = Mod Wheel/Exp/Damper · Col 3 = Transpose/Pan.
+        int[] mainOrder = { 80, 1, 77,    31, 11, 10,    5, 64 };
+        var mainItems = mainOrder
+            .Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))
             .ToList();
 
         var chordItems = new List<Control>
@@ -2089,13 +2121,10 @@ public partial class MainWindow
 
         var patCol = new StackPanel { Spacing = 1 };
         patCol.Children.Add(BuildSubHeader("PATTERN", SeqAccent));
-        patCol.Children.Add(BuildDataRow("Tempo",     _tempoLabel));
-        patCol.Children.Add(BuildDataRow("Transpose", _transposeLabel));
+        patCol.Children.Add(BuildDataRow("Tempo", _tempoLabel));
         patCol.Children.Add(BuildPrmDataRow(_prm.Leng));
         patCol.Children.Add(BuildPrmDataRow(_prm.Shuffle));
         patCol.Children.Add(BuildPrmDataRow(_prm.Level));
-        patCol.Children.Add(BuildPrmDataRow(_prm.Scale));
-        patCol.Children.Add(BuildPrmDataRow(_prm.TempoSync));
         Grid.SetColumn(patCol, 0); grid.Children.Add(patCol);
 
         var arpCol = new StackPanel { Spacing = 1 };
@@ -2136,10 +2165,6 @@ public partial class MainWindow
         dmCol.Children.Add(BuildSubHeader("D-MOTION", PrmDmAccent));
         dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignX));
         dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignY));
-        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignTap));
-        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignFf));
-        dmCol.Children.Add(BuildPrmDataRow(_prm.DmSensX));
-        dmCol.Children.Add(BuildPrmDataRow(_prm.DmSensY));
         Grid.SetColumn(dmCol, 4); grid.Children.Add(dmCol);
 
         // Header with right-aligned VIEW STEPS → button.

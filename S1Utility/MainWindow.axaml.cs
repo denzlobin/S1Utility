@@ -110,9 +110,8 @@ public partial class MainWindow : Window
     private WndProcDelegate? _arWndProcDelegate;
     private IntPtr           _arOldWndProc;
 
-    // Labels for values that need special formatting (tempo as BPM, signed transpose, motion CC names)
+    // Labels for values that need special formatting (tempo as BPM, motion CC names)
     private readonly TextBlock   _tempoLabel     = new() { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
-    private readonly TextBlock   _transposeLabel = new() { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
     private readonly TextBlock[] _motionCcLabels = new TextBlock[8];
 
     // ── Section accent colours (shared across builders / sequencer) ───────────

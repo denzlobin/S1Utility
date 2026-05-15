@@ -6,7 +6,7 @@ using ChopPatternClass = S1Utility.Core.ChopPattern; // alias avoids property/ty
 
 namespace S1Utility;
 
-public sealed record PrmMetaArgs(string Tempo, string Transpose, string[] MotionCcLabels);
+public sealed record PrmMetaArgs(string Tempo, string[] MotionCcLabels);
 
 // Owns all PRM-only parameter state, data models, and patch-apply logic.
 // No Avalonia dependency — pure C#, fully unit-testable.
@@ -178,13 +178,31 @@ public sealed class PrmFileManager
         {
             if (!PrmCcMap.Map.TryGetValue(key, out var info)) continue;
             if (!int.TryParse(rawValue, out int prmValue)) continue;
-            _patch.HandleIncomingCC(info.Cc, info.ToCc(prmValue));
+            _patch.HandleIncomingCC(info.Cc, ResolveCcValue(data, key, info, prmValue));
         }
 
         _patch.HandleIncomingCC(1,  0);    // Mod Wheel = 0
         _patch.HandleIncomingCC(11, 127);  // Expression = 127
 
         LoadInspector(data);
+    }
+
+    // PRM → CC conversion with the contextual special cases the linear scale in
+    // PrmCcMap can't express on its own.
+    //
+    // LFO_RATE: when LFO_SYNC=1 the S-1 stores the rate as a 1-based sync-slot
+    // index (1..31 → slot 0..30 in s_lfoSyncValues), NOT the 0..255 scale used
+    // in free-run mode. Verified against a hardware backup with sync on:
+    // LFO_SYNC=1, LFO_RATE=26 → hardware-display "64d" (slot 25).
+    private static int ResolveCcValue(PrmFileData data, string key, PrmParameterInfo info, int prmValue)
+    {
+        if (key == "LFO_RATE"
+            && data.Parameters.TryGetValue("LFO_SYNC", out var syncRaw)
+            && int.TryParse(syncRaw, out int syncVal) && syncVal != 0)
+        {
+            return Math.Clamp(prmValue - 1, 0, 30);
+        }
+        return info.ToCc(prmValue);
     }
 
     // Update Tab 2 (inspector) state from a parsed PRM file without writing to
@@ -239,7 +257,7 @@ public sealed class PrmFileManager
         {
             if (!PrmCcMap.Map.TryGetValue(key, out var info)) continue;
             if (!int.TryParse(rawValue, out int prmValue)) continue;
-            snap[info.Cc] = info.ToCc(prmValue);
+            snap[info.Cc] = ResolveCcValue(data, key, info, prmValue);
         }
         snap[1]  = 0;    // Mod Wheel
         snap[11] = 127;  // Expression
@@ -252,11 +270,6 @@ public sealed class PrmFileManager
             ? $"{tempoVal / 100.0:F1} BPM"
             : "—";
 
-        string transpose = data.Parameters.TryGetValue("TRANSPOSE", out var trRaw)
-                           && int.TryParse(trRaw, out int trVal)
-            ? (trVal > 0 ? $"+{trVal}" : trVal.ToString())
-            : "0";
-
         // Motion CC assignments (−1 = unassigned, else a CC number)
         var motionLabels = new string[8];
         for (int i = 0; i < 8; i++)
@@ -268,7 +281,7 @@ public sealed class PrmFileManager
                 : "—";
         }
 
-        MetaLoaded?.Invoke(this, new PrmMetaArgs(tempo, transpose, motionLabels));
+        MetaLoaded?.Invoke(this, new PrmMetaArgs(tempo, motionLabels));
     }
 
     public bool TryLoadPatternPrm(int program)
