@@ -941,34 +941,11 @@ public partial class MainWindow
     }
 
 
-    // ── Tab 2: PRM Viewer ─────────────────────────────────────────────────────
-
-    // Accent palette specific to the PRM viewer dashboard cards.
-    // Defined here so the chrome (header dot + accent gradient) is single-sourced.
-    private static IBrush PrmRiserAccent => Palette.AccentFx;     // riser shares teal with effects per spec
-    private static IBrush PrmDmAccent    => Palette.AccentDmAlt;
-
-    // Cell brushes for the OSC CHOP LED grid (amber on, dark off).
-    // Tab 2 chop-grid background: distinct from BgApp by a single channel, kept
-    // as its own resource because it's unique to the CHOP visualizer cells.
-    private static readonly IBrush s_chopLedOff = new SolidColorBrush(Color.Parse("#1A1A20"));
-
-    // Dashboard tokens forward to Palette so the canonical hex lives only in App.axaml.
-    private static IBrush s_chopVizBg      => Palette.BgApp;
-    private static IBrush s_dashLabelBrush => Palette.FgLabel;
-    private static IBrush s_dashValueBrush => Palette.FgVal;
-    private static IBrush s_dashRowBorder  => Palette.BdRow;
-    private static IBrush s_dashCardBg     => Palette.BgCard;
-    private static IBrush s_dashCardBorder => Palette.BdCard;
-
-    // Mono font stack for value labels — Cascadia/Consolas only (no IBM Plex dependency).
-    private static readonly FontFamily s_dashMonoFont = Palette.MonoFont;
-
     private void BuildPrmViewerContent()
     {
         PrmViewerGrid.Children.Clear();
 
-        // ── Row 0 — top columns: sound engine (left) / mod & voice (right) ─
+        // ── Row 0 — sound engine (left col) / mod & voice (right col) ─────
         // Grids (not StackPanels) so the last card in each column can stretch
         // to fill the row's `*` height — no blank gap at the column bottom.
         var colA = new Grid
@@ -976,20 +953,20 @@ public partial class MainWindow
             RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*"),
             RowSpacing     = 4,
         };
-        var oscCard      = BuildOscillatorCard();
-        // Row-major fills the 3-col grid: index ordering chosen so columns read top-to-bottom
-        // as requested (Col1 / Col2 / Col3).
+        var oscCard      = new Panels.OscillatorCard(_patch, _prm, OscAccent).Build();
         int[] filterOrder   = { 74, 24, 26,    71, 25, 27 };
         int[] envelopeOrder = { 73, 30, 28,    75, 72, 29 };
         int[] lfoOrder      = { 12, 79, 105,   3, 106, 17 };
 
         Control LfoRow(int cc) =>
-            cc == 3 ? BuildLfoRateViewerRow(RequireCC(3)) : BuildCcDataRow(RequireCC(cc));
+            cc == 3
+                ? InspectorRows.BuildLfoRateViewerRow(_prm, RequireCC(3))
+                : InspectorRows.BuildCcDataRow(_prm, RequireCC(cc));
 
         var filterCard   = Dashboard.BuildPrmCard("FILTER", FiltAccent,
-            Dashboard.BuildThreeColGrid(filterOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
+            Dashboard.BuildThreeColGrid(filterOrder.Select(cc => InspectorRows.BuildCcDataRow(_prm, RequireCC(cc)))));
         var envelopeCard = Dashboard.BuildPrmCard("ENVELOPE", EnvAccent,
-            Dashboard.BuildThreeColGrid(envelopeOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
+            Dashboard.BuildThreeColGrid(envelopeOrder.Select(cc => InspectorRows.BuildCcDataRow(_prm, RequireCC(cc)))));
         var lfoCard      = Dashboard.BuildPrmCard("LFO", LfoAccent,
             Dashboard.BuildThreeColGrid(lfoOrder.Select(LfoRow)));
         Grid.SetRow(oscCard,      0); colA.Children.Add(oscCard);
@@ -1004,18 +981,18 @@ public partial class MainWindow
             RowDefinitions = new RowDefinitions("Auto,Auto,*"),
             RowSpacing     = 4,
         };
-        var riserCard = Dashboard.BuildPrmCard("RISER", PrmRiserAccent, Dashboard.BuildThreeColGrid(new[]
+        var riserCard = Dashboard.BuildPrmCard("RISER", Palette.AccentFx, Dashboard.BuildThreeColGrid(new[]
         {
-            BuildPrmDataRow(_prm.RiserSw),
-            BuildPrmDataRow(_prm.RiserMode),
-            BuildPrmDataRow(_prm.RiserCtrl),
-            BuildPrmDataRow(_prm.RiserBeat),
-            BuildPrmDataRow(_prm.RiserShape),
-            BuildPrmDataRow(_prm.RiserReso),
-            BuildPrmDataRow(_prm.RiserLevel),
+            InspectorRows.BuildPrmDataRow(_prm.RiserSw),
+            InspectorRows.BuildPrmDataRow(_prm.RiserMode),
+            InspectorRows.BuildPrmDataRow(_prm.RiserCtrl),
+            InspectorRows.BuildPrmDataRow(_prm.RiserBeat),
+            InspectorRows.BuildPrmDataRow(_prm.RiserShape),
+            InspectorRows.BuildPrmDataRow(_prm.RiserReso),
+            InspectorRows.BuildPrmDataRow(_prm.RiserLevel),
         }));
-        var effectsCard = BuildEffectsCard();
-        var voiceCard   = BuildVoiceCard();
+        var effectsCard = new Panels.EffectsCard(_patch, _prm, FxAccent).Build();
+        var voiceCard   = new Panels.VoiceCard(_patch, _prm, VoiceAccent).Build();
         Grid.SetRow(riserCard,   0); colB.Children.Add(riserCard);
         Grid.SetRow(effectsCard, 1); colB.Children.Add(effectsCard);
         Grid.SetRow(voiceCard,   2); colB.Children.Add(voiceCard);
@@ -1023,581 +1000,20 @@ public partial class MainWindow
         PrmViewerGrid.Children.Add(colB);
 
         // ── Row 1 — OSC DRAW (col 0) + OSC CHOP (col 1), guaranteed same height ─
-        var drawCard = BuildOscDrawCard();
-        var chopCard = BuildOscChopCard();
+        var drawCard = new Panels.OscDrawCard(_patch, _prm, OscAccent).Build();
+        var chopCard = new Panels.OscChopCard(_patch, _prm, OscAccent).Build();
         Grid.SetColumn(drawCard, 0); Grid.SetRow(drawCard, 1);
         Grid.SetColumn(chopCard, 1); Grid.SetRow(chopCard, 1);
         PrmViewerGrid.Children.Add(drawCard);
         PrmViewerGrid.Children.Add(chopCard);
 
         // ── Row 2 — full-width SEQUENCER card ────────────────────────────
-        var seqCard = BuildSequencerCard();
+        var seqCard = new Panels.SequencerCard(
+            _prm, SeqAccent, Palette.AccentDmAlt,
+            _tempoLabel, _motionCcLabels, ShowSequencerWindow).Build();
         Grid.SetColumn(seqCard, 0); Grid.SetRow(seqCard, 2); Grid.SetColumnSpan(seqCard, 2);
         PrmViewerGrid.Children.Add(seqCard);
     }
 
-    // CC-mapped parameter → live data row (subscribes to snapshot changes).
-    private Control BuildCcDataRow(S1Parameter param)
-    {
-        var lbl = new TextBlock { Text = GetPrmViewerCcValue(param, SnapshotValue(param)) };
-        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
-            () => lbl.Text = GetPrmViewerCcValue(param, SnapshotValue(param)));
-        return Dashboard.BuildDataRow(param.Name, lbl);
-    }
-
-    // LFO Rate has two distinct displays: a 1-31 sync-slot label when LFO_SYNC=1,
-    // or a 0-255 free-run value otherwise. PrmFileManager already stores the
-    // resolved CC value (0-30 sync index, or 0-127 free), so this row just picks
-    // the formatting based on the snapshot's LFO_SYNC value.
-    private Control BuildLfoRateViewerRow(S1Parameter param)
-    {
-        var lbl = new TextBlock();
-        string Format()
-        {
-            int cc       = SnapshotValue(param);
-            int syncMode = _prm.CcSnapshot.TryGetValue(106, out var s) ? s : 0;
-            if (syncMode != 0)
-            {
-                int idx = Math.Clamp(cc, 0, CcDisplay.LfoSyncLabels.Length - 1);
-                return CcDisplay.LfoSyncLabels[idx];
-            }
-            return ((int)Math.Round(cc * 255.0 / 127)).ToString();
-        }
-        lbl.Text = Format();
-        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
-            () => lbl.Text = Format());
-        return Dashboard.BuildDataRow(param.Name, lbl);
-    }
-
-    // PRM-only parameter → live data row.
-    private Control BuildPrmDataRow(PrmParameter p)
-    {
-        var lbl = new TextBlock { Text = CcDisplay.PrmValue(p) };
-        p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(
-            () => lbl.Text = CcDisplay.PrmValue(p));
-        return Dashboard.BuildDataRow(p.Name, lbl);
-    }
-
-    // ── OSC card composition ─────────────────────────────────────────────────
-
-    private Border BuildOscillatorCard()
-    {
-        // Explicit row-major fill of the 3-col grid produces the requested column layout:
-        // Col 1 = Square/Saw/Sub/Noise · Col 2 = Range/PW/PWM Src/Sub Oct · Col 3 = LFO Pitch/Noise/Fine/Bend.
-        int[] order = { 19, 14, 13,    20, 15, 78,    21, 16, 76,    23, 22, 18 };
-        var rows = order.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)));
-        return Dashboard.BuildPrmCard("OSCILLATOR", OscAccent, Dashboard.BuildThreeColGrid(rows));
-    }
-
-    private Border BuildOscDrawCard()
-    {
-        var body = new StackPanel
-        {
-            Spacing = 4,
-            Children =
-            {
-                MakeDrawBarsControl(),
-                BuildCcDataRow(RequireCC(102)),  // Multiply
-                BuildCcDataRow(RequireCC(107)),  // Step/Slope
-            },
-        };
-        return Dashboard.BuildPrmCard("OSC DRAW", OscAccent, body);
-    }
-
-    private Border BuildOscChopCard()
-    {
-        // PRM-level "Type" / "Comb Type" aren't surfaced as displayable parameters in the
-        // current data model, so this card omits them and keeps the canonical CC mapping.
-        var body = new StackPanel
-        {
-            Spacing = 4,
-            Children =
-            {
-                MakeChopPatternControl(),
-                BuildCcDataRow(RequireCC(103)),  // Overtone
-                BuildCcDataRow(RequireCC(104)),  // Comb
-            },
-        };
-        return Dashboard.BuildPrmCard("OSC CHOP", OscAccent, body);
-    }
-
-    // ── Effects card composition (3 sub-columns) ─────────────────────────────
-
-    private Border BuildEffectsCard()
-    {
-        var revCol = Dashboard.BuildEffectsSubCol("REVERB", FxAccent, new[]
-        {
-            BuildCcDataRow(RequireCC(91)),                 // Level
-            BuildCcDataRow(RequireCC(89)),                 // Time
-            BuildPrmDataRow(_prm.ReverbMain[0]),           // Type
-            BuildPrmDataRow(_prm.ReverbAdv[0]),            // Pre-Delay
-            BuildPrmDataRow(_prm.ReverbAdv[1]),            // Density
-        });
-
-        var delItems = new List<Control>
-        {
-            BuildCcDataRow(RequireCC(92)),                 // Level
-            BuildEffectsDelayTimeRow(),                    // Time (context-aware ms or tempo)
-            BuildPrmDataRow(_prm.DelayMain[0]),            // Sync (DELAY_SW)
-            BuildPrmDataRow(_prm.DelayTempo),              // Tempo
-            BuildPrmDataRow(_prm.DelayAdv[0]),             // Feedback
-        };
-        var delCol = Dashboard.BuildEffectsSubCol("DELAY", FxAccent, delItems);
-
-        var chorusCol = Dashboard.BuildEffectsSubCol("CHORUS", FxAccent, new[]
-        {
-            BuildCcDataRow(RequireCC(93)),                 // Type
-        });
-
-        var grid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
-            ColumnSpacing     = 14,
-        };
-        Grid.SetColumn(revCol,    0); grid.Children.Add(revCol);
-        Grid.SetColumn(delCol,    1); grid.Children.Add(delCol);
-        Grid.SetColumn(chorusCol, 2); grid.Children.Add(chorusCol);
-
-        return Dashboard.BuildPrmCard("EFFECTS", FxAccent, grid);
-    }
-
-    // Like MakeDelayTimeViewerRow but using the new dashboard row chrome.
-    private Control BuildEffectsDelayTimeRow()
-    {
-        var delaySw     = _prm.DelayMain[0];
-        var delayTimeCC = RequireCC(90);
-
-        var lbl = new TextBlock();
-        void Refresh()
-        {
-            int delayTimeVal = SnapshotValue(delayTimeCC);
-            lbl.Text = delaySw.Value == 0
-                ? $"{1 + (int)Math.Round(delayTimeVal * 739.0 / 127)}ms"
-                : CcDisplay.PrmValue(_prm.DelayTempo);
-        }
-        Refresh();
-        delaySw.ValueChanged         += (_, _) => Dispatcher.UIThread.Post(Refresh);
-        _prm.CcSnapshotChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
-        _prm.DelayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
-
-        return Dashboard.BuildDataRow("Time", lbl);
-    }
-
-    // ── Voice card composition (main grid + CHORD subgrid) ──────────────────
-
-    private Border BuildVoiceCard()
-    {
-        // Row-major fill of a 3-col grid (last cell empty since we have 8 params):
-        // Col 1 = Polyphony/Portamento/Glide · Col 2 = Mod Wheel/Exp/Damper · Col 3 = Transpose/Pan.
-        int[] mainOrder = { 80, 1, 77,    31, 11, 10,    5, 64 };
-        var mainItems = mainOrder
-            .Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))
-            .ToList();
-
-        var chordItems = new List<Control>
-        {
-            BuildCcDataRow(RequireCC(81)),  // V2
-            BuildCcDataRow(RequireCC(82)),  // V3
-            BuildCcDataRow(RequireCC(83)),  // V4
-            BuildCcDataRow(RequireCC(85)),  // V2 Shift
-            BuildCcDataRow(RequireCC(86)),  // V3 Shift
-            BuildCcDataRow(RequireCC(87)),  // V4 Shift
-        };
-
-        var body = new StackPanel
-        {
-            Children =
-            {
-                Dashboard.BuildThreeColGrid(mainItems),
-                Dashboard.BuildSubHeader("CHORD", VoiceAccent),
-                Dashboard.BuildThreeColGrid(chordItems),
-            },
-        };
-        return Dashboard.BuildPrmCard("VOICE", VoiceAccent, body);
-    }
-
-    // ── Sequencer card composition (PATTERN / ARP / MOTION / D-MOTION) ──────
-
-    private Border BuildSequencerCard()
-    {
-        var seqAccentClr = ((ISolidColorBrush)SeqAccent).Color;
-
-        var grid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*,Auto,*"),  // pattern, arp, motion, divider, d-motion
-            ColumnSpacing     = 14,
-        };
-
-        var patCol = new StackPanel { Spacing = 1 };
-        patCol.Children.Add(Dashboard.BuildSubHeader("PATTERN", SeqAccent));
-        patCol.Children.Add(Dashboard.BuildDataRow("Tempo", _tempoLabel));
-        patCol.Children.Add(BuildPrmDataRow(_prm.Leng));
-        patCol.Children.Add(BuildPrmDataRow(_prm.Shuffle));
-        patCol.Children.Add(BuildPrmDataRow(_prm.Level));
-        Grid.SetColumn(patCol, 0); grid.Children.Add(patCol);
-
-        var arpCol = new StackPanel { Spacing = 1 };
-        arpCol.Children.Add(Dashboard.BuildSubHeader("ARPEGGIATOR", SeqAccent));
-        arpCol.Children.Add(BuildPrmDataRow(_prm.ArpType));
-        arpCol.Children.Add(BuildPrmDataRow(_prm.ArpRate));
-        Grid.SetColumn(arpCol, 1); grid.Children.Add(arpCol);
-
-        var motCol = new StackPanel { Spacing = 1 };
-        motCol.Children.Add(Dashboard.BuildSubHeader("AUTOMATION", SeqAccent));
-        var laneGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*"),
-            ColumnSpacing     = 6,
-        };
-        for (int i = 0; i < 8; i++)
-        {
-            var row = Dashboard.BuildDataRow($"Lane {i + 1}", _motionCcLabels[i]);
-            Grid.SetRow(row, i / 2);
-            Grid.SetColumn(row, i % 2);
-            if (laneGrid.RowDefinitions.Count <= i / 2)
-                laneGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            laneGrid.Children.Add(row);
-        }
-        motCol.Children.Add(laneGrid);
-        Grid.SetColumn(motCol, 2); grid.Children.Add(motCol);
-
-        // Left divider rule before D-MOTION.
-        var divider = new Border
-        {
-            Width      = 1,
-            Background = s_dashCardBorder,
-            Margin     = new Thickness(4, 18, 4, 4),
-        };
-        Grid.SetColumn(divider, 3); grid.Children.Add(divider);
-
-        var dmCol = new StackPanel { Spacing = 1 };
-        dmCol.Children.Add(Dashboard.BuildSubHeader("D-MOTION", PrmDmAccent));
-        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignX));
-        dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignY));
-        Grid.SetColumn(dmCol, 4); grid.Children.Add(dmCol);
-
-        // Header with right-aligned VIEW STEPS → button.
-        var viewStepsLabel = new TextBlock
-        {
-            Text          = "VIEW STEPS  →",
-            FontSize      = 9.5,
-            FontWeight    = FontWeight.SemiBold,
-            LetterSpacing = 0.8,
-            Foreground    = SeqAccent,
-        };
-        var viewStepsBtn = new Border
-        {
-            BorderThickness = new Thickness(1),
-            BorderBrush     = SeqAccent,
-            Background      = new SolidColorBrush(Color.FromArgb(0x18, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B)),
-            CornerRadius    = new CornerRadius(3),
-            Padding         = new Thickness(8, 3),
-            Cursor          = new Cursor(StandardCursorType.Hand),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment   = VerticalAlignment.Center,
-            Child           = viewStepsLabel,
-        };
-
-        void RefreshViewBtn()
-        {
-            bool has = HasSequencerContent();
-            viewStepsBtn.IsEnabled = has;
-            viewStepsBtn.Opacity   = has ? 1.0 : 0.35;
-        }
-        RefreshViewBtn();
-        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(RefreshViewBtn);
-        viewStepsBtn.PointerPressed += (_, _) => ShowSequencerWindow();
-
-        // Header: dot + SEQUENCER + spacer + VIEW STEPS button
-        var seqAccentDot = new Ellipse
-        {
-            Width = 6, Height = 6, Fill = SeqAccent,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var seqTitle = new TextBlock
-        {
-            Text              = "SEQUENCER",
-            FontSize          = 8.5,
-            FontWeight        = FontWeight.Bold,
-            LetterSpacing     = 1.5,
-            Foreground        = SeqAccent,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin            = new Thickness(6, 0, 0, 0),
-        };
-        var headerGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-        };
-        var headerLeft = new StackPanel { Orientation = Orientation.Horizontal,
-                                          Children = { seqAccentDot, seqTitle } };
-        Grid.SetColumn(headerLeft, 0);   headerGrid.Children.Add(headerLeft);
-        Grid.SetColumn(viewStepsBtn, 2); headerGrid.Children.Add(viewStepsBtn);
-
-        var headerUnderline = new Border
-        {
-            Height = 1,
-            Margin = new Thickness(0, 4, 0, 8),
-            Background = new LinearGradientBrush
-            {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint   = new RelativePoint(1, 0, RelativeUnit.Relative),
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(0x60, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B), 0),
-                    new GradientStop(Color.FromArgb(0x00, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B), 1),
-                },
-            },
-        };
-
-        var body = new StackPanel { Children = { headerGrid, headerUnderline, grid } };
-        return new Border
-        {
-            Background      = Palette.BgCard,
-            BorderBrush     = Palette.BdCard,
-            BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(4),
-            Padding         = new Thickness(8, 6),
-            Child           = body,
-        };
-    }
-
-
-    private int SnapshotValue(S1Parameter param) =>
-        _prm.CcSnapshot.TryGetValue(param.CcNumber, out var v) ? v : param.Value;
-
-    private static string GetPrmViewerCcValue(S1Parameter param, int value)
-    {
-        if (param.Options is not null)
-        {
-            int idx = Math.Clamp(value, 0, param.Options.Length - 1);
-            return param.Options[idx];
-        }
-        return param.ParameterType switch
-        {
-            S1ParameterType.Toggle        => value > 0 ? "On" : "Off",
-            S1ParameterType.BipolarSlider => CcDisplay.FormatSemitone(Math.Clamp(value - 64, -12, 12)),
-            _                             => CcDisplay.KnobValue(param, value),
-        };
-    }
-
-
-    // 16-bar bipolar draw waveform display (lo byte first, then hi byte per PRM value).
-    // Visual style: dashed centerline, opacity scales with magnitude, signed numeric value below.
-    private Panel MakeDrawBarsControl()
-    {
-        const double BarH = 140.0;    // total visualization height (matches OSC CHOP grid)
-        const double Half = BarH / 2.0;
-
-        var posBars   = new Border[16];
-        var negBars   = new Border[16];
-        var valLabels = new TextBlock[16];
-
-        void UpdateBars()
-        {
-            for (int pt = 0; pt < DrawWave.Points; pt++)
-            {
-                int signed = _prm.DrawWave.GetPoint(pt);
-                int raw    = signed < 0 ? signed + 65536 : signed;
-                int lo     = raw & 0xFF;
-                int hi     = (raw >> 8) & 0xFF;
-                int[] pads = { lo > 127 ? lo - 256 : lo, hi > 127 ? hi - 256 : hi };
-
-                for (int b = 0; b < 2; b++)
-                {
-                    int    idx  = pt * 2 + b;
-                    int    v    = pads[b];
-                    double norm = Math.Clamp(v / 100.0, -1.0, 1.0);
-                    double mag  = Math.Abs(norm);
-                    double h    = Math.Max(1.0, mag * (Half - 2));
-
-                    posBars[idx].Height  = v > 0 ? h : 0;
-                    posBars[idx].Opacity = 0.5 + mag * 0.5;
-                    negBars[idx].Height  = v < 0 ? h : 0;
-                    negBars[idx].Opacity = 0.5 + mag * 0.5;
-                    valLabels[idx].Text  = v > 0 ? $"+{v}" : v.ToString();
-                }
-            }
-        }
-
-        // Bar row: a Grid that lays each bar in its own column over a dashed centerline.
-        var barsCanvas = new Grid
-        {
-            Height = BarH,
-            ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", 16))),
-        };
-
-        // Dashed centerline spanning all columns.
-        var centerline = new Rectangle
-        {
-            Height          = 1,
-            Fill            = Brushes.Transparent,
-            Stroke          = new SolidColorBrush(Color.Parse("#2A2A33")),
-            StrokeThickness = 1,
-            StrokeDashArray = new Avalonia.Collections.AvaloniaList<double> { 2, 2 },
-            VerticalAlignment   = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-        };
-        Grid.SetColumnSpan(centerline, 16);
-        barsCanvas.Children.Add(centerline);
-
-        for (int i = 0; i < 16; i++)
-        {
-            // Each column hosts one stacked Grid: top half = pos bar grows up, bottom half = neg bar grows down.
-            var colGrid = new Grid
-            {
-                RowDefinitions = new RowDefinitions("*,*"),
-                Margin         = new Thickness(1, 0),
-            };
-
-            var posBar = new Border
-            {
-                Background          = OscAccent,
-                Width               = double.NaN,
-                Height              = 0,
-                VerticalAlignment   = VerticalAlignment.Bottom,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                CornerRadius        = new CornerRadius(1, 1, 0, 0),
-                Margin              = new Thickness(0, 0, 0, 1),  // sit just above centerline
-            };
-            var negBar = new Border
-            {
-                Background          = OscAccent,
-                Width               = double.NaN,
-                Height              = 0,
-                VerticalAlignment   = VerticalAlignment.Top,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                CornerRadius        = new CornerRadius(0, 0, 1, 1),
-                Margin              = new Thickness(0, 1, 0, 0),
-            };
-            posBars[i] = posBar;
-            negBars[i] = negBar;
-
-            Grid.SetRow(posBar, 0); colGrid.Children.Add(posBar);
-            Grid.SetRow(negBar, 1); colGrid.Children.Add(negBar);
-
-            Grid.SetColumn(colGrid, i);
-            barsCanvas.Children.Add(colGrid);
-        }
-
-        // Container border with #0E0E12 background.
-        var barsBorder = new Border
-        {
-            Background   = s_chopVizBg,
-            CornerRadius = new CornerRadius(2),
-            Padding      = new Thickness(2, 0),
-            Child        = barsCanvas,
-        };
-
-        // Label row: 16 columns aligned with the bars, signed numeric values.
-        var labelsGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", 16))),
-            Margin            = new Thickness(2, 2, 2, 0),
-        };
-        for (int i = 0; i < 16; i++)
-        {
-            var lbl = new TextBlock
-            {
-                FontSize      = 7.5,
-                FontFamily    = s_dashMonoFont,
-                Foreground    = s_dashLabelBrush,
-                Text          = "0",
-                TextAlignment = TextAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-            };
-            valLabels[i] = lbl;
-            Grid.SetColumn(lbl, i);
-            labelsGrid.Children.Add(lbl);
-        }
-
-        UpdateBars();
-        _prm.DrawWave.PointsChanged += (_, _) => Dispatcher.UIThread.Post(UpdateBars);
-
-        return new StackPanel { Children = { barsBorder, labelsGrid } };
-    }
-
-    // OSC CHOP — 16×4 LED matrix with waveform row labels.
-    // Cells are small rounded rectangles (crisp, no AA blur from circles or glow).
-    private Control MakeChopPatternControl()
-    {
-        var labelColumn = new Grid
-        {
-            RowDefinitions = new RowDefinitions(string.Join(",", Enumerable.Repeat("*", ChopPattern.Waveforms))),
-            Margin         = new Thickness(0, 0, 6, 0),
-        };
-        for (int w = 0; w < ChopPattern.Waveforms; w++)
-        {
-            var lbl = new TextBlock
-            {
-                Text                = ChopPattern.WaveformNames[w],
-                FontSize            = 9.5,
-                Foreground          = s_dashLabelBrush,
-                VerticalAlignment   = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Right,
-            };
-            Grid.SetRow(lbl, w);
-            labelColumn.Children.Add(lbl);
-        }
-
-        var ledGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", ChopPattern.Steps))),
-            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("*", ChopPattern.Waveforms))),
-            ColumnSpacing     = 3,
-            RowSpacing        = 3,
-            Height            = 140,
-        };
-
-        var cells = new Border[ChopPattern.Waveforms, ChopPattern.Steps];
-        for (int w = 0; w < ChopPattern.Waveforms; w++)
-        {
-            for (int s = 0; s < ChopPattern.Steps; s++)
-            {
-                bool on = _prm.ChopPattern.GetStep(w, s);
-                var cell = new Border
-                {
-                    Background          = on ? OscAccent : s_chopLedOff,
-                    CornerRadius        = new CornerRadius(2),
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment   = VerticalAlignment.Stretch,
-                    MinWidth            = 8,
-                };
-                cells[w, s] = cell;
-                Grid.SetRow(cell, w);
-                Grid.SetColumn(cell, s);
-                ledGrid.Children.Add(cell);
-            }
-        }
-
-        for (int w = 0; w < ChopPattern.Waveforms; w++)
-        {
-            int waveform = w;
-            _prm.ChopPattern.PatternChanged += (_, changedWaveform) =>
-            {
-                if (changedWaveform != waveform) return;
-                Dispatcher.UIThread.Post(() =>
-                {
-                    for (int s = 0; s < ChopPattern.Steps; s++)
-                    {
-                        bool on = _prm.ChopPattern.GetStep(waveform, s);
-                        cells[waveform, s].Background = on ? OscAccent : s_chopLedOff;
-                    }
-                });
-            };
-        }
-
-        var ledArea = new Border
-        {
-            Background   = s_chopVizBg,
-            CornerRadius = new CornerRadius(2),
-            Padding      = new Thickness(3),
-            Child        = ledGrid,
-        };
-
-        var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-        Grid.SetColumn(labelColumn, 0); layout.Children.Add(labelColumn);
-        Grid.SetColumn(ledArea,     1); layout.Children.Add(ledArea);
-        return layout;
-    }
 
 }
