@@ -20,11 +20,6 @@ public partial class MainWindow
 {
     // ── Static palette / lookup data used by the widget factories ─────────────
 
-    private static readonly string[] s_dmAssignNames =
-        { "Off", "Modulation", "Frequency", "Resonance", "Pitch Bend", "Pan", "Expression", "Delay Level", "Reverb Level" };
-
-    // Brushes reused across all 64 step buttons.
-
     // 31 synced LFO rate values, indexed by CC 0–30 (slowest → fastest).
     private static readonly string[] s_lfoSyncValues =
     {
@@ -82,13 +77,13 @@ public partial class MainWindow
         // Row 1: level knobs
         var knobRow1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 19, 20, 21, 23 })
-            knobRow1.Children.Add(MakeKnob(RequireCC(cc), OscAccent));
+            knobRow1.Children.Add(Knobs.MakeKnob(_patch, RequireCC(cc), OscAccent));
         OscillatorPanel.Children.Add(knobRow1);
 
         // Row 2: modulation / tuning knobs
         var knobRow2 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 15, 13, 76, 18 })
-            knobRow2.Children.Add(MakeKnob(RequireCC(cc), OscAccent));
+            knobRow2.Children.Add(Knobs.MakeKnob(_patch, RequireCC(cc), OscAccent));
         OscillatorPanel.Children.Add(knobRow2);
 
         // Button strips stacked vertically — all full-width, uniform button cells per strip
@@ -100,9 +95,9 @@ public partial class MainWindow
         OscillatorPanel.Children.Add(Dashboard.BuildSubHeader("DRAW · CHOP", OscAccent));
 
         var dcKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        dcKnobs.Children.Add(MakeKnob(RequireCC(102), OscAccent, minCcValue: 3));
-        dcKnobs.Children.Add(MakeKnob(RequireCC(104), OscAccent, minCcValue: 3));
-        dcKnobs.Children.Add(MakeKnob(RequireCC(103), OscAccent));
+        dcKnobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(102), OscAccent, minCcValue: 3));
+        dcKnobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(104), OscAccent, minCcValue: 3));
+        dcKnobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(103), OscAccent));
         OscillatorPanel.Children.Add(dcKnobs);
 
         OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(107), OscAccent));
@@ -114,12 +109,12 @@ public partial class MainWindow
 
         var filtRow1 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 74, 71, 24 })
-            filtRow1.Children.Add(MakeKnob(RequireCC(cc), FiltAccent));
+            filtRow1.Children.Add(Knobs.MakeKnob(_patch, RequireCC(cc), FiltAccent));
         FilterPanel.Children.Add(filtRow1);
 
         var filtRow2 = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 25, 26, 27 })
-            filtRow2.Children.Add(MakeKnob(RequireCC(cc), FiltAccent));
+            filtRow2.Children.Add(Knobs.MakeKnob(_patch, RequireCC(cc), FiltAccent));
         FilterPanel.Children.Add(filtRow2);
     }
 
@@ -130,7 +125,7 @@ public partial class MainWindow
 
         var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 73, 75, 30, 72 })
-            knobs.Children.Add(MakeKnob(RequireCC(cc), EnvAccent));
+            knobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(cc), EnvAccent));
         EnvelopePanel.Children.Add(knobs);
 
         var btnGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
@@ -145,7 +140,7 @@ public partial class MainWindow
     {
         var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         knobs.Children.Add(MakeLfoRateKnob());
-        knobs.Children.Add(MakeKnob(RequireCC(17), LfoAccent));
+        knobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(17), LfoAccent));
         LfoPanel.Children.Add(knobs);
 
         LfoPanel.Children.Add(MakeLedButtonGroup(RequireCC(12), LfoAccent));
@@ -168,7 +163,7 @@ public partial class MainWindow
         // 5 knobs × 56px = 280px + margins ≈ 300px — fits the column without overflow
         var knobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         foreach (int cc in new[] { 1, 11, 5, 10, 77 })
-            knobs.Children.Add(MakeKnob(RequireCC(cc), VoiceAccent, containerWidth: 56));
+            knobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(cc), VoiceAccent, containerWidth: 56));
         VoicePanel.Children.Add(knobs);
 
         // Portamento and Polyphony stacked vertically — side-by-side caused overflow with 6-option strip
@@ -1438,93 +1433,6 @@ public partial class MainWindow
         PatchGridContainer.Children.Add(PrmInfoText);
     }
 
-    // ── Knob factories and value display ──────────────────────────────────────
-
-    private static string GetKnobDisplayValue(S1Parameter param) => GetKnobDisplayValue(param, param.Value);
-
-    private static string GetKnobDisplayValue(S1Parameter param, int val)
-    {
-        int cc = param.CcNumber;
-
-        return cc switch
-        {
-            76  => (val - 64).ToString(),
-            77  => FormatSemitone(val - 64),
-            102 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}", // CC 3–127 → display 1.0–32.0 in 0.5 steps
-            103 => Math.Min(200, (int)Math.Round(val * 255.0 / 127)).ToString(),
-            104 => $"{Math.Round((1.0 + (val - 3) * 31.0 / 124.0) * 2) / 2.0:F1}", // same scale as CC 102
-            _   => PrmCcMap.ByCC.TryGetValue(cc, out var e) ? e.Info.ToPrm(val).ToString()
-                                                             : val.ToString()
-        };
-    }
-
-    private static string GetPrmDisplayString(PrmParameter p)
-    {
-        if (p.Options is not null)
-            return p.Value < p.Options.Length ? p.Options[p.Value] : p.Value.ToString();
-        int v = p.ToPrm();
-        return p.PrmKey switch
-        {
-            "REVERB_PRE_DELAY"              => $"{v}ms",
-            "LENG"                          => $"{v} steps",
-            "RISER_RESO" or "RISER_LEVEL"   => $"{v}%",
-            "DM_ASSIGN_X" or "DM_ASSIGN_Y"
-                or "DM_ASSIGN_TAP" or "DM_ASSIGN_FF"
-                                            => v < s_dmAssignNames.Length ? s_dmAssignNames[v] : v.ToString(),
-            _                               => v.ToString(),
-        };
-    }
-
-    private Control MakeKnob(S1Parameter param, IBrush accent, int minCcValue = 0, double containerWidth = 68)
-    {
-        string initDisplay = GetKnobDisplayValue(param);
-
-        var knob = new RotaryKnob { Value = param.Value, AccentBrush = accent, IsSynced = param.IsSynced, MinValue = minCcValue };
-        ToolTip.SetTip(knob, $"{param.Name}: {initDisplay}");
-
-        var valueLabel = new TextBlock
-        {
-            Classes = { "param-value-label" },
-            Text    = param.IsSynced ? initDisplay : "?",
-        };
-
-        // Guard: true while param.ValueChanged is pushing a value to the knob so
-        // knob.ValueChanged does not treat the programmatic update as a user drag.
-        bool updatingFromModel = false;
-
-        knob.ValueChanged += (_, v) =>
-        {
-            if (updatingFromModel) return;
-            param.Value = Math.Max(minCcValue, v);
-            if (_patch.IsConnected) param.MarkSynced();
-            string display = GetKnobDisplayValue(param);
-            ToolTip.SetTip(knob, $"{param.Name}: {display}");
-            valueLabel.Text = display;
-        };
-
-        param.ValueChanged += (_, v) =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                updatingFromModel = true;
-                knob.Value = v;
-                updatingFromModel = false;
-                string display = GetKnobDisplayValue(param);
-                ToolTip.SetTip(knob, $"{param.Name}: {display}");
-                valueLabel.Text = param.IsSynced ? display : "?";
-            });
-
-        param.SyncStateChanged += (_, synced) =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                knob.IsSynced = synced;
-                string display = GetKnobDisplayValue(param);
-                valueLabel.Text = synced ? display : "?";
-            });
-
-        var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
-        return Dashboard.MakeKnobContainer(knob, valueLabel, nameLabel, containerWidth);
-    }
-
     private void BuildEffectsPanel()
     {
         // Reverb + Delay side by side
@@ -1536,8 +1444,8 @@ public partial class MainWindow
         var reverbCol = new StackPanel();
         reverbCol.Children.Add(Dashboard.BuildSubHeader("REVERB", FxAccent));
         var revKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        revKnobs.Children.Add(MakeKnob(RequireCC(91), FxAccent));
-        revKnobs.Children.Add(MakeKnob(RequireCC(89), FxAccent));
+        revKnobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(91), FxAccent));
+        revKnobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(89), FxAccent));
         reverbCol.Children.Add(revKnobs);
 
         var divider = new Border
@@ -1550,7 +1458,7 @@ public partial class MainWindow
         var delayCol = new StackPanel();
         delayCol.Children.Add(Dashboard.BuildSubHeader("DELAY", FxAccent));
         var delKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        delKnobs.Children.Add(MakeKnob(RequireCC(92), FxAccent));
+        delKnobs.Children.Add(Knobs.MakeKnob(_patch, RequireCC(92), FxAccent));
         delKnobs.Children.Add(BuildDelayTimeKnob());
         delayCol.Children.Add(delKnobs);
 
@@ -1814,9 +1722,9 @@ public partial class MainWindow
     // PRM-only parameter → live data row.
     private Control BuildPrmDataRow(PrmParameter p)
     {
-        var lbl = new TextBlock { Text = GetPrmDisplayString(p) };
+        var lbl = new TextBlock { Text = CcDisplay.PrmValue(p) };
         p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(
-            () => lbl.Text = GetPrmDisplayString(p));
+            () => lbl.Text = CcDisplay.PrmValue(p));
         return Dashboard.BuildDataRow(p.Name, lbl);
     }
 
@@ -1915,7 +1823,7 @@ public partial class MainWindow
             int delayTimeVal = SnapshotValue(delayTimeCC);
             lbl.Text = delaySw.Value == 0
                 ? $"{1 + (int)Math.Round(delayTimeVal * 739.0 / 127)}ms"
-                : GetPrmDisplayString(_prm.DelayTempo);
+                : CcDisplay.PrmValue(_prm.DelayTempo);
         }
         Refresh();
         delaySw.ValueChanged         += (_, _) => Dispatcher.UIThread.Post(Refresh);
@@ -2117,12 +2025,11 @@ public partial class MainWindow
         return param.ParameterType switch
         {
             S1ParameterType.Toggle        => value > 0 ? "On" : "Off",
-            S1ParameterType.BipolarSlider => FormatSemitone(Math.Clamp(value - 64, -12, 12)),
-            _                             => GetKnobDisplayValue(param, value),
+            S1ParameterType.BipolarSlider => CcDisplay.FormatSemitone(Math.Clamp(value - 64, -12, 12)),
+            _                             => CcDisplay.KnobValue(param, value),
         };
     }
 
-    private static string FormatSemitone(int st) => st > 0 ? $"+{st}" : st.ToString();
 
     // 16-bar bipolar draw waveform display (lo byte first, then hi byte per PRM value).
     // Visual style: dashed centerline, opacity scales with magnitude, signed numeric value below.
