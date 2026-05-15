@@ -39,13 +39,13 @@ public static class PrmFileParser
             var key   = line[..eq].Trim().ToUpperInvariant();
             var value = line[(eq + 1)..].Trim();
 
-            // "STEP_NOTE 1", "STEP_NOTE 2", â€¦ captured separately
+            // "STEP_NOTE 1", "STEP_NOTE 2", … captured separately
             if (key.StartsWith("STEP_NOTE ", StringComparison.Ordinal))
             {
                 if (int.TryParse(key["STEP_NOTE ".Length..], out int stepNum))
                     data.StepNotes[stepNum] = value;
             }
-            // "STEP_MOTION 11" â†’ bar=1 step=1 â†’ stepIdx=0; "STEP_MOTION 88" â†’ stepIdx=63
+            // "STEP_MOTION 11" → bar=1 step=1 → stepIdx=0; "STEP_MOTION 88" → stepIdx=63
             else if (key.StartsWith("STEP_MOTION ", StringComparison.Ordinal))
             {
                 if (int.TryParse(key["STEP_MOTION ".Length..], out int encoded))

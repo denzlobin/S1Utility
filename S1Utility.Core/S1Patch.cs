@@ -12,10 +12,10 @@ namespace S1Utility.Core;
 // and also in a flat AllParameters list for easy iteration.
 //
 // Call SetTransport() to wire a MIDI output. After that, any change to a
-// parameter's Value is automatically sent to the hardware â€” no extra steps needed.
+// parameter's Value is automatically sent to the hardware — no extra steps needed.
 public class S1Patch : IDisposable
 {
-    // â”€â”€ Section groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Section groups ──────────────────────────────────────────────────────
 
     public IReadOnlyList<S1Parameter> Controls   { get; }
     public IReadOnlyList<S1Parameter> Lfo        { get; }
@@ -25,12 +25,12 @@ public class S1Patch : IDisposable
     public IReadOnlyList<S1Parameter> Envelope   { get; }
     public IReadOnlyList<S1Parameter> Effects    { get; }
 
-    // Flat list of all 54 parameters â€” handy for sending, saving, loading.
+    // Flat list of all 54 parameters — handy for sending, saving, loading.
     public IReadOnlyList<S1Parameter> AllParameters { get; }
 
     private readonly Dictionary<int, S1Parameter> _byCC;
 
-    // â”€â”€ Constructor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Constructor ─────────────────────────────────────────────────────────
 
     public S1Patch()
     {
@@ -146,7 +146,7 @@ public class S1Patch : IDisposable
             p.SyncStateChanged += OnParameterSyncChanged;
     }
 
-    // â”€â”€ Sync state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Sync state ───────────────────────────────────────────────────────────
 
     private int _unsyncedCount;
 
@@ -166,7 +166,7 @@ public class S1Patch : IDisposable
             p.MarkSynced();
     }
 
-    // Reset all parameters to unsynced â€” call at the start of every connect/reconnect.
+    // Reset all parameters to unsynced — call at the start of every connect/reconnect.
     public void ResetAllSync()
     {
         foreach (var p in AllParameters)
@@ -181,7 +181,7 @@ public class S1Patch : IDisposable
         SyncCountChanged?.Invoke(this, Math.Max(0, remaining));
     }
 
-    // â”€â”€ MIDI transport â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── MIDI transport ──────────────────────────────────────────────────────
 
     private IS1MidiTransport? _transport;
     private int _channel = 3;
@@ -209,7 +209,7 @@ public class S1Patch : IDisposable
     private void SendOne(S1Parameter param) =>
         _transport?.SendCC(_channel, param.CcNumber, param.Value);
 
-    // â”€â”€ Preset save / load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Preset save / load ───────────────────────────────────────────────────
 
     public S1PresetFile ToPreset(string name) => new()
     {
@@ -225,14 +225,14 @@ public class S1Patch : IDisposable
             GetByCC(entry.Cc)?.UpdateFromMidi(entry.Value);
     }
 
-    // â”€â”€ Lookup helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Lookup helpers ───────────────────────────────────────────────────────
 
     public S1Parameter? GetByCC(int ccNumber) =>
         _byCC.TryGetValue(ccNumber, out var p) ? p : null;
 
-    // â”€â”€ Bulk send â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Bulk send ────────────────────────────────────────────────────────────
 
-    // CCs excluded from bulk send â€” physical controllers whose hardware position
+    // CCs excluded from bulk send — physical controllers whose hardware position
     // should not be overridden by the editor.
     private static readonly HashSet<int> _noBulkSend = new() { 1, 11, 64 };
 
@@ -258,7 +258,7 @@ public class S1Patch : IDisposable
     }
 
     // Sends a MIDI Program Change on the connected channel.
-    // The S-1 maps its 64 patterns as programs 0â€“63 (group Ã— 16 + pattern_index).
+    // The S-1 maps its 64 patterns as programs 0–63 (group × 16 + pattern_index).
     public void SendProgramChange(int program) =>
         _transport?.SendProgramChange(_channel, Math.Clamp(program, 0, 127));
 

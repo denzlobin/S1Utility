@@ -6,9 +6,9 @@ namespace S1Utility.Core;
 // How the parameter should be displayed in the UI.
 public enum S1ParameterType
 {
-    Continuous,     // 0-127 â€” use a rotary knob
-    Toggle,         // on/off â€” use a checkbox (sends 0 or 127)
-    Dropdown,       // named options â€” use a ComboBox (value = option index)
+    Continuous,     // 0-127 — use a rotary knob
+    Toggle,         // on/off — use a checkbox (sends 0 or 127)
+    Dropdown,       // named options — use a ComboBox (value = option index)
     BipolarSlider,  // signed semitone offset; model stores CC (0-127), center=64
 }
 
@@ -31,22 +31,22 @@ public class S1Parameter
     public int             CcNumber      { get; }
     public S1Section       Section       { get; }
     public S1ParameterType ParameterType { get; }
-    // Non-null for Dropdown parameters â€” one string per selectable option.
+    // Non-null for Dropdown parameters — one string per selectable option.
     public string[]?       Options       { get; }
 
     private int _value;
 
-    // â”€â”€ Sync state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Sync state ────────────────────────────────────────────────────────────
 
     // 0 = unsynced, 1 = synced. Manipulated with Interlocked so it is safe to
     // write from the MIDI receive thread and read from the UI thread.
     private int _syncedFlag;
 
     // True once we know the synth's value for this parameter matches the editor.
-    // Starts false; transitions to true via MarkSynced() â€” never resets in a session.
+    // Starts false; transitions to true via MarkSynced() — never resets in a session.
     public bool IsSynced => _syncedFlag == 1;
 
-    // Fires exactly once per parameter when it transitions unsynced â†’ synced.
+    // Fires exactly once per parameter when it transitions unsynced → synced.
     // May fire from any thread; subscribers must dispatch to UI if needed.
     public event EventHandler<bool>? SyncStateChanged;
 
@@ -71,8 +71,8 @@ public class S1Parameter
             var clamped = Math.Clamp(value, 0, 127);
             if (clamped == _value) return;
             _value = clamped;
-            _onSend?.Invoke(this);          // â†’ sends CC out to hardware
-            ValueChanged?.Invoke(this, _value); // â†’ updates UI controls
+            _onSend?.Invoke(this);          // → sends CC out to hardware
+            ValueChanged?.Invoke(this, _value); // → updates UI controls
         }
     }
 
@@ -84,14 +84,14 @@ public class S1Parameter
         var clamped = Math.Clamp(value, 0, 127);
         if (clamped == _value) return;
         _value = clamped;
-        ValueChanged?.Invoke(this, _value); // â†’ updates UI only, no send
+        ValueChanged?.Invoke(this, _value); // → updates UI only, no send
     }
 
     // Wired by S1Patch.ConnectAsync to trigger outgoing CC sends.
     internal Action<S1Parameter>? _onSend;
 
     // Subscribed by UI controls (knobs, toggles) to stay in sync with the model.
-    // Fires on both UI-driven changes and incoming MIDI â€” subscribers must not
+    // Fires on both UI-driven changes and incoming MIDI — subscribers must not
     // assume which thread this is called on.
     public event EventHandler<int>? ValueChanged;
 

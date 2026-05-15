@@ -2,9 +2,9 @@
 
 namespace S1Utility.Core;
 
-// Holds the 4 Ã— 16 chop step patterns for the S-1's oscillator chop feature.
+// Holds the 4 × 16 chop step patterns for the S-1's oscillator chop feature.
 // Each pattern is one 16-bit integer in the PRM file: bit N-1 = step N ON/OFF.
-// There are no MIDI CCs for these â€” they only take effect when saved to .PRM.
+// There are no MIDI CCs for these — they only take effect when saved to .PRM.
 public class ChopPattern
 {
     public const int Waveforms = 4;

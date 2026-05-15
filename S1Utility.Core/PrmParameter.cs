@@ -2,7 +2,7 @@
 
 namespace S1Utility.Core;
 
-// A parameter that lives only in the .PRM file â€” no MIDI CC is sent when it changes.
+// A parameter that lives only in the .PRM file — no MIDI CC is sent when it changes.
 // Knobs store value 0-127 (knob range); ToPrm/LoadFromPrm scale to/from the native PRM range.
 // Dropdowns store the option index directly, which equals the PRM raw value.
 public class PrmParameter
@@ -10,7 +10,7 @@ public class PrmParameter
     public string    Name    { get; }
     public string    PrmKey  { get; }
     public int       PrmMax  { get; }   // native PRM max; used for knob scaling only
-    public string[]? Options { get; }   // non-null â†’ dropdown (value = option index)
+    public string[]? Options { get; }   // non-null → dropdown (value = option index)
 
     private int _value;
 
