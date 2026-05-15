@@ -12,6 +12,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using S1Utility.Controls;
 using S1Utility.Core;
+using S1Utility.Widgets;
 
 namespace S1Utility;
 
@@ -23,11 +24,6 @@ public partial class MainWindow
         { "Off", "Modulation", "Frequency", "Resonance", "Pitch Bend", "Pan", "Expression", "Delay Level", "Reverb Level" };
 
     // Brushes reused across all 64 step buttons.
-    private static readonly IBrush s_chopOnBrush   = new SolidColorBrush(Color.Parse("#CC2222"));
-    private static readonly IBrush s_chopOffBrush  = new SolidColorBrush(Color.Parse("#252530"));
-    private static readonly IBrush s_chopBorder    = new SolidColorBrush(Color.Parse("#505050"));
-    private static readonly IBrush s_chopOnBorder  = new SolidColorBrush(Color.Parse("#E03030"));
-    private static readonly IBrush s_chopOffBorder = new SolidColorBrush(Color.Parse("#1A1A24"));
 
     // 31 synced LFO rate values, indexed by CC 0–30 (slowest → fastest).
     private static readonly string[] s_lfoSyncValues =
@@ -101,7 +97,7 @@ public partial class MainWindow
         OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(16), OscAccent));  // PWM Source
         OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(22), OscAccent));  // Sub Octave
 
-        OscillatorPanel.Children.Add(BuildSubHeader("DRAW · CHOP", OscAccent));
+        OscillatorPanel.Children.Add(Dashboard.BuildSubHeader("DRAW · CHOP", OscAccent));
 
         var dcKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         dcKnobs.Children.Add(MakeKnob(RequireCC(102), OscAccent, minCcValue: 3));
@@ -182,7 +178,7 @@ public partial class MainWindow
         VoicePanel.Children.Add(MakeDroneButton(RequireCC(64), VoiceAccent));
 
         var chordSection = new StackPanel();
-        chordSection.Children.Add(BuildSubHeader("CHORD", VoiceAccent));
+        chordSection.Children.Add(Dashboard.BuildSubHeader("CHORD", VoiceAccent));
         chordSection.Children.Add(MakeChordVoiceRow(2, RequireCC(81), RequireCC(85), VoiceAccent));
         chordSection.Children.Add(MakeChordVoiceRow(3, RequireCC(82), RequireCC(86), VoiceAccent));
         chordSection.Children.Add(MakeChordVoiceRow(4, RequireCC(83), RequireCC(87), VoiceAccent));
@@ -1526,29 +1522,7 @@ public partial class MainWindow
             });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
-        return MakeKnobContainer(knob, valueLabel, nameLabel, containerWidth);
-    }
-
-    // Standard 3-row knob container: knob (56px) / value label (14px) / name label.
-    private static Grid MakeKnobContainer(RotaryKnob knob, TextBlock valueLabel, TextBlock nameLabel, double containerWidth = 68)
-    {
-        bool small = containerWidth <= 58;
-        var container = new Grid
-        {
-            Width          = containerWidth,
-            Margin         = new Thickness(small ? 2 : 3, 4),
-            RowDefinitions = small
-                ? new RowDefinitions("56,14,20")
-                : new RowDefinitions("56,14,26"),
-        };
-        knob.HorizontalAlignment = HorizontalAlignment.Center;
-        Grid.SetRow(knob,       0);
-        Grid.SetRow(valueLabel, 1);
-        Grid.SetRow(nameLabel,  2);
-        container.Children.Add(knob);
-        container.Children.Add(valueLabel);
-        container.Children.Add(nameLabel);
-        return container;
+        return Dashboard.MakeKnobContainer(knob, valueLabel, nameLabel, containerWidth);
     }
 
     private void BuildEffectsPanel()
@@ -1560,7 +1534,7 @@ public partial class MainWindow
             Margin            = new Thickness(0, 0, 0, 2),
         };
         var reverbCol = new StackPanel();
-        reverbCol.Children.Add(BuildSubHeader("REVERB", FxAccent));
+        reverbCol.Children.Add(Dashboard.BuildSubHeader("REVERB", FxAccent));
         var revKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         revKnobs.Children.Add(MakeKnob(RequireCC(91), FxAccent));
         revKnobs.Children.Add(MakeKnob(RequireCC(89), FxAccent));
@@ -1574,7 +1548,7 @@ public partial class MainWindow
         };
 
         var delayCol = new StackPanel();
-        delayCol.Children.Add(BuildSubHeader("DELAY", FxAccent));
+        delayCol.Children.Add(Dashboard.BuildSubHeader("DELAY", FxAccent));
         var delKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         delKnobs.Children.Add(MakeKnob(RequireCC(92), FxAccent));
         delKnobs.Children.Add(BuildDelayTimeKnob());
@@ -1588,7 +1562,7 @@ public partial class MainWindow
         sideBySide.Children.Add(delayCol);
         EffectsPanel.Children.Add(sideBySide);
 
-        EffectsPanel.Children.Add(BuildSubHeader("CHORUS", FxAccent));
+        EffectsPanel.Children.Add(Dashboard.BuildSubHeader("CHORUS", FxAccent));
         EffectsPanel.Children.Add(MakeLedButtonGroup(RequireCC(93), FxAccent));
     }
 
@@ -1648,7 +1622,7 @@ public partial class MainWindow
         param.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() => { knob.IsSynced = synced; Refresh(); });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
-        return MakeKnobContainer(knob, valueLabel, nameLabel);
+        return Dashboard.MakeKnobContainer(knob, valueLabel, nameLabel);
     }
 
     // ── LFO Rate knob — context-aware: free 0-127 when sync off, 32 values when sync on ──
@@ -1706,7 +1680,7 @@ public partial class MainWindow
         param.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() => { knob.IsSynced = synced; Refresh(); });
 
         var nameLabel = new TextBlock { Classes = { "param-label" }, Text = param.Name };
-        return MakeKnobContainer(knob, valueLabel, nameLabel);
+        return Dashboard.MakeKnobContainer(knob, valueLabel, nameLabel);
     }
 
     // ── Tab 2: PRM Viewer ─────────────────────────────────────────────────────
@@ -1754,12 +1728,12 @@ public partial class MainWindow
         Control LfoRow(int cc) =>
             cc == 3 ? BuildLfoRateViewerRow(RequireCC(3)) : BuildCcDataRow(RequireCC(cc));
 
-        var filterCard   = BuildPrmCard("FILTER", FiltAccent,
-            BuildThreeColGrid(filterOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
-        var envelopeCard = BuildPrmCard("ENVELOPE", EnvAccent,
-            BuildThreeColGrid(envelopeOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
-        var lfoCard      = BuildPrmCard("LFO", LfoAccent,
-            BuildThreeColGrid(lfoOrder.Select(LfoRow)));
+        var filterCard   = Dashboard.BuildPrmCard("FILTER", FiltAccent,
+            Dashboard.BuildThreeColGrid(filterOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
+        var envelopeCard = Dashboard.BuildPrmCard("ENVELOPE", EnvAccent,
+            Dashboard.BuildThreeColGrid(envelopeOrder.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)))));
+        var lfoCard      = Dashboard.BuildPrmCard("LFO", LfoAccent,
+            Dashboard.BuildThreeColGrid(lfoOrder.Select(LfoRow)));
         Grid.SetRow(oscCard,      0); colA.Children.Add(oscCard);
         Grid.SetRow(filterCard,   1); colA.Children.Add(filterCard);
         Grid.SetRow(envelopeCard, 2); colA.Children.Add(envelopeCard);
@@ -1772,7 +1746,7 @@ public partial class MainWindow
             RowDefinitions = new RowDefinitions("Auto,Auto,*"),
             RowSpacing     = 4,
         };
-        var riserCard = BuildPrmCard("RISER", PrmRiserAccent, BuildThreeColGrid(new[]
+        var riserCard = Dashboard.BuildPrmCard("RISER", PrmRiserAccent, Dashboard.BuildThreeColGrid(new[]
         {
             BuildPrmDataRow(_prm.RiserSw),
             BuildPrmDataRow(_prm.RiserMode),
@@ -1804,110 +1778,13 @@ public partial class MainWindow
         PrmViewerGrid.Children.Add(seqCard);
     }
 
-    // ── Card chrome ──────────────────────────────────────────────────────────
-
-    private Border BuildPrmCard(string title, IBrush accent, Control body)
-    {
-        var accentClr = ((ISolidColorBrush)accent).Color;
-
-        var dot = new Ellipse
-        {
-            Width             = 6,
-            Height            = 6,
-            Fill              = accent,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var titleText = new TextBlock
-        {
-            Text              = title,
-            FontSize          = 8.5,
-            FontWeight        = FontWeight.Bold,
-            LetterSpacing     = 1.5,
-            Foreground        = accent,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin            = new Thickness(6, 0, 0, 0),
-        };
-
-        var headerRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Children    = { dot, titleText },
-        };
-
-        // Faint accent gradient under the header.
-        var headerUnderline = new Border
-        {
-            Height = 1,
-            Margin = new Thickness(0, 4, 0, 6),
-            Background = new LinearGradientBrush
-            {
-                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
-                EndPoint   = new RelativePoint(1, 0, RelativeUnit.Relative),
-                GradientStops =
-                {
-                    new GradientStop(Color.FromArgb(0x60, accentClr.R, accentClr.G, accentClr.B), 0),
-                    new GradientStop(Color.FromArgb(0x00, accentClr.R, accentClr.G, accentClr.B), 1),
-                },
-            },
-        };
-
-        var content = new StackPanel
-        {
-            Children = { headerRow, headerUnderline, body },
-        };
-
-        return new Border
-        {
-            Background      = s_dashCardBg,
-            BorderBrush     = s_dashCardBorder,
-            BorderThickness = new Thickness(1),
-            CornerRadius    = new CornerRadius(4),
-            Padding         = new Thickness(8, 6),
-            Child           = content,
-        };
-    }
-
-    // Single label · value row, with a 1px dashed bottom border between rows.
-    private static Border BuildDataRow(string label, TextBlock valueLabel)
-    {
-        valueLabel.FontSize           = 9.5;
-        valueLabel.Foreground         = s_dashValueBrush;
-        valueLabel.FontFamily         = s_dashMonoFont;
-        valueLabel.VerticalAlignment  = VerticalAlignment.Center;
-        valueLabel.TextAlignment      = TextAlignment.Right;
-
-        var labelText = new TextBlock
-        {
-            Text              = label,
-            FontSize          = 9.5,
-            Foreground        = s_dashLabelBrush,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming      = TextTrimming.CharacterEllipsis,
-        };
-
-        var grid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-        };
-        Grid.SetColumn(labelText, 0);   grid.Children.Add(labelText);
-        Grid.SetColumn(valueLabel, 1);  grid.Children.Add(valueLabel);
-
-        return new Border
-        {
-            BorderThickness = new Thickness(0, 0, 0, 1),
-            BorderBrush     = s_dashRowBorder,
-            Padding         = new Thickness(0, 2, 0, 2),
-            Child           = grid,
-        };
-    }
-
     // CC-mapped parameter → live data row (subscribes to snapshot changes).
     private Control BuildCcDataRow(S1Parameter param)
     {
         var lbl = new TextBlock { Text = GetPrmViewerCcValue(param, SnapshotValue(param)) };
         _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
             () => lbl.Text = GetPrmViewerCcValue(param, SnapshotValue(param)));
-        return BuildDataRow(param.Name, lbl);
+        return Dashboard.BuildDataRow(param.Name, lbl);
     }
 
     // LFO Rate has two distinct displays: a 1-31 sync-slot label when LFO_SYNC=1,
@@ -1931,7 +1808,7 @@ public partial class MainWindow
         lbl.Text = Format();
         _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
             () => lbl.Text = Format());
-        return BuildDataRow(param.Name, lbl);
+        return Dashboard.BuildDataRow(param.Name, lbl);
     }
 
     // PRM-only parameter → live data row.
@@ -1940,27 +1817,7 @@ public partial class MainWindow
         var lbl = new TextBlock { Text = GetPrmDisplayString(p) };
         p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(
             () => lbl.Text = GetPrmDisplayString(p));
-        return BuildDataRow(p.Name, lbl);
-    }
-
-    // 3-column grid of data rows. Items lay out left-to-right, wrapping rows.
-    private static Grid BuildThreeColGrid(IEnumerable<Control> items)
-    {
-        var list = items.ToList();
-        int rows = (list.Count + 2) / 3;
-        var grid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
-            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("Auto", Math.Max(rows, 1)))),
-            ColumnSpacing     = 10,
-        };
-        for (int i = 0; i < list.Count; i++)
-        {
-            Grid.SetRow(list[i], i / 3);
-            Grid.SetColumn(list[i], i % 3);
-            grid.Children.Add(list[i]);
-        }
-        return grid;
+        return Dashboard.BuildDataRow(p.Name, lbl);
     }
 
     // ── OSC card composition ─────────────────────────────────────────────────
@@ -1971,7 +1828,7 @@ public partial class MainWindow
         // Col 1 = Square/Saw/Sub/Noise · Col 2 = Range/PW/PWM Src/Sub Oct · Col 3 = LFO Pitch/Noise/Fine/Bend.
         int[] order = { 19, 14, 13,    20, 15, 78,    21, 16, 76,    23, 22, 18 };
         var rows = order.Select(cc => (Control)BuildCcDataRow(RequireCC(cc)));
-        return BuildPrmCard("OSCILLATOR", OscAccent, BuildThreeColGrid(rows));
+        return Dashboard.BuildPrmCard("OSCILLATOR", OscAccent, Dashboard.BuildThreeColGrid(rows));
     }
 
     private Border BuildOscDrawCard()
@@ -1986,7 +1843,7 @@ public partial class MainWindow
                 BuildCcDataRow(RequireCC(107)),  // Step/Slope
             },
         };
-        return BuildPrmCard("OSC DRAW", OscAccent, body);
+        return Dashboard.BuildPrmCard("OSC DRAW", OscAccent, body);
     }
 
     private Border BuildOscChopCard()
@@ -2003,14 +1860,14 @@ public partial class MainWindow
                 BuildCcDataRow(RequireCC(104)),  // Comb
             },
         };
-        return BuildPrmCard("OSC CHOP", OscAccent, body);
+        return Dashboard.BuildPrmCard("OSC CHOP", OscAccent, body);
     }
 
     // ── Effects card composition (3 sub-columns) ─────────────────────────────
 
     private Border BuildEffectsCard()
     {
-        var revCol = BuildEffectsSubCol("REVERB", new[]
+        var revCol = Dashboard.BuildEffectsSubCol("REVERB", FxAccent, new[]
         {
             BuildCcDataRow(RequireCC(91)),                 // Level
             BuildCcDataRow(RequireCC(89)),                 // Time
@@ -2027,9 +1884,9 @@ public partial class MainWindow
             BuildPrmDataRow(_prm.DelayTempo),              // Tempo
             BuildPrmDataRow(_prm.DelayAdv[0]),             // Feedback
         };
-        var delCol = BuildEffectsSubCol("DELAY", delItems);
+        var delCol = Dashboard.BuildEffectsSubCol("DELAY", FxAccent, delItems);
 
-        var chorusCol = BuildEffectsSubCol("CHORUS", new[]
+        var chorusCol = Dashboard.BuildEffectsSubCol("CHORUS", FxAccent, new[]
         {
             BuildCcDataRow(RequireCC(93)),                 // Type
         });
@@ -2043,15 +1900,7 @@ public partial class MainWindow
         Grid.SetColumn(delCol,    1); grid.Children.Add(delCol);
         Grid.SetColumn(chorusCol, 2); grid.Children.Add(chorusCol);
 
-        return BuildPrmCard("EFFECTS", FxAccent, grid);
-    }
-
-    private static StackPanel BuildEffectsSubCol(string title, IEnumerable<Control> rows)
-    {
-        var panel = new StackPanel { Spacing = 1 };
-        panel.Children.Add(BuildSubHeader(title, FxAccent));
-        foreach (var r in rows) panel.Children.Add(r);
-        return panel;
+        return Dashboard.BuildPrmCard("EFFECTS", FxAccent, grid);
     }
 
     // Like MakeDelayTimeViewerRow but using the new dashboard row chrome.
@@ -2073,7 +1922,7 @@ public partial class MainWindow
         _prm.CcSnapshotChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
         _prm.DelayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
 
-        return BuildDataRow("Time", lbl);
+        return Dashboard.BuildDataRow("Time", lbl);
     }
 
     // ── Voice card composition (main grid + CHORD subgrid) ──────────────────
@@ -2101,12 +1950,12 @@ public partial class MainWindow
         {
             Children =
             {
-                BuildThreeColGrid(mainItems),
-                BuildSubHeader("CHORD", VoiceAccent),
-                BuildThreeColGrid(chordItems),
+                Dashboard.BuildThreeColGrid(mainItems),
+                Dashboard.BuildSubHeader("CHORD", VoiceAccent),
+                Dashboard.BuildThreeColGrid(chordItems),
             },
         };
-        return BuildPrmCard("VOICE", VoiceAccent, body);
+        return Dashboard.BuildPrmCard("VOICE", VoiceAccent, body);
     }
 
     // ── Sequencer card composition (PATTERN / ARP / MOTION / D-MOTION) ──────
@@ -2122,21 +1971,21 @@ public partial class MainWindow
         };
 
         var patCol = new StackPanel { Spacing = 1 };
-        patCol.Children.Add(BuildSubHeader("PATTERN", SeqAccent));
-        patCol.Children.Add(BuildDataRow("Tempo", _tempoLabel));
+        patCol.Children.Add(Dashboard.BuildSubHeader("PATTERN", SeqAccent));
+        patCol.Children.Add(Dashboard.BuildDataRow("Tempo", _tempoLabel));
         patCol.Children.Add(BuildPrmDataRow(_prm.Leng));
         patCol.Children.Add(BuildPrmDataRow(_prm.Shuffle));
         patCol.Children.Add(BuildPrmDataRow(_prm.Level));
         Grid.SetColumn(patCol, 0); grid.Children.Add(patCol);
 
         var arpCol = new StackPanel { Spacing = 1 };
-        arpCol.Children.Add(BuildSubHeader("ARPEGGIATOR", SeqAccent));
+        arpCol.Children.Add(Dashboard.BuildSubHeader("ARPEGGIATOR", SeqAccent));
         arpCol.Children.Add(BuildPrmDataRow(_prm.ArpType));
         arpCol.Children.Add(BuildPrmDataRow(_prm.ArpRate));
         Grid.SetColumn(arpCol, 1); grid.Children.Add(arpCol);
 
         var motCol = new StackPanel { Spacing = 1 };
-        motCol.Children.Add(BuildSubHeader("AUTOMATION", SeqAccent));
+        motCol.Children.Add(Dashboard.BuildSubHeader("AUTOMATION", SeqAccent));
         var laneGrid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,*"),
@@ -2144,7 +1993,7 @@ public partial class MainWindow
         };
         for (int i = 0; i < 8; i++)
         {
-            var row = BuildDataRow($"Lane {i + 1}", _motionCcLabels[i]);
+            var row = Dashboard.BuildDataRow($"Lane {i + 1}", _motionCcLabels[i]);
             Grid.SetRow(row, i / 2);
             Grid.SetColumn(row, i % 2);
             if (laneGrid.RowDefinitions.Count <= i / 2)
@@ -2164,7 +2013,7 @@ public partial class MainWindow
         Grid.SetColumn(divider, 3); grid.Children.Add(divider);
 
         var dmCol = new StackPanel { Spacing = 1 };
-        dmCol.Children.Add(BuildSubHeader("D-MOTION", PrmDmAccent));
+        dmCol.Children.Add(Dashboard.BuildSubHeader("D-MOTION", PrmDmAccent));
         dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignX));
         dmCol.Children.Add(BuildPrmDataRow(_prm.DmAssignY));
         Grid.SetColumn(dmCol, 4); grid.Children.Add(dmCol);
@@ -2245,8 +2094,8 @@ public partial class MainWindow
         var body = new StackPanel { Children = { headerGrid, headerUnderline, grid } };
         return new Border
         {
-            Background      = s_dashCardBg,
-            BorderBrush     = s_dashCardBorder,
+            Background      = Palette.BgCard,
+            BorderBrush     = Palette.BdCard,
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(4),
             Padding         = new Thickness(8, 6),
@@ -2254,36 +2103,6 @@ public partial class MainWindow
         };
     }
 
-    // Sub-section header used inside cards (small accent label).
-    private static StackPanel BuildSubHeader(string title, IBrush accent) => new()
-    {
-        Margin = new Thickness(0, 4, 0, 4),
-        Children =
-        {
-            new TextBlock
-            {
-                Text          = title,
-                FontSize      = 8.5,
-                FontWeight    = FontWeight.Bold,
-                LetterSpacing = 1.2,
-                Foreground    = accent,
-            },
-        },
-    };
-
-    // Read-only labeled row for a CC-mapped parameter; subscribes to ValueChanged.
-    private Control MakePrmViewerCcRow(S1Parameter param)
-    {
-        var lbl = new TextBlock
-        {
-            FontSize   = 10,
-            Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
-            Text       = GetPrmViewerCcValue(param, SnapshotValue(param)),
-        };
-        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
-            () => lbl.Text = GetPrmViewerCcValue(param, SnapshotValue(param)));
-        return MakeInfoRow(param.Name + ":", lbl);
-    }
 
     private int SnapshotValue(S1Parameter param) =>
         _prm.CcSnapshot.TryGetValue(param.CcNumber, out var v) ? v : param.Value;
@@ -2304,30 +2123,6 @@ public partial class MainWindow
     }
 
     private static string FormatSemitone(int st) => st > 0 ? $"+{st}" : st.ToString();
-
-    // Contextual Delay Time row for the PRM viewer.
-    private Control MakeDelayTimeViewerRow()
-    {
-        var delaySw     = _prm.DelayMain[0];
-        var delayTimeCC = RequireCC(90);
-
-        var lbl = new TextBlock { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")) };
-
-        void Refresh()
-        {
-            int delayTimeVal = SnapshotValue(delayTimeCC);
-            lbl.Text = delaySw.Value == 0
-                ? $"{1 + (int)Math.Round(delayTimeVal * 739.0 / 127)}ms" // S-1 range: 1–740 ms
-                : GetPrmDisplayString(_prm.DelayTempo);
-        }
-
-        Refresh();
-        delaySw.ValueChanged         += (_, _) => Dispatcher.UIThread.Post(Refresh);
-        _prm.CcSnapshotChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
-        _prm.DelayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
-
-        return MakeInfoRow("Time:", lbl, labelMinWidth: 80);
-    }
 
     // 16-bar bipolar draw waveform display (lo byte first, then hi byte per PRM value).
     // Visual style: dashed centerline, opacity scales with magnitude, signed numeric value below.
@@ -2548,65 +2343,4 @@ public partial class MainWindow
         return layout;
     }
 
-    // ── Shared info-row helpers ───────────────────────────────────────────────
-
-    private static StackPanel MakeInfoRow(string label, TextBlock valueLabel, double labelMinWidth = 130) => new()
-    {
-        Orientation = Orientation.Horizontal,
-        Spacing     = 6,
-        Children    =
-        {
-            new TextBlock
-            {
-                Text       = label,
-                FontSize   = 10,
-                Foreground = new SolidColorBrush(Color.Parse("#777777")),
-                MinWidth   = labelMinWidth,
-            },
-            valueLabel,
-        },
-    };
-
-    private static StackPanel MakePrmInfoRow(PrmParameter p, bool compact = false)
-    {
-        var lbl = new TextBlock
-        {
-            FontSize   = 10,
-            Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
-            Text       = GetPrmDisplayString(p),
-        };
-        p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() => lbl.Text = GetPrmDisplayString(p));
-        return MakeInfoRow(p.Name + ":", lbl, labelMinWidth: compact ? 80 : 130);
-    }
-
-    private static Grid MakeTwoColumnGrid(IList<Control> items)
-    {
-        int rows = (items.Count + 1) / 2;
-        var grid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*, *"),
-            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("Auto", rows))),
-            RowSpacing        = 2,
-        };
-        for (int i = 0; i < items.Count; i++)
-        {
-            Grid.SetRow(items[i], i / 2);
-            Grid.SetColumn(items[i], i % 2);
-            grid.Children.Add(items[i]);
-        }
-        return grid;
-    }
-
-    private Control MakePrmViewerCcRowCompact(S1Parameter param)
-    {
-        var lbl = new TextBlock
-        {
-            FontSize   = 10,
-            Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
-            Text       = GetPrmViewerCcValue(param, SnapshotValue(param)),
-        };
-        _prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
-            () => lbl.Text = GetPrmViewerCcValue(param, SnapshotValue(param)));
-        return MakeInfoRow(param.Name + ":", lbl, labelMinWidth: 80);
-    }
 }
