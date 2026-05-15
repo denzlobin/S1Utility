@@ -7,29 +7,21 @@
         MinWidth="550" MinHeight="565">
 
     <Window.Resources>
-        <!-- ── Background scale ──────────────────────────────────────────── -->
+        <!-- Shared brushes live in App.axaml's Application.Resources so the C#
+             Theme helper can resolve them via Application.Current.Resources.
+             This file only keeps legacy aliases still referenced by inline
+             XAML styles further down — they should be migrated incrementally. -->
+
         <SolidColorBrush x:Key="BgBase">#111113</SolidColorBrush>
         <SolidColorBrush x:Key="BgRaised">#1A1A1E</SolidColorBrush>
         <SolidColorBrush x:Key="BgSurface">#222228</SolidColorBrush>
         <SolidColorBrush x:Key="BgElevated">#2A2A32</SolidColorBrush>
-        <!-- ── Borders ────────────────────────────────────────────────────── -->
         <SolidColorBrush x:Key="BorderSub">#2C2C36</SolidColorBrush>
         <SolidColorBrush x:Key="BorderMid">#3A3A46</SolidColorBrush>
-        <!-- ── Text ──────────────────────────────────────────────────────── -->
         <SolidColorBrush x:Key="TextPrimary">#E0E0E8</SolidColorBrush>
         <SolidColorBrush x:Key="TextSecondary">#9090A8</SolidColorBrush>
         <SolidColorBrush x:Key="TextMuted">#555566</SolidColorBrush>
         <SolidColorBrush x:Key="TextLabel">#7878A0</SolidColorBrush>
-        <!-- ── Section accents ───────────────────────────────────────────── -->
-        <SolidColorBrush x:Key="AccentOsc">#F0A040</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentFilter">#40AAEE</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentEnv">#60CC70</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentLfo">#B06ED8</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentFx">#3EC8A8</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentVoice">#C05878</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentWarn">#D0702A</SolidColorBrush>
-
-        <!-- Tab strip background / border -->
         <SolidColorBrush x:Key="TabControlHeaderBackground">#15151A</SolidColorBrush>
         <SolidColorBrush x:Key="TabControlHeaderBorderBrush">#2C2C36</SolidColorBrush>
 

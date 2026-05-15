@@ -21,12 +21,14 @@ public partial class MainWindow
     private static readonly bool[] s_isBlackKey =
         { false, true, false, true, false, false, true, false, true, false, true, false };
 
-    private static readonly IBrush[] s_voiceColors =
+    // Voice colours reuse the section accents (OSC/Filter/Env/LFO) — each voice
+    // gets a visually distinct hue from the same palette the rest of the editor uses.
+    private static IBrush[] s_voiceColors => new[]
     {
-        new SolidColorBrush(Color.Parse("#F0A040")),  // V1 orange
-        new SolidColorBrush(Color.Parse("#40B0F0")),  // V2 blue
-        new SolidColorBrush(Color.Parse("#70C870")),  // V3 green
-        new SolidColorBrush(Color.Parse("#B070D8")),  // V4 purple
+        Palette.AccentOsc,    // V1 orange
+        Palette.AccentFilter, // V2 blue
+        Palette.AccentEnv,    // V3 green
+        Palette.AccentLfo,    // V4 purple
     };
 
     private bool HasSequencerContent()
@@ -48,7 +50,7 @@ public partial class MainWindow
 
         var (seqControl, seqUnsubscribe) = MakeSequencerControl();
 
-        var seqAccentClr = ((SolidColorBrush)SeqAccent).Color;
+        var seqAccentClr = ((ISolidColorBrush)SeqAccent).Color;
 
         var exportLbl = new TextBlock
         {
@@ -354,7 +356,7 @@ public partial class MainWindow
 
                     double noteW    = Math.Max(1, ColW * Math.Max(1, step.Lengths[v]) / 100.0 - 1);
                     double velAlpha = 0.25 + 0.75 * step.Velocities[v] / 127.0;
-                    var    baseCol  = ((SolidColorBrush)s_voiceColors[v]).Color;
+                    var    baseCol  = ((ISolidColorBrush)s_voiceColors[v]).Color;
 
                     var rect = new Border
                     {

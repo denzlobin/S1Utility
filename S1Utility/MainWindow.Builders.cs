@@ -42,23 +42,23 @@ public partial class MainWindow
     // ── Cached brushes used by Refresh() closures (avoid per-event allocations) ──
 
     private static readonly IBrush s_ledCellOn        = new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0));
-    private static readonly IBrush s_ledCellOff       = Tokens.BgInset;
+    private static readonly IBrush s_ledCellOff       = Palette.BgInset;
     private static readonly IBrush s_ledBorderOff     = new SolidColorBrush(Color.Parse("#23232C"));
-    private static readonly IBrush s_ledTextOff       = Tokens.FgOff;
+    private static readonly IBrush s_ledTextOff       = Palette.FgOff;
     private static readonly IBrush s_ledBorderUnsync  = new SolidColorBrush(Color.Parse("#252525"));
     private static readonly IBrush s_ledTextUnsync    = new SolidColorBrush(Color.Parse("#2A2A2A"));
 
     private static readonly IBrush s_chordToggleOn       = new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0));
-    private static readonly IBrush s_chordToggleOff      = Tokens.BgInset;
-    private static readonly IBrush s_chordBorderOff      = Tokens.BdInset;
-    private static readonly IBrush s_chordTextOff        = Tokens.FgOff;
+    private static readonly IBrush s_chordToggleOff      = Palette.BgInset;
+    private static readonly IBrush s_chordBorderOff      = Palette.BdInset;
+    private static readonly IBrush s_chordTextOff        = Palette.FgOff;
     private static readonly IBrush s_chordBorderUnsync   = new SolidColorBrush(Color.Parse("#252525"));
     private static readonly IBrush s_chordTextUnsync     = new SolidColorBrush(Color.Parse("#333333"));
 
-    private static readonly IBrush s_droneBgOff       = Tokens.BgCard;
-    private static readonly IBrush s_droneBorderOff   = Tokens.BdInset;
+    private static readonly IBrush s_droneBgOff       = Palette.BgCard;
+    private static readonly IBrush s_droneBorderOff   = Palette.BdInset;
     private static readonly IBrush s_droneLedOff      = new SolidColorBrush(Color.Parse("#2A2A2A"));
-    private static readonly IBrush s_droneLabelOff    = Tokens.FgMute;
+    private static readonly IBrush s_droneLabelOff    = Palette.FgMute;
     private static readonly IBrush s_droneBorderUnsync = new SolidColorBrush(Color.Parse("#252525"));
     private static readonly IBrush s_droneLabelUnsync  = new SolidColorBrush(Color.Parse("#404040"));
 
@@ -934,7 +934,7 @@ public partial class MainWindow
             Text              = $"V{n}",
             Width             = 14,
             FontSize          = 8,
-            Foreground        = Tokens.FgMute,
+            Foreground        = Palette.FgMute,
             VerticalAlignment = VerticalAlignment.Center,
         };
 
@@ -1002,7 +1002,7 @@ public partial class MainWindow
         {
             Text              = FormatSt(GetShift()),
             FontSize          = 8,
-            Foreground        = Tokens.FgVal,
+            Foreground        = Palette.FgVal,
             Width             = 22,
             TextAlignment     = TextAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
@@ -1087,7 +1087,7 @@ public partial class MainWindow
 
         bool droneIsSynced = param.IsSynced;
         // Accent-tinted "on" background (0x14 alpha over accent colour) — stable per instance.
-        var col = ((SolidColorBrush)accent).Color;
+        var col = ((ISolidColorBrush)accent).Color;
         IBrush droneBgOn = new SolidColorBrush(Color.FromArgb(0x14, col.R, col.G, col.B));
 
         void Refresh()
@@ -1169,12 +1169,12 @@ public partial class MainWindow
 
         void SetActive(bool on)
         {
-            var col = ((SolidColorBrush)accent).Color;
+            var col = ((ISolidColorBrush)accent).Color;
             btn.Background     = on ? new SolidColorBrush(Color.FromArgb(0x1A, col.R, col.G, col.B))
                                     : Brushes.Transparent;
             btn.BorderBrush    = on ? accent : new SolidColorBrush(Color.Parse("#2A2A33"));
             led.Background     = on ? accent : new SolidColorBrush(Color.Parse("#2A2A2A"));
-            nameLbl.Foreground = on ? accent : Tokens.FgMute;
+            nameLbl.Foreground = on ? accent : Palette.FgMute;
         }
 
         void SetEnabled(bool enabled)
@@ -1713,22 +1713,24 @@ public partial class MainWindow
 
     // Accent palette specific to the PRM viewer dashboard cards.
     // Defined here so the chrome (header dot + accent gradient) is single-sourced.
-    private static readonly IBrush PrmRiserAccent = FxAccent;     // riser shares teal with effects per spec
-    private static readonly IBrush PrmDmAccent    = new SolidColorBrush(Color.Parse("#7080F0"));
+    private static IBrush PrmRiserAccent => Palette.AccentFx;     // riser shares teal with effects per spec
+    private static IBrush PrmDmAccent    => Palette.AccentDmAlt;
 
     // Cell brushes for the OSC CHOP LED grid (amber on, dark off).
+    // Tab 2 chop-grid background: distinct from BgApp by a single channel, kept
+    // as its own resource because it's unique to the CHOP visualizer cells.
     private static readonly IBrush s_chopLedOff = new SolidColorBrush(Color.Parse("#1A1A20"));
-    private static readonly IBrush s_chopVizBg  = new SolidColorBrush(Color.Parse("#0E0E12"));
 
-    // Row label / value brushes for the dashboard data rows.
-    private static readonly IBrush s_dashLabelBrush = new SolidColorBrush(Color.Parse("#7878A0"));
-    private static readonly IBrush s_dashValueBrush = new SolidColorBrush(Color.Parse("#A0A0B5"));
-    private static readonly IBrush s_dashRowBorder  = new SolidColorBrush(Color.Parse("#1d1d1d"));
-    private static readonly IBrush s_dashCardBg     = new SolidColorBrush(Color.Parse("#161616"));
-    private static readonly IBrush s_dashCardBorder = new SolidColorBrush(Color.Parse("#232323"));
+    // Dashboard tokens forward to Palette so the canonical hex lives only in App.axaml.
+    private static IBrush s_chopVizBg      => Palette.BgApp;
+    private static IBrush s_dashLabelBrush => Palette.FgLabel;
+    private static IBrush s_dashValueBrush => Palette.FgVal;
+    private static IBrush s_dashRowBorder  => Palette.BdRow;
+    private static IBrush s_dashCardBg     => Palette.BgCard;
+    private static IBrush s_dashCardBorder => Palette.BdCard;
 
     // Mono font stack for value labels — Cascadia/Consolas only (no IBM Plex dependency).
-    private static readonly FontFamily s_dashMonoFont = new("Cascadia Mono,Consolas,monospace");
+    private static readonly FontFamily s_dashMonoFont = Palette.MonoFont;
 
     private void BuildPrmViewerContent()
     {
@@ -1806,7 +1808,7 @@ public partial class MainWindow
 
     private Border BuildPrmCard(string title, IBrush accent, Control body)
     {
-        var accentClr = ((SolidColorBrush)accent).Color;
+        var accentClr = ((ISolidColorBrush)accent).Color;
 
         var dot = new Ellipse
         {
@@ -2111,7 +2113,7 @@ public partial class MainWindow
 
     private Border BuildSequencerCard()
     {
-        var seqAccentClr = ((SolidColorBrush)SeqAccent).Color;
+        var seqAccentClr = ((ISolidColorBrush)SeqAccent).Color;
 
         var grid = new Grid
         {

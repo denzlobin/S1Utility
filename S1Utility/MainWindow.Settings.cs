@@ -27,8 +27,8 @@ public partial class MainWindow
         return System.IO.Path.Combine(dir, "s1editor.settings.json");
     }
 
-    private static readonly IBrush MidiDotActive = new SolidColorBrush(Color.Parse("#F0A040"));
-    private static readonly IBrush MidiDotIdle   = new SolidColorBrush(Color.Parse("#2C2C3A"));
+    private static IBrush MidiDotActive => Palette.AccentOsc;
+    private static readonly IBrush MidiDotIdle = new SolidColorBrush(Color.Parse("#2C2C3A"));
 
     private static readonly FilePickerFileType S1PatchFileType =
         new("S-1 Patch") { Patterns = new[] { "*.s1patch" } };
@@ -711,7 +711,7 @@ public partial class MainWindow
             _midiDotLit = midiLit;
             MidiActivityDot.Background = midiLit ? MidiDotActive : MidiDotIdle;
             FooterActivityText.Text       = midiLit ? "active" : "idle";
-            FooterActivityText.Foreground = midiLit ? s_unsyncedAmber : Tokens.FgMute;
+            FooterActivityText.Foreground = midiLit ? s_unsyncedAmber : Palette.FgMute;
         }
 
         if (_viewModel.Tick(dt))

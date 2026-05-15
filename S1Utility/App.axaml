@@ -2,7 +2,48 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="S1Utility.App"
              RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Resources>
+        <!-- Shared brush palette. Single source of truth for both XAML and C#.
+             The Theme class resolves these by x:Key at runtime via
+             Application.Current.Resources; XAML styles bind via StaticResource. -->
+
+        <!-- ── Surface backgrounds ───────────────────────────────────────── -->
+        <SolidColorBrush x:Key="BgApp">#0E0E12</SolidColorBrush>
+        <SolidColorBrush x:Key="BgWindow">#15151A</SolidColorBrush>
+        <SolidColorBrush x:Key="BgToolbar">#181820</SolidColorBrush>
+        <SolidColorBrush x:Key="BgCard">#161616</SolidColorBrush>
+        <SolidColorBrush x:Key="BgChip">#1F1F26</SolidColorBrush>
+        <SolidColorBrush x:Key="BgChipHov">#23232C</SolidColorBrush>
+        <SolidColorBrush x:Key="BgInput">#1A1A24</SolidColorBrush>
+
+        <!-- ── Borders ────────────────────────────────────────────────────── -->
+        <SolidColorBrush x:Key="BdCard">#232323</SolidColorBrush>
+        <SolidColorBrush x:Key="BdToolbar">#2C2C36</SolidColorBrush>
+        <SolidColorBrush x:Key="BdInset">#1E1E26</SolidColorBrush>
+        <SolidColorBrush x:Key="BdChip">#333344</SolidColorBrush>
+        <SolidColorBrush x:Key="BdRow">#1D1D1D</SolidColorBrush>
+
+        <!-- ── Text ──────────────────────────────────────────────────────── -->
+        <SolidColorBrush x:Key="FgHi">#CCCCDD</SolidColorBrush>
+        <SolidColorBrush x:Key="FgVal">#A0A0B5</SolidColorBrush>
+        <SolidColorBrush x:Key="FgLabel">#7878A0</SolidColorBrush>
+        <SolidColorBrush x:Key="FgMute">#666677</SolidColorBrush>
+        <SolidColorBrush x:Key="FgDim">#3A3A48</SolidColorBrush>
+        <SolidColorBrush x:Key="FgOff">#4A4A4A</SolidColorBrush>
+
+        <!-- ── Section accents (hex values are the canonical set) ─────────── -->
+        <SolidColorBrush x:Key="AccentOsc">#F0A040</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentSeq">#E0C040</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentFilter">#40B0F0</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentEnv">#70C870</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentLfo">#B070D8</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentVoice">#C05878</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentFx">#40C8A8</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentDm">#60A8E0</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentDmAlt">#7080F0</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentWarn">#D0702A</SolidColorBrush>
+    </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />

@@ -114,17 +114,18 @@ public partial class MainWindow : Window
     private readonly TextBlock   _tempoLabel     = new() { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
     private readonly TextBlock[] _motionCcLabels = new TextBlock[8];
 
-    // ── Section accent colours (shared across builders / sequencer) ───────────
-
-    private static readonly IBrush OscAccent   = new SolidColorBrush(Color.Parse("#F0A040"));
-    private static readonly IBrush SeqAccent   = new SolidColorBrush(Color.Parse("#E0C040"));
-    private static readonly IBrush FiltAccent  = new SolidColorBrush(Color.Parse("#40B0F0"));
-    private static readonly IBrush EnvAccent   = new SolidColorBrush(Color.Parse("#70C870"));
-    private static readonly IBrush LfoAccent   = new SolidColorBrush(Color.Parse("#B070D8"));
-    private static readonly IBrush VoiceAccent = new SolidColorBrush(Color.Parse("#C05878"));
-    private static readonly IBrush FxAccent    = new SolidColorBrush(Color.Parse("#40C8A8"));
-    private static readonly IBrush DmAccent    = new SolidColorBrush(Color.Parse("#60A8E0"));
-    private static readonly IBrush WarnBrush   = new SolidColorBrush(Color.Parse("#D0702A"));
+    // Section accent colours forward to Palette (which resolves them from
+    // Application.Resources). Kept as named getters so Builders/Sequencer call
+    // sites stay terse — but the canonical hex values now live only in App.axaml.
+    private static IBrush OscAccent   => Palette.AccentOsc;
+    private static IBrush SeqAccent   => Palette.AccentSeq;
+    private static IBrush FiltAccent  => Palette.AccentFilter;
+    private static IBrush EnvAccent   => Palette.AccentEnv;
+    private static IBrush LfoAccent   => Palette.AccentLfo;
+    private static IBrush VoiceAccent => Palette.AccentVoice;
+    private static IBrush FxAccent    => Palette.AccentFx;
+    private static IBrush DmAccent    => Palette.AccentDm;
+    private static IBrush WarnBrush   => Palette.AccentWarn;
 
     public MainWindow()
     {
