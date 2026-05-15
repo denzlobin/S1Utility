@@ -11,6 +11,17 @@ internal static class CcDisplay
     public static readonly string[] DmAssignNames =
         { "Off", "Modulation", "Frequency", "Resonance", "Pitch Bend", "Pan", "Expression", "Delay Level", "Reverb Level" };
 
+    // 31 synced LFO rate labels, indexed by CC 0–30 (slowest → fastest).
+    // Shared by Tab 1's MakeLfoRateKnob and Tab 2's LFO Rate inspector row.
+    public static readonly string[] LfoSyncLabels =
+    {
+        "8_1",  "6_1",  "8_1t", "4_1",  "3_1",  "4_1t",
+        "2_1",  "1_1d", "2_1t", "1_1",  "2d",   "1_1t",
+        "1_2",  "4d",   "1_2t", "1_4",  "8d",   "4t",
+        "1_8",  "16d",  "8t",   "1_16", "32d",  "16t",
+        "1_32", "64d",  "32t",  "1_64", "128d", "64t",  "128",
+    };
+
     public static string FormatSemitone(int st) => st > 0 ? $"+{st}" : st.ToString();
 
     public static string KnobValue(S1Parameter param) => KnobValue(param, param.Value);
