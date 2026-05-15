@@ -96,6 +96,10 @@ public partial class MainWindow
         // is a major navigation action; whatever was on the stack belongs to the
         // previous editing context and would behave confusingly here.
         ClearUndoHistory();
+
+        // Refresh the inspector banner: a missing or malformed slot blocks the
+        // inspector grid with an explanatory overlay.
+        UpdateInspectorBanner();
     }
 
     private int[] CaptureSnapshot() =>

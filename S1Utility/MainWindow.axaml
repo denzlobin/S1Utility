@@ -463,20 +463,23 @@
                                     VerticalAlignment="Center"
                                     Spacing="16"
                                     MaxWidth="560">
-                            <TextBlock Text="No patch data to inspect"
+                            <TextBlock x:Name="InspectorBannerHeadline"
+                                       Text="No patch data to inspect"
                                        FontSize="20"
                                        FontWeight="Bold"
                                        LetterSpacing="1.5"
                                        Foreground="#E0E0E8"
                                        TextAlignment="Center"/>
                             <Border Height="1" Background="#3A3A46" Width="120" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Back up your patches from the synth, then point the PRM folder below at the resulting files."
+                            <TextBlock x:Name="InspectorBannerPrimary"
+                                       Text="Back up your patches from the synth, then point the PRM folder below at the resulting files."
                                        FontSize="13"
                                        Foreground="#A0A0B8"
                                        TextAlignment="Center"
                                        TextWrapping="Wrap"
                                        LineHeight="20"/>
-                            <TextBlock Text="The Patch Inspector reads .PRM files saved by the S-1. With a folder configured, this tab shows every parameter in the selected pattern, including the sequencer steps, draw wave, chop pattern, and D-Motion assigns that have no MIDI equivalent."
+                            <TextBlock x:Name="InspectorBannerSecondary"
+                                       Text="The Patch Inspector reads .PRM files saved by the S-1. With a folder configured, this tab shows every parameter in the selected pattern, including the sequencer steps, draw wave, chop pattern, and D-Motion assigns that have no MIDI equivalent."
                                        FontSize="11"
                                        Foreground="#7878A0"
                                        TextAlignment="Center"

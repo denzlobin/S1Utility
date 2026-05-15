@@ -129,9 +129,9 @@ public partial class MainWindow
             // ValueChanged so every subscribed UI control refreshes.
             param.Value = value;
             _lastSeenValues[cc] = value;
-            // A user-driven edit goes through Value too, so the synth's value
-            // matches the editor's after this — mark synced.
-            param.MarkSynced();
+            // Mark synced only if the CC actually went out — otherwise the synth
+            // doesn't know about this edit and we'd lie about its state.
+            if (_patch.IsConnected) param.MarkSynced();
         }
         finally
         {

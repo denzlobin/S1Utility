@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     private bool   _autoConnect;
     private bool   _isConnected;
     private bool   _patternSyncDialogOpen;
+    private bool   _skipPatternSyncWarning;
     private Window? _seqWindow;
     private Window? _settingsWindow;
     private int    _midiChannel  = 3;

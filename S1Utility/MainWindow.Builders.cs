@@ -208,7 +208,7 @@ public partial class MainWindow
 
     // ── LED segmented button group (replaces ComboBox / CheckBox in Tab 1) ───────
 
-    private static Control MakeLedButtonGroup(S1Parameter param, IBrush accent)
+    private Control MakeLedButtonGroup(S1Parameter param, IBrush accent)
     {
         string[] opts = param.Options
             ?? (param.ParameterType == S1ParameterType.Toggle ? new[] { "Off", "On" } : new[] { "0", "1" });
@@ -283,7 +283,7 @@ public partial class MainWindow
             };
             cell.PointerPressed += (_, _) =>
             {
-                param.MarkSynced();
+                if (_patch.IsConnected) param.MarkSynced();
                 param.Value = param.ParameterType == S1ParameterType.Toggle ? (idx > 0 ? 127 : 0) : idx;
             };
             borders[i] = cell;
@@ -923,7 +923,7 @@ public partial class MainWindow
 
     // ── Chord voice row (LED toggle + semitone slider) ────────────────────────────
 
-    private static Control MakeChordVoiceRow(
+    private Control MakeChordVoiceRow(
         int n, S1Parameter toggleParam, S1Parameter shiftParam, IBrush accent)
     {
         int   GetShift()       => Math.Clamp(shiftParam.Value - 64, -12, 12);
@@ -977,7 +977,7 @@ public partial class MainWindow
         RefreshToggle();
         toggle.PointerPressed += (_, _) =>
         {
-            toggleParam.MarkSynced();
+            if (_patch.IsConnected) toggleParam.MarkSynced();
             toggleParam.Value = toggleParam.Value > 0 ? 0 : 127;
         };
         toggleParam.ValueChanged  += (_, _) => Dispatcher.UIThread.Post(RefreshToggle);
@@ -1008,11 +1008,22 @@ public partial class MainWindow
             VerticalAlignment = VerticalAlignment.Center,
         };
 
+        void RefreshShiftSync(bool synced)
+        {
+            // Match the knob/LED treatment: gray out the slider+label when we
+            // don't know the synth's value for this parameter.
+            double op = synced ? 1.0 : 0.5;
+            slider.Opacity = op;
+            valLbl.Opacity = op;
+        }
+        RefreshShiftSync(shiftParam.IsSynced);
+
         slider.ValueChanged += (_, e) =>
         {
             int s = (int)Math.Round(e.NewValue);
             shiftParam.Value = s + 64;
             valLbl.Text = FormatSt(s);
+            if (_patch.IsConnected) shiftParam.MarkSynced();
         };
         shiftParam.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() =>
         {
@@ -1020,6 +1031,8 @@ public partial class MainWindow
             slider.Value = s;
             valLbl.Text  = FormatSt(s);
         });
+        shiftParam.SyncStateChanged += (_, synced) =>
+            Dispatcher.UIThread.Post(() => RefreshShiftSync(synced));
 
         return new StackPanel
         {
@@ -1034,7 +1047,7 @@ public partial class MainWindow
 
     // ── Drone latching button (sustain hold) ──────────────────────────────────────
 
-    private static Control MakeDroneButton(S1Parameter param, IBrush accent)
+    private Control MakeDroneButton(S1Parameter param, IBrush accent)
     {
         var led = new Border
         {
@@ -1098,7 +1111,7 @@ public partial class MainWindow
         Refresh();
         btn.PointerPressed += (_, _) =>
         {
-            param.MarkSynced();
+            if (_patch.IsConnected) param.MarkSynced();
             param.Value = param.Value > 0 ? 0 : 127;
         };
         param.ValueChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
@@ -1274,7 +1287,7 @@ public partial class MainWindow
         {
             if (_patternSyncDialogOpen) return;
             bool enabling = !_prm.PatternSync;
-            if (enabling)
+            if (enabling && !_skipPatternSyncWarning)
             {
                 _patternSyncDialogOpen = true;
                 bool confirmed = await ShowPatternSyncWarningAsync();
@@ -1468,7 +1481,7 @@ public partial class MainWindow
         };
     }
 
-    private static Control MakeKnob(S1Parameter param, IBrush accent, int minCcValue = 0, double containerWidth = 68)
+    private Control MakeKnob(S1Parameter param, IBrush accent, int minCcValue = 0, double containerWidth = 68)
     {
         string initDisplay = GetKnobDisplayValue(param);
 
@@ -1489,7 +1502,7 @@ public partial class MainWindow
         {
             if (updatingFromModel) return;
             param.Value = Math.Max(minCcValue, v);
-            param.MarkSynced();
+            if (_patch.IsConnected) param.MarkSynced();
             string display = GetKnobDisplayValue(param);
             ToolTip.SetTip(knob, $"{param.Name}: {display}");
             valueLabel.Text = display;
@@ -1617,7 +1630,7 @@ public partial class MainWindow
         {
             if (delayUpdatingFromModel) return;
             param.Value = delaySw.Value == 1 ? KnobToSync(v) : v;
-            param.MarkSynced();
+            if (_patch.IsConnected) param.MarkSynced();
             Refresh();
         };
         param.ValueChanged   += (_, v) => Dispatcher.UIThread.Post(() =>
@@ -1675,7 +1688,7 @@ public partial class MainWindow
         {
             if (lfoUpdatingFromModel) return;
             param.Value = syncSw.Value == 1 ? KnobToSync(v) : v;
-            param.MarkSynced();
+            if (_patch.IsConnected) param.MarkSynced();
             Refresh();
         };
         param.ValueChanged  += (_, v) => Dispatcher.UIThread.Post(() =>

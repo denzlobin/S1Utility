@@ -114,6 +114,12 @@ public partial class MainWindow
         PanicButton.IsEnabled        = false;
         ConnectButton.Content        = "Reconnect";
         SetStatus("Device disconnected.", "#FF6B6B");
+        // Null the transport so further knob drags don't throw inside the stale
+        // ManagedMidiTransport and get silently swallowed.
+        _patch.Disconnect();
+        // Without the synth we no longer know any parameter's state — gray every
+        // knob and show "?" in value labels. Honest about what it knows.
+        _patch.ResetAllSync();
         UpdateSyncIndicator(_patch.UnsyncedCount);
         ClearDirtyTracking();
         UpdatePatchGridAvailability();
@@ -131,10 +137,53 @@ public partial class MainWindow
 
     private void UpdateInspectorBanner()
     {
-        bool hasData = PrmFolderHasValidFiles();
-        InspectorBanner.IsVisible = !hasData;
-        PrmViewerGrid.IsVisible   =  hasData;
+        // Three blocking states, in priority order:
+        //   1. No folder configured or folder has no valid PRMs at all
+        //   2. Current slot's file is malformed (parse failure or unknown keys)
+        //   3. Current slot has no PRM file in the folder
+        bool hasFolder    = PrmFolderHasValidFiles();
+        int  slot         = _currentSlotIndex;
+        bool slotMissing  = hasFolder && slot >= 0
+                            && !_prm.AvailablePrograms.Contains(slot)
+                            && !_prm.MalformedPrograms.Contains(slot);
+        bool slotBroken   = hasFolder && slot >= 0
+                            && _prm.MalformedPrograms.Contains(slot);
+
+        if (!hasFolder)
+        {
+            InspectorBannerHeadline.Text  = "No patch data to inspect";
+            InspectorBannerPrimary.Text   = "Back up your patches from the synth, then point the PRM folder below at the resulting files.";
+            InspectorBannerSecondary.Text = "The Patch Inspector reads .PRM files saved by the S-1. With a folder configured, this tab shows every parameter in the selected pattern, including the sequencer steps, draw wave, chop pattern, and D-Motion assigns that have no MIDI equivalent.";
+            InspectorBanner.IsVisible     = true;
+            PrmViewerGrid.IsVisible       = false;
+        }
+        else if (slotBroken)
+        {
+            (int bank, int pat) = SlotLabel(slot);
+            InspectorBannerHeadline.Text  = "PRM file is malformed";
+            InspectorBannerPrimary.Text   = $"Bank {bank}, Pattern {pat} contains unknown keys or failed to parse. The data on disk is not reliable enough to display.";
+            InspectorBannerSecondary.Text = "This usually means the file was edited by hand or saved by another tool. Other slots in the folder are unaffected.";
+            InspectorBanner.IsVisible     = true;
+            PrmViewerGrid.IsVisible       = false;
+        }
+        else if (slotMissing)
+        {
+            (int bank, int pat) = SlotLabel(slot);
+            InspectorBannerHeadline.Text  = "No PRM file for this slot";
+            InspectorBannerPrimary.Text   = $"Bank {bank}, Pattern {pat} has no backup file in the PRM folder. Selecting it still sends Program Change to the synth, but there is no patch data to inspect.";
+            InspectorBannerSecondary.Text = "Back up this pattern from the synth to add it to the folder.";
+            InspectorBanner.IsVisible     = true;
+            PrmViewerGrid.IsVisible       = false;
+        }
+        else
+        {
+            InspectorBanner.IsVisible = false;
+            PrmViewerGrid.IsVisible   = true;
+        }
     }
+
+    private static (int bank, int pat) SlotLabel(int program) =>
+        (program / 16 + 1, program % 16 + 1);
 
     private async Task PerformConnectAsync()
     {
@@ -206,6 +255,7 @@ public partial class MainWindow
             if (doc.RootElement.TryGetProperty("patternSync",      out var patternSyncEl))     _prm.PatternSync            = patternSyncEl.GetBoolean();
             if (doc.RootElement.TryGetProperty("midiChannel",      out var midiChannelEl))     _midiChannel                = Math.Clamp(midiChannelEl.GetInt32(), 1, 16);
             if (doc.RootElement.TryGetProperty("pcChannel",        out var pcChannelEl))       _pcChannel                  = Math.Clamp(pcChannelEl.GetInt32(), 1, 16);
+            if (doc.RootElement.TryGetProperty("skipPatternSyncWarning", out var skipWarnEl)) _skipPatternSyncWarning     = skipWarnEl.GetBoolean();
         }
         catch (Exception ex)
         {
@@ -226,6 +276,7 @@ public partial class MainWindow
                 patternSync      = _prm.PatternSync,
                 midiChannel      = MidiChannel,
                 pcChannel        = PcChannel,
+                skipPatternSyncWarning = _skipPatternSyncWarning,
             }, JsonOptions));
         }
         catch (Exception ex)
@@ -334,6 +385,14 @@ public partial class MainWindow
         var yesBtn = new Button { Content = "Enable Patch Mirror", Classes = { "toolbar" } };
         var noBtn  = new Button { Content = "Cancel",             Classes = { "toolbar" } };
 
+        var dontAskAgain = new CheckBox
+        {
+            Content    = "Don't ask me again",
+            IsChecked  = false,
+            FontSize   = 11,
+            Foreground = new SolidColorBrush(Color.Parse("#A0A0B8")),
+        };
+
         var dlg = new Window
         {
             Title                 = "Patch Mirror: Safety Warning",
@@ -384,6 +443,7 @@ public partial class MainWindow
                             "the patterns stored on the device. If the files do not match what is " +
                             "on the S-1, the editor will display incorrect values.",
                     },
+                    dontAskAgain,
                     new StackPanel
                     {
                         Orientation = Orientation.Horizontal,
@@ -394,7 +454,16 @@ public partial class MainWindow
             },
         };
 
-        yesBtn.Click += (_, _) => { confirmed = true; dlg.Close(); };
+        yesBtn.Click += (_, _) =>
+        {
+            confirmed = true;
+            if (dontAskAgain.IsChecked == true)
+            {
+                _skipPatternSyncWarning = true;
+                SaveSettings();
+            }
+            dlg.Close();
+        };
         noBtn.Click  += (_, _) => dlg.Close();
 
         await dlg.ShowDialog(this);
@@ -585,7 +654,8 @@ public partial class MainWindow
     {
         if (!_isConnected)
         {
-            SyncIndicatorText.Text = "";
+            SyncIndicatorText.Text       = "● Offline";
+            SyncIndicatorText.Foreground = new SolidColorBrush(Color.Parse("#FF6B6B"));
             return;
         }
         if (unsyncedCount <= 0)
