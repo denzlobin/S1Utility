@@ -91,6 +91,9 @@ artifacts/
 .artifacts/
 
 # S-1 personal data
-BackupPatches/
+BackupPatches*/
 Patches/
 s1editor.settings.json
+
+# Cygwin / MSYS crash dumps
+*.stackdump
