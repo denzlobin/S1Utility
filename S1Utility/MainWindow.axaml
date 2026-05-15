@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="S1Utility.MainWindow"
         Title="S-1 Utility"
@@ -30,22 +30,22 @@
         <SolidColorBrush x:Key="AccentWarn">#D0702A</SolidColorBrush>
 
         <!-- Tab strip background / border -->
-        <SolidColorBrush x:Key="TabControlHeaderBackground">#1A1A1E</SolidColorBrush>
+        <SolidColorBrush x:Key="TabControlHeaderBackground">#15151A</SolidColorBrush>
         <SolidColorBrush x:Key="TabControlHeaderBorderBrush">#2C2C36</SolidColorBrush>
 
-        <!-- TabItem theme -->
+        <!-- TabItem theme — flat text + 2px accent underline (matches mockup) -->
         <ControlTheme x:Key="{x:Type TabItem}" TargetType="TabItem">
-            <Setter Property="Background"      Value="#1A1A1E"/>
-            <Setter Property="Foreground"      Value="#404050"/>
-            <Setter Property="BorderBrush"     Value="#2C2C36"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius"    Value="4"/>
-            <Setter Property="Padding"         Value="12,5"/>
-            <Setter Property="MinHeight"       Value="28"/>
-            <Setter Property="MinWidth"        Value="110"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#7878A0"/>
+            <Setter Property="BorderBrush"     Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,2"/>
+            <Setter Property="CornerRadius"    Value="0"/>
+            <Setter Property="Padding"         Value="14,7,14,5"/>
+            <Setter Property="MinHeight"       Value="0"/>
+            <Setter Property="MinWidth"        Value="0"/>
             <Setter Property="FontSize"        Value="11"/>
             <Setter Property="FontWeight"      Value="Medium"/>
-            <Setter Property="Margin"          Value="0,7,6,7"/>
+            <Setter Property="Margin"          Value="0,0,4,0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -64,55 +64,63 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
+            <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Foreground" Value="#A0A0B5"/>
+            </Style>
             <Style Selector="^:selected /template/ Border#PART_LayoutRoot">
-                <Setter Property="Background"  Value="#252530"/>
-                <Setter Property="BorderBrush" Value="#7070A0"/>
-                <Setter Property="BoxShadow"   Value="0 0 8 0 #447070A0"/>
+                <Setter Property="BorderBrush" Value="#CCCCDD"/>
             </Style>
             <Style Selector="^:selected /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Foreground"  Value="#C8C8D8"/>
+                <Setter Property="Foreground"  Value="#CCCCDD"/>
+                <Setter Property="FontWeight"  Value="SemiBold"/>
             </Style>
         </ControlTheme>
     </Window.Resources>
 
     <Window.Styles>
-        <!-- Section card: raised surface with subtle top-highlight -->
+        <!-- Section card: flat dark surface, matches BuildPrmCard (Tab 2). -->
         <Style Selector="Border.section-card">
-            <Setter Property="Background"       Value="#222228"/>
-            <Setter Property="BorderBrush"      Value="#2C2C36"/>
+            <Setter Property="Background"       Value="#161616"/>
+            <Setter Property="BorderBrush"      Value="#232323"/>
             <Setter Property="BorderThickness"  Value="1"/>
-            <Setter Property="CornerRadius"     Value="5"/>
-            <Setter Property="Padding"          Value="12"/>
+            <Setter Property="CornerRadius"     Value="4"/>
+            <Setter Property="Padding"          Value="8,6"/>
             <Setter Property="Margin"           Value="0"/>
-            <Setter Property="BoxShadow"        Value="inset 0 1 0 0 #FFFFFF0A"/>
         </Style>
 
-        <!-- Section title: wider letter-spacing, accent separator added in XAML -->
+        <!-- Section title: accent caps, paired with a 6px accent dot + 1px gradient underline. -->
         <Style Selector="TextBlock.section-title">
-            <Setter Property="FontSize"      Value="10.5"/>
-            <Setter Property="FontWeight"    Value="Bold"/>
-            <Setter Property="LetterSpacing" Value="2"/>
-            <Setter Property="Margin"        Value="0,0,0,10"/>
+            <Setter Property="FontSize"          Value="8.5"/>
+            <Setter Property="FontWeight"        Value="Bold"/>
+            <Setter Property="LetterSpacing"     Value="1.5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin"            Value="6,0,0,0"/>
+        </Style>
+        <Style Selector="Ellipse.section-dot">
+            <Setter Property="Width"             Value="6"/>
+            <Setter Property="Height"            Value="6"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <!-- Knob numeric value label (mono, bright) -->
+        <!-- Knob numeric value label (mono, dashboard-grey to match Tab 2 values) -->
         <Style Selector="TextBlock.param-value-label">
-            <Setter Property="FontSize"            Value="10"/>
+            <Setter Property="FontSize"            Value="9.5"/>
             <Setter Property="FontFamily"          Value="Cascadia Mono,Consolas,monospace"/>
-            <Setter Property="Foreground"          Value="#E0E0E8"/>
+            <Setter Property="Foreground"          Value="#A0A0B5"/>
             <Setter Property="TextAlignment"       Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="Margin"              Value="0,4,0,0"/>
+            <Setter Property="Margin"              Value="0,3,0,0"/>
         </Style>
 
-        <!-- Knob parameter label (muted, smaller) -->
+        <!-- Knob parameter label (label-grey, smaller) -->
         <Style Selector="TextBlock.param-label">
             <Setter Property="FontSize"            Value="9"/>
             <Setter Property="Foreground"          Value="#7878A0"/>
             <Setter Property="TextAlignment"       Value="Center"/>
             <Setter Property="TextWrapping"        Value="Wrap"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="Margin"              Value="0,4,0,0"/>
+            <Setter Property="LineHeight"          Value="11"/>
+            <Setter Property="Margin"              Value="0,1,0,0"/>
         </Style>
 
         <!-- ComboBox param -->
@@ -133,23 +141,38 @@
             <Setter Property="Margin"     Value="4,6"/>
         </Style>
 
-        <!-- Toolbar button -->
+        <!-- Toolbar chip button (matches mockup chip palette: BgChip / BdChip) -->
         <Style Selector="Button.toolbar">
-            <Setter Property="Padding"      Value="10,4"/>
-            <Setter Property="FontSize"     Value="10"/>
-            <Setter Property="Background"   Value="#222228"/>
-            <Setter Property="Foreground"   Value="#E0E0E8"/>
-            <Setter Property="BorderBrush"  Value="#3A3A46"/>
-            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding"        Value="12,4"/>
+            <Setter Property="FontSize"       Value="10.5"/>
+            <Setter Property="Background"     Value="#1F1F26"/>
+            <Setter Property="Foreground"     Value="#CCCCDD"/>
+            <Setter Property="BorderBrush"    Value="#333344"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius"   Value="3"/>
+            <Setter Property="Height"         Value="26"/>
         </Style>
         <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#222228"/>
+            <Setter Property="Background" Value="#1F1F26"/>
         </Style>
         <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#2A2A32"/>
+            <Setter Property="Background" Value="#23232C"/>
         </Style>
         <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#1A1A1E"/>
+            <Setter Property="Background" Value="#181820"/>
+        </Style>
+        <Style Selector="Button.toolbar:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+
+        <!-- Connect button when connected: green-tinted -->
+        <Style Selector="Button.toolbar.connected">
+            <Setter Property="Background"  Value="#1A2A1A"/>
+            <Setter Property="Foreground"  Value="#70C870"/>
+            <Setter Property="BorderBrush" Value="#3A6A3A"/>
+        </Style>
+        <Style Selector="Button.toolbar.connected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1A2A1A"/>
         </Style>
 
         <!-- Patch bank buttons -->
@@ -157,15 +180,22 @@
             <Setter Property="HorizontalAlignment"        Value="Stretch"/>
             <Setter Property="MinWidth"                   Value="30"/>
             <Setter Property="Height"                     Value="22"/>
-            <Setter Property="FontSize"                   Value="9"/>
+            <Setter Property="FontSize"                   Value="9.5"/>
             <Setter Property="FontFamily"                 Value="Cascadia Mono,Consolas,monospace"/>
             <Setter Property="Padding"                    Value="0"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment"   Value="Center"/>
-            <Setter Property="Background"                 Value="#1E1E28"/>
-            <Setter Property="Foreground"                 Value="#606078"/>
-            <Setter Property="BorderBrush"                Value="#404050"/>
+            <Setter Property="Background"                 Value="#1A1A24"/>
+            <Setter Property="Foreground"                 Value="#9090A8"/>
+            <Setter Property="BorderBrush"                Value="#33333D"/>
+            <Setter Property="BorderThickness"            Value="1"/>
             <Setter Property="CornerRadius"               Value="2"/>
+        </Style>
+        <Style Selector="Button.patch-btn /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1A1A24"/>
+        </Style>
+        <Style Selector="Button.patch-btn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#22222E"/>
         </Style>
         <Style Selector="Button.patch-btn-active">
             <Setter Property="Background"  Value="#1C3C1C"/>
@@ -192,9 +222,12 @@
         </Style>
         <!-- No backing PRM file: sunken / dim, still clickable (PC-only) -->
         <Style Selector="Button.patch-btn-noprm">
-            <Setter Property="Background"  Value="#16161C"/>
-            <Setter Property="Foreground"  Value="#3E3E50"/>
-            <Setter Property="BorderBrush" Value="#2A2A36"/>
+            <Setter Property="Background"  Value="#141420"/>
+            <Setter Property="Foreground"  Value="#5C5C78"/>
+            <Setter Property="BorderBrush" Value="#26262E"/>
+        </Style>
+        <Style Selector="Button.patch-btn-noprm /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#141420"/>
         </Style>
         <!-- No PRM + active: full active styling so selection still reads clearly -->
         <Style Selector="Button.patch-btn-noprm.patch-btn-active">
@@ -219,33 +252,56 @@
     <Viewbox Stretch="Uniform">
         <DockPanel Width="1100" Height="1130">
 
-        <!-- ── Plugin title bar ─────────────────────────────────────────── -->
+        <!-- ── Window header (logo + version + unsynced chip) ───────────── -->
         <Border DockPanel.Dock="Top"
-                Background="#111113"
+                Background="#15151A"
                 BorderBrush="#2C2C36"
                 BorderThickness="0,0,0,1"
-                Padding="7,0"
-                Height="30">
+                Padding="14,0"
+                Height="32">
             <Grid>
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Border Width="6" Height="6" CornerRadius="3"
-                            Background="#C8C8D8"
-                            BoxShadow="0 0 4 1 #30C8C8D8"/>
+                    <Border Width="8" Height="8" CornerRadius="4"
+                            Background="#F0A040"
+                            BoxShadow="0 0 6 0 #88F0A040"/>
                     <TextBlock Text="S-1 UTILITY"
-                               FontSize="11" FontWeight="SemiBold"
-                               Foreground="#D8D8E8" LetterSpacing="1.5"/>
+                               FontSize="11.5" FontWeight="SemiBold"
+                               Foreground="#CCCCDD" LetterSpacing="2"/>
                 </StackPanel>
-                <TextBlock Text="v1.0" FontSize="9" Foreground="#404050"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" Spacing="12"
+                            HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <StackPanel x:Name="UnsyncedChip"
+                                Orientation="Horizontal" Spacing="5"
+                                VerticalAlignment="Center"
+                                IsVisible="False"
+                                ToolTip.Tip="Parameters the editor has not confirmed from the synth.">
+                        <Border Width="6" Height="6" CornerRadius="3"
+                                Background="#F0A040"
+                                BoxShadow="0 0 4 0 #88F0A040"/>
+                        <TextBlock x:Name="UnsyncedChipText"
+                                   FontSize="10"
+                                   FontFamily="Cascadia Mono,Consolas,monospace"
+                                   Foreground="#F0A040"
+                                   LetterSpacing="0.8"
+                                   VerticalAlignment="Center"
+                                   Text="0 UNSYNCED"/>
+                    </StackPanel>
+                    <TextBlock Text="v1.0"
+                               FontSize="9.5"
+                               FontFamily="Cascadia Mono,Consolas,monospace"
+                               Foreground="#3A3A48"
+                               LetterSpacing="0.8"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ── Top bar (always visible) ──────────────────────────────────── -->
+        <!-- ── Top bar / Toolbar (MIDI + edit history + preset + settings) ── -->
         <Border DockPanel.Dock="Top"
-                Background="#1A1A1E"
+                Background="#181820"
                 BorderBrush="#2C2C36"
                 BorderThickness="0,0,0,1"
-                Padding="7,0"
+                Padding="14,6"
                 Height="40">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -254,16 +310,20 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Left: MIDI device selection -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="Out" FontSize="9.5" Foreground="#7878A0"
+                               VerticalAlignment="Center" LetterSpacing="0.4"/>
                     <ComboBox x:Name="DeviceCombo"
                               Width="130" Height="26" FontSize="10"
                               PlaceholderText="MIDI Out…"
-                              Background="#1A1A24" BorderBrush="#3A3A46"/>
+                              Background="#1A1A24" BorderBrush="#333344"/>
+                    <TextBlock Text="In" FontSize="9.5" Foreground="#7878A0"
+                               VerticalAlignment="Center" LetterSpacing="0.4" Margin="2,0,0,0"/>
                     <ComboBox x:Name="InputCombo"
                               Width="130" Height="26" FontSize="10"
                               PlaceholderText="MIDI In…"
-                              Background="#1A1A24" BorderBrush="#3A3A46"/>
+                              Background="#1A1A24" BorderBrush="#333344"/>
+                    <Border Width="1" Height="18" Background="#2C2C36" Margin="4,0"/>
                     <Button x:Name="ConnectButton"
                             Classes="toolbar"
                             Content="Connect"/>
@@ -272,61 +332,44 @@
                             Content="Panic"
                             IsEnabled="False"
                             ToolTip.Tip="Send All Sound Off + All Notes Off"/>
-                    <Border Width="1" Height="16" Background="#3A3A46" Margin="4,0"/>
-                    <TextBlock x:Name="StatusText"
-                               Foreground="#9090A8"
-                               VerticalAlignment="Center"
-                               MaxWidth="240"
-                               TextTrimming="CharacterEllipsis"
-                               FontSize="9.5"
-                               ToolTip.Tip="{Binding #StatusText.Text}"/>
-                    <Border x:Name="MidiActivityDot"
-                            Width="5" Height="5"
-                            CornerRadius="3"
-                            Background="#2C2C3A"
-                            VerticalAlignment="Center"
-                            Margin="4,0,0,0"
-                            ToolTip.Tip="MIDI activity"/>
-                    <Border Width="1" Height="16" Background="#3A3A46" Margin="6,0,0,0"/>
-                    <TextBlock x:Name="SyncIndicatorText"
-                               FontSize="9"
-                               VerticalAlignment="Center"
-                               Margin="6,0,0,0"
-                               Foreground="#F0A040"/>
-                </StackPanel>
-
-                <!-- Right: Edit history + preset management -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                    <Button x:Name="UndoButton"
-                            Classes="toolbar"
-                            Content="Undo"
-                            IsEnabled="False"
-                            ToolTip.Tip="Undo last edit (Ctrl+Z)"/>
-                    <Button x:Name="RedoButton"
-                            Classes="toolbar"
-                            Content="Redo"
-                            IsEnabled="False"
-                            ToolTip.Tip="Redo (Ctrl+Y or Ctrl+Shift+Z)"/>
-                    <Border Width="1" Height="16" Background="#3A3A46" Margin="0,0,4,0"/>
-                    <TextBox x:Name="PresetNameBox"
-                             Width="110" Height="26" FontSize="10"
-                             Text="Untitled"
-                             PlaceholderText="Preset name…"
-                             Background="#1A1A24"
-                             BorderBrush="#3A3A46"
-                             Foreground="#C0C0D0"
-                             CornerRadius="3"/>
+                    <Border Width="1" Height="18" Background="#2C2C36" Margin="4,0"/>
                     <Button x:Name="SaveButton"
                             Classes="toolbar"
                             Content="Save"/>
                     <Button x:Name="LoadButton"
                             Classes="toolbar"
                             Content="Load"/>
-                    <Border Width="1" Height="16" Background="#3A3A46" Margin="4,0,0,0"/>
+                    <Button x:Name="UndoButton"
+                            Classes="toolbar"
+                            Content="↶"
+                            FontSize="13"
+                            Padding="8,2"
+                            IsEnabled="False"
+                            ToolTip.Tip="Undo last edit (Ctrl+Z)"/>
+                    <Button x:Name="RedoButton"
+                            Classes="toolbar"
+                            Content="↷"
+                            FontSize="13"
+                            Padding="8,2"
+                            IsEnabled="False"
+                            ToolTip.Tip="Redo (Ctrl+Y or Ctrl+Shift+Z)"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="Preset" FontSize="9.5" Foreground="#7878A0"
+                               VerticalAlignment="Center" LetterSpacing="0.4"/>
+                    <TextBox x:Name="PresetNameBox"
+                             Width="140" Height="26" FontSize="10.5"
+                             Text="Untitled"
+                             PlaceholderText="Preset name…"
+                             Background="#1A1A24"
+                             BorderBrush="#333344"
+                             Foreground="#A0A0B5"
+                             CornerRadius="3"/>
                     <Button x:Name="SettingsButton"
                             Classes="toolbar"
                             Content="⚙"
-                            FontSize="14"
+                            FontSize="13"
                             Padding="8,2"
                             ToolTip.Tip="Settings"/>
                 </StackPanel>
@@ -334,12 +377,68 @@
             </Grid>
         </Border>
 
-        <!-- ── Pattern grid + settings (always visible) ─────────────────── -->
+        <!-- ── Status footer (connection · status · MIDI activity) ──────── -->
         <Border DockPanel.Dock="Bottom"
-                Background="#1C1C22"
+                Background="#181820"
                 BorderBrush="#2C2C36"
                 BorderThickness="0,1,0,0"
-                Padding="7,8,7,10">
+                Padding="14,4"
+                Height="24">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+                <Border Grid.Column="0"
+                        x:Name="FooterConnDot"
+                        Width="6" Height="6" CornerRadius="3"
+                        Background="#2A2A33"
+                        VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1"
+                           x:Name="FooterConnText"
+                           Text="Not connected"
+                           FontSize="9.5"
+                           FontFamily="Cascadia Mono,Consolas,monospace"
+                           Foreground="#7878A0"
+                           LetterSpacing="0.3"
+                           VerticalAlignment="Center"
+                           Margin="6,0,0,0"/>
+                <TextBlock Grid.Column="2"
+                           Text="·"
+                           FontSize="9.5"
+                           Foreground="#3A3A48"
+                           VerticalAlignment="Center"
+                           Margin="8,0,8,0"/>
+                <TextBlock Grid.Column="3"
+                           x:Name="StatusText"
+                           Text=""
+                           FontStyle="Italic"
+                           FontSize="9.5"
+                           Foreground="#7878A0"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding #StatusText.Text}"/>
+                <Border Grid.Column="4"
+                        x:Name="MidiActivityDot"
+                        Width="6" Height="6" CornerRadius="3"
+                        Background="#2C2C3A"
+                        VerticalAlignment="Center"
+                        Margin="6,0,0,0"
+                        ToolTip.Tip="MIDI activity"/>
+                <TextBlock Grid.Column="5"
+                           x:Name="FooterActivityText"
+                           Text="idle"
+                           FontSize="9.5"
+                           FontFamily="Cascadia Mono,Consolas,monospace"
+                           Foreground="#666677"
+                           LetterSpacing="0.3"
+                           VerticalAlignment="Center"
+                           Margin="6,0,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Pattern grid + action row (above footer) ─────────────────── -->
+        <Border DockPanel.Dock="Bottom"
+                Background="#0E0E12"
+                BorderBrush="#2C2C36"
+                BorderThickness="0,1,0,0"
+                Padding="14,8,14,10">
             <StackPanel x:Name="PatchGridContainer"/>
         </Border>
 
@@ -369,21 +468,37 @@
                         <!-- OSCILLATOR (col 0, all rows) -->
                         <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="3">
                             <StackPanel>
-                                <TextBlock Classes="section-title"
-                                           Text="OSCILLATOR"
-                                           Foreground="#F0A040"/>
-                                <Border Height="1" Background="#F0A04055" Margin="0,0,0,10"/>
-                                <StackPanel x:Name="OscillatorPanel"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#F0A040"/>
+                                    <TextBlock Classes="section-title" Text="OSCILLATOR" Foreground="#F0A040"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#60F0A040"/>
+                                            <GradientStop Offset="1" Color="#00F0A040"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <StackPanel x:Name="OscillatorPanel" Spacing="3"/>
                             </StackPanel>
                         </Border>
 
                         <!-- FILTER -->
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="0">
                             <StackPanel VerticalAlignment="Top">
-                                <TextBlock Classes="section-title"
-                                           Text="FILTER"
-                                           Foreground="#40AAEE"/>
-                                <Border Height="1" Background="#40AAEE55" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#40B0F0"/>
+                                    <TextBlock Classes="section-title" Text="FILTER" Foreground="#40B0F0"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#6040B0F0"/>
+                                            <GradientStop Offset="1" Color="#0040B0F0"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
                                 <StackPanel x:Name="FilterPanel"/>
                             </StackPanel>
                         </Border>
@@ -391,10 +506,18 @@
                         <!-- ENVELOPE -->
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
                             <StackPanel VerticalAlignment="Top">
-                                <TextBlock Classes="section-title"
-                                           Text="ENVELOPE"
-                                           Foreground="#60CC70"/>
-                                <Border Height="1" Background="#60CC7055" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#70C870"/>
+                                    <TextBlock Classes="section-title" Text="ENVELOPE" Foreground="#70C870"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#6070C870"/>
+                                            <GradientStop Offset="1" Color="#0070C870"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
                                 <StackPanel x:Name="EnvelopePanel"/>
                             </StackPanel>
                         </Border>
@@ -402,21 +525,37 @@
                         <!-- LFO (last row — stretches to fill remaining height) -->
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="2">
                             <StackPanel VerticalAlignment="Top">
-                                <TextBlock Classes="section-title"
-                                           Text="LFO"
-                                           Foreground="#B06ED8"/>
-                                <Border Height="1" Background="#B06ED855" Margin="0,0,0,10"/>
-                                <StackPanel x:Name="LfoPanel"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#B070D8"/>
+                                    <TextBlock Classes="section-title" Text="LFO" Foreground="#B070D8"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#60B070D8"/>
+                                            <GradientStop Offset="1" Color="#00B070D8"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <StackPanel x:Name="LfoPanel" Spacing="4"/>
                             </StackPanel>
                         </Border>
 
                         <!-- EFFECTS -->
                         <Border Classes="section-card" Grid.Column="2" Grid.Row="0">
                             <StackPanel x:Name="EffectsStack" VerticalAlignment="Top">
-                                <TextBlock Classes="section-title"
-                                           Text="EFFECTS"
-                                           Foreground="#3EC8A8"/>
-                                <Border Height="1" Background="#3EC8A855" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#40C8A8"/>
+                                    <TextBlock Classes="section-title" Text="EFFECTS" Foreground="#40C8A8"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#6040C8A8"/>
+                                            <GradientStop Offset="1" Color="#0040C8A8"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
                                 <StackPanel x:Name="EffectsPanel"/>
                             </StackPanel>
                         </Border>
@@ -424,11 +563,19 @@
                         <!-- VOICE (stretches into * row) -->
                         <Border Classes="section-card" Grid.Column="2" Grid.Row="1" Grid.RowSpan="2">
                             <StackPanel VerticalAlignment="Top">
-                                <TextBlock Classes="section-title"
-                                           Text="VOICE"
-                                           Foreground="#C05878"/>
-                                <Border Height="1" Background="#C0587855" Margin="0,0,0,10"/>
-                                <StackPanel x:Name="VoicePanel"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#C05878"/>
+                                    <TextBlock Classes="section-title" Text="VOICE" Foreground="#C05878"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#60C05878"/>
+                                            <GradientStop Offset="1" Color="#00C05878"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <StackPanel x:Name="VoicePanel" Spacing="3"/>
                             </StackPanel>
                         </Border>
 

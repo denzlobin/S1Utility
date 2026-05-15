@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Avalonia;
@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     private bool   _isConnected;
     private bool   _patternSyncDialogOpen;
     private bool   _skipPatternSyncWarning;
+    private string _outPortName = "";
     private Window? _seqWindow;
     private Window? _settingsWindow;
     private int    _midiChannel  = 3;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -42,23 +42,23 @@ public partial class MainWindow
     // ── Cached brushes used by Refresh() closures (avoid per-event allocations) ──
 
     private static readonly IBrush s_ledCellOn        = new SolidColorBrush(Color.FromArgb(0x33, 0, 0, 0));
-    private static readonly IBrush s_ledCellOff       = new SolidColorBrush(Color.Parse("#191919"));
-    private static readonly IBrush s_ledBorderOff     = new SolidColorBrush(Color.Parse("#303030"));
-    private static readonly IBrush s_ledTextOff       = new SolidColorBrush(Color.Parse("#4A4A4A"));
+    private static readonly IBrush s_ledCellOff       = Tokens.BgInset;
+    private static readonly IBrush s_ledBorderOff     = new SolidColorBrush(Color.Parse("#23232C"));
+    private static readonly IBrush s_ledTextOff       = Tokens.FgOff;
     private static readonly IBrush s_ledBorderUnsync  = new SolidColorBrush(Color.Parse("#252525"));
     private static readonly IBrush s_ledTextUnsync    = new SolidColorBrush(Color.Parse("#2A2A2A"));
 
     private static readonly IBrush s_chordToggleOn       = new SolidColorBrush(Color.FromArgb(0x8C, 0, 0, 0));
-    private static readonly IBrush s_chordToggleOff      = new SolidColorBrush(Color.Parse("#191919"));
-    private static readonly IBrush s_chordBorderOff      = new SolidColorBrush(Color.Parse("#2E2E2E"));
-    private static readonly IBrush s_chordTextOff        = new SolidColorBrush(Color.Parse("#444444"));
+    private static readonly IBrush s_chordToggleOff      = Tokens.BgInset;
+    private static readonly IBrush s_chordBorderOff      = Tokens.BdInset;
+    private static readonly IBrush s_chordTextOff        = Tokens.FgOff;
     private static readonly IBrush s_chordBorderUnsync   = new SolidColorBrush(Color.Parse("#252525"));
     private static readonly IBrush s_chordTextUnsync     = new SolidColorBrush(Color.Parse("#333333"));
 
-    private static readonly IBrush s_droneBgOff       = new SolidColorBrush(Color.Parse("#161616"));
-    private static readonly IBrush s_droneBorderOff   = new SolidColorBrush(Color.Parse("#2E2E2E"));
+    private static readonly IBrush s_droneBgOff       = Tokens.BgCard;
+    private static readonly IBrush s_droneBorderOff   = Tokens.BdInset;
     private static readonly IBrush s_droneLedOff      = new SolidColorBrush(Color.Parse("#2A2A2A"));
-    private static readonly IBrush s_droneLabelOff    = new SolidColorBrush(Color.Parse("#555555"));
+    private static readonly IBrush s_droneLabelOff    = Tokens.FgMute;
     private static readonly IBrush s_droneBorderUnsync = new SolidColorBrush(Color.Parse("#252525"));
     private static readonly IBrush s_droneLabelUnsync  = new SolidColorBrush(Color.Parse("#404040"));
 
@@ -101,7 +101,7 @@ public partial class MainWindow
         OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(16), OscAccent));  // PWM Source
         OscillatorPanel.Children.Add(MakeLedButtonGroup(RequireCC(22), OscAccent));  // Sub Octave
 
-        OscillatorPanel.Children.Add(MakeSubSectionHeader("DRAW · CHOP", OscAccent));
+        OscillatorPanel.Children.Add(BuildSubHeader("DRAW · CHOP", OscAccent));
 
         var dcKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         dcKnobs.Children.Add(MakeKnob(RequireCC(102), OscAccent, minCcValue: 3));
@@ -182,7 +182,7 @@ public partial class MainWindow
         VoicePanel.Children.Add(MakeDroneButton(RequireCC(64), VoiceAccent));
 
         var chordSection = new StackPanel();
-        chordSection.Children.Add(MakeSubSectionHeader("CHORD", VoiceAccent));
+        chordSection.Children.Add(BuildSubHeader("CHORD", VoiceAccent));
         chordSection.Children.Add(MakeChordVoiceRow(2, RequireCC(81), RequireCC(85), VoiceAccent));
         chordSection.Children.Add(MakeChordVoiceRow(3, RequireCC(82), RequireCC(86), VoiceAccent));
         chordSection.Children.Add(MakeChordVoiceRow(4, RequireCC(83), RequireCC(87), VoiceAccent));
@@ -934,7 +934,7 @@ public partial class MainWindow
             Text              = $"V{n}",
             Width             = 14,
             FontSize          = 8,
-            Foreground        = new SolidColorBrush(Color.Parse("#555555")),
+            Foreground        = Tokens.FgMute,
             VerticalAlignment = VerticalAlignment.Center,
         };
 
@@ -1002,7 +1002,7 @@ public partial class MainWindow
         {
             Text              = FormatSt(GetShift()),
             FontSize          = 8,
-            Foreground        = new SolidColorBrush(Color.Parse("#888888")),
+            Foreground        = Tokens.FgVal,
             Width             = 22,
             TextAlignment     = TextAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
@@ -1133,19 +1133,19 @@ public partial class MainWindow
     {
         var led = new Border
         {
-            Width             = 6,
-            Height            = 6,
-            CornerRadius      = new CornerRadius(3),
-            Margin            = new Thickness(0, 0, 6, 0),
+            Width             = 5,
+            Height            = 5,
+            CornerRadius      = new CornerRadius(2.5),
+            Margin            = new Thickness(0, 0, 5, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
 
         var nameLbl = new TextBlock
         {
             Text              = name,
-            FontSize          = 11,
+            FontSize          = 9.5,
             FontWeight        = FontWeight.Medium,
-            LetterSpacing     = 0.5,
+            LetterSpacing     = 0.6,
             VerticalAlignment = VerticalAlignment.Center,
         };
 
@@ -1158,12 +1158,10 @@ public partial class MainWindow
 
         var btn = new Border
         {
-            Height              = 28,
-            MinWidth            = 110,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Height              = 24,
             BorderThickness     = new Thickness(1),
-            CornerRadius        = new CornerRadius(4),
-            Padding             = new Thickness(12, 5),
+            CornerRadius        = new CornerRadius(3),
+            Padding             = new Thickness(9, 3),
             Cursor              = new Cursor(StandardCursorType.Hand),
             Child               = nameRow,
         };
@@ -1172,11 +1170,11 @@ public partial class MainWindow
         void SetActive(bool on)
         {
             var col = ((SolidColorBrush)accent).Color;
-            btn.Background     = on ? new SolidColorBrush(Color.FromArgb(0x18, col.R, col.G, col.B))
-                                    : new SolidColorBrush(Color.Parse("#161616"));
-            btn.BorderBrush    = on ? accent : new SolidColorBrush(Color.Parse("#2E2E2E"));
+            btn.Background     = on ? new SolidColorBrush(Color.FromArgb(0x1A, col.R, col.G, col.B))
+                                    : Brushes.Transparent;
+            btn.BorderBrush    = on ? accent : new SolidColorBrush(Color.Parse("#2A2A33"));
             led.Background     = on ? accent : new SolidColorBrush(Color.Parse("#2A2A2A"));
-            nameLbl.Foreground = on ? accent : new SolidColorBrush(Color.Parse("#555555"));
+            nameLbl.Foreground = on ? accent : Tokens.FgMute;
         }
 
         void SetEnabled(bool enabled)
@@ -1562,7 +1560,7 @@ public partial class MainWindow
             Margin            = new Thickness(0, 0, 0, 2),
         };
         var reverbCol = new StackPanel();
-        reverbCol.Children.Add(MakeSubSectionHeader("REVERB", FxAccent));
+        reverbCol.Children.Add(BuildSubHeader("REVERB", FxAccent));
         var revKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         revKnobs.Children.Add(MakeKnob(RequireCC(91), FxAccent));
         revKnobs.Children.Add(MakeKnob(RequireCC(89), FxAccent));
@@ -1576,7 +1574,7 @@ public partial class MainWindow
         };
 
         var delayCol = new StackPanel();
-        delayCol.Children.Add(MakeSubSectionHeader("DELAY", FxAccent));
+        delayCol.Children.Add(BuildSubHeader("DELAY", FxAccent));
         var delKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         delKnobs.Children.Add(MakeKnob(RequireCC(92), FxAccent));
         delKnobs.Children.Add(BuildDelayTimeKnob());
@@ -1590,7 +1588,7 @@ public partial class MainWindow
         sideBySide.Children.Add(delayCol);
         EffectsPanel.Children.Add(sideBySide);
 
-        EffectsPanel.Children.Add(MakeSubSectionHeader("CHORUS", FxAccent));
+        EffectsPanel.Children.Add(BuildSubHeader("CHORUS", FxAccent));
         EffectsPanel.Children.Add(MakeLedButtonGroup(RequireCC(93), FxAccent));
     }
 
@@ -2242,42 +2240,6 @@ public partial class MainWindow
                 FontWeight    = FontWeight.Bold,
                 LetterSpacing = 1.2,
                 Foreground    = accent,
-            },
-        },
-    };
-
-    // Creates a section card (Border + title + content StackPanel).
-    private static Border MakeSectionCard(string title, IBrush accent, out StackPanel contentPanel)
-    {
-        contentPanel = new StackPanel { Spacing = 2 };
-        return new Border
-        {
-            Classes = { "section-card" },
-            Child   = new StackPanel
-            {
-                Children =
-                {
-                    new TextBlock { Classes = { "section-title" }, Text = title, Foreground = accent },
-                    contentPanel,
-                },
-            },
-        };
-    }
-
-    // Small divider + bold sub-section label for use inside section cards.
-    private static StackPanel MakeSubSectionHeader(string title, IBrush accent) => new()
-    {
-        Margin   = new Thickness(0, 8, 0, 4),
-        Children =
-        {
-            new Border { Height = 1, Background = new SolidColorBrush(Color.Parse("#444444")) },
-            new TextBlock
-            {
-                Text       = title,
-                FontSize   = 9.5,
-                FontWeight = FontWeight.Bold,
-                Foreground = accent,
-                Margin     = new Thickness(0, 4, 0, 0),
             },
         },
     };

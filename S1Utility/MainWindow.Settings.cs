@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -110,6 +110,7 @@ public partial class MainWindow
     private void OnDeviceDisconnected()
     {
         _isConnected                 = false;
+        _outPortName                 = "";
         _initPatchButton!.IsEnabled      = false;
         PanicButton.IsEnabled        = false;
         ConnectButton.Content        = "Reconnect";
@@ -208,6 +209,7 @@ public partial class MainWindow
         }
 
         _isConnected                 = true;
+        _outPortName                 = outName ?? "";
         ConnectButton.Content        = "Reconnect";
         _initPatchButton!.IsEnabled      = true;
         PanicButton.IsEnabled        = true;
@@ -650,23 +652,42 @@ public partial class MainWindow
         StatusText.Foreground = new SolidColorBrush(Color.Parse(hexColour));
     }
 
+    private static readonly IBrush s_footerDotOff = new SolidColorBrush(Color.Parse("#2A2A33"));
+    private static readonly IBrush s_footerDotOn  = new SolidColorBrush(Color.Parse("#70C870"));
+    private static readonly IBrush s_footerTextConnected    = new SolidColorBrush(Color.Parse("#70C870"));
+    private static readonly IBrush s_footerTextDisconnected = new SolidColorBrush(Color.Parse("#7878A0"));
+    private static readonly IBrush s_unsyncedAmber          = new SolidColorBrush(Color.Parse("#F0A040"));
+
     private void UpdateSyncIndicator(int unsyncedCount)
     {
-        if (!_isConnected)
+        // Header chip: only visible when connected AND something is unsynced.
+        // "Synced" is the implicit/clean state — no chip is the signal.
+        if (_isConnected && unsyncedCount > 0)
         {
-            SyncIndicatorText.Text       = "● Offline";
-            SyncIndicatorText.Foreground = new SolidColorBrush(Color.Parse("#FF6B6B"));
-            return;
-        }
-        if (unsyncedCount <= 0)
-        {
-            SyncIndicatorText.Text       = "✓ Synced";
-            SyncIndicatorText.Foreground = new SolidColorBrush(Color.Parse("#70C870"));
+            UnsyncedChip.IsVisible  = true;
+            UnsyncedChipText.Text   = $"{unsyncedCount} UNSYNCED";
         }
         else
         {
-            SyncIndicatorText.Text       = $"⚠ {unsyncedCount} unsynced";
-            SyncIndicatorText.Foreground = new SolidColorBrush(Color.Parse("#F0A040"));
+            UnsyncedChip.IsVisible = false;
+        }
+
+        // Footer dot + label carry connection state.
+        if (_isConnected)
+        {
+            FooterConnDot.Background = s_footerDotOn;
+            FooterConnText.Foreground = s_footerTextConnected;
+            FooterConnText.Text = string.IsNullOrEmpty(_outPortName)
+                ? "MIDI · Connected"
+                : $"MIDI · {_outPortName}";
+            ConnectButton.Classes.Set("connected", true);
+        }
+        else
+        {
+            FooterConnDot.Background = s_footerDotOff;
+            FooterConnText.Foreground = s_footerTextDisconnected;
+            FooterConnText.Text = "Not connected";
+            ConnectButton.Classes.Set("connected", false);
         }
     }
 
@@ -686,7 +707,13 @@ public partial class MainWindow
         _lastModTick = now;
 
         bool midiLit = (now - _lastMidiActivity).TotalMilliseconds < 150;
-        if (midiLit != _midiDotLit) { _midiDotLit = midiLit; MidiActivityDot.Background = midiLit ? MidiDotActive : MidiDotIdle; }
+        if (midiLit != _midiDotLit)
+        {
+            _midiDotLit = midiLit;
+            MidiActivityDot.Background = midiLit ? MidiDotActive : MidiDotIdle;
+            FooterActivityText.Text       = midiLit ? "active" : "idle";
+            FooterActivityText.Foreground = midiLit ? s_unsyncedAmber : Tokens.FgMute;
+        }
 
         if (_viewModel.Tick(dt))
         {
