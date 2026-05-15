@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -105,10 +104,7 @@ public partial class MainWindow : Window
     private const  double DesignHeight = 1130;
     private const  double AspectRatio  = DesignWidth / DesignHeight;
 
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-    private WndProcDelegate? _arWndProcDelegate;
-    private IntPtr           _arOldWndProc;
+    private IWindowSizePolicy? _sizePolicy;
 
     // Labels for values that need special formatting (tempo as BPM, motion CC names)
     private readonly TextBlock   _tempoLabel     = new() { FontSize = 10, Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")), Text = "—" };
@@ -154,7 +150,10 @@ public partial class MainWindow : Window
         {
             FitToScreen();
             if (OperatingSystem.IsWindows())
-                HookAspectRatio();
+            {
+                _sizePolicy = new WindowsAspectRatioPolicy(AspectRatio);
+                _sizePolicy.Attach(this);
+            }
         };
 
         LoadSettings();
@@ -268,6 +267,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _sizePolicy?.Detach();
         _modTimer.Stop();
         _midiMgr.Dispose();
         _patch.Dispose();

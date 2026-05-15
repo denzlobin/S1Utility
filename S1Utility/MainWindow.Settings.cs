@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
@@ -722,22 +721,11 @@ public partial class MainWindow
         }
     }
 
-    // ── Aspect-ratio enforcement (Win32 WM_SIZING hook) ──────────────────────
-
-    private const int  GWLP_WNDPROC      = -4;
-    private const uint WM_SIZING         = 0x0214;
-    private const int  WMSZ_LEFT         = 1, WMSZ_RIGHT        = 2;
-    private const int  WMSZ_TOP          = 3, WMSZ_TOPLEFT      = 4, WMSZ_TOPRIGHT    = 5;
-    private const int  WMSZ_BOTTOM       = 6, WMSZ_BOTTOMLEFT   = 7, WMSZ_BOTTOMRIGHT = 8;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Win32Rect { public int Left, Top, Right, Bottom; }
-
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", ExactSpelling = true)]
-    private static extern IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr newLong);
-
-    [DllImport("user32.dll", EntryPoint = "CallWindowProcW", ExactSpelling = true)]
-    private static extern IntPtr CallWindowProcW(IntPtr proc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    // ── Window sizing ────────────────────────────────────────────────────────
+    //
+    // Aspect-ratio enforcement during resize is platform-specific and lives in
+    // `IWindowSizePolicy` / `WindowsAspectRatioPolicy`. `FitToScreen` is the
+    // cross-platform piece that runs on Opened.
 
     private void FitToScreen()
     {
@@ -751,44 +739,6 @@ public partial class MainWindow
             Width  = Math.Round(DesignWidth  * scale);
             Height = Math.Round(DesignHeight * scale);
         }
-    }
-
-    private void HookAspectRatio()
-    {
-        var handle = TryGetPlatformHandle();
-        if (handle is null) return;
-        _arWndProcDelegate = WndProcHook;
-        _arOldWndProc = SetWindowLongPtrW(handle.Handle, GWLP_WNDPROC,
-                            Marshal.GetFunctionPointerForDelegate(_arWndProcDelegate));
-    }
-
-    private IntPtr WndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
-    {
-        if (msg == WM_SIZING)
-        {
-            var rect = Marshal.PtrToStructure<Win32Rect>(lParam);
-            int edge = (int)wParam;
-            int w    = rect.Right  - rect.Left;
-            int h    = rect.Bottom - rect.Top;
-
-            // Pure top/bottom drag: lock height, adjust width rightward.
-            // All other edges (including corners): lock width, adjust height.
-            bool pureVertical = edge is WMSZ_TOP or WMSZ_BOTTOM;
-            if (pureVertical)
-            {
-                rect.Right = rect.Left + (int)Math.Round(h * AspectRatio);
-            }
-            else
-            {
-                int newH = (int)Math.Round(w / AspectRatio);
-                bool topDriven = edge is WMSZ_TOP or WMSZ_TOPLEFT or WMSZ_TOPRIGHT;
-                if (topDriven) rect.Top    = rect.Bottom - newH;
-                else           rect.Bottom = rect.Top    + newH;
-            }
-
-            Marshal.StructureToPtr(rect, lParam, false);
-        }
-        return CallWindowProcW(_arOldWndProc, hWnd, msg, wParam, lParam);
     }
 
     // ── Settings popup ────────────────────────────────────────────────────────
