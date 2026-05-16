@@ -208,27 +208,40 @@ public partial class MainWindow
 
             // Warning state: surface caveats where the rendered shape diverges
             // from what the synth actually outputs.
-            bool drawOrChop = drawP.Value != 0 || chopOvP.Value != 0;
-            bool lfoPwm     = pwmSrcP.Value == 2;
+            //
+            // Chop overtone is only audible when the grid has been altered from
+            // its all-0xFFFF default (the synth's "no chop" idle state). Init
+            // and many factory patches store non-zero overtone with all grid
+            // masks at 0xFFFF — sound is unaffected, so warning would be noise.
+            // OSC_CHOP_TYPE turned out NOT to gate audibility: PTN1_01 has type=0
+            // with an altered grid and overtone is audible there once raised.
+            bool chopActive = chopOvP.Value > 0
+                              && _prm.ChopPattern.IsAltered;
+            bool drawActive = drawP.Value != 0;
+            bool unrepresented = drawActive || chopActive;
+            bool lfoPwm = pwmSrcP.Value == 2;
             var messages = new List<string>();
-            if (drawOrChop) messages.Add("Draw / Chop output is not represented in this preview.");
-            if (lfoPwm)     messages.Add("With PWM Source set to LFO the shape reflects maximum modulation extent, not the live value.");
+            if (unrepresented) messages.Add("Draw / Chop output is not represented in this preview.");
+            if (lfoPwm)        messages.Add("With PWM Source set to LFO the shape reflects maximum modulation extent, not the live value.");
 
             // LFO-PWM is a deliberate selection the user made on a clearly-labelled
             // control — surfacing a warning glyph for it adds visual noise. Keep
             // the tooltip available on hover so the caveat is still discoverable.
-            warnGlyph.IsVisible = drawOrChop;
+            warnGlyph.IsVisible = unrepresented;
             ToolTip.SetTip(canvas, messages.Count > 0 ? string.Join("\n\n", messages) : null);
 
             // Dim the visualisation when Draw or Chop are active: the rendered
             // shape is missing components that materially affect the output, so
             // its accuracy claim is weaker than the LFO-PWM caveat alone.
-            canvas.Opacity = drawOrChop ? 0.45 : 1.0;
+            canvas.Opacity = unrepresented ? 0.45 : 1.0;
         }
 
         Update();
         foreach (var p in new[] { sawP, sqP, pwP, pwmSrcP, subModeP, subP, noiseP, noiseModeP, drawP, chopOvP })
             p.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
+
+        // Chop grid contributes to the warning gate — fires on every PRM load.
+        _prm.ChopPattern.PatternChanged += (_, _) => Dispatcher.UIThread.Post(Update);
 
         _oscWaveformUpdate = Update;
         return container;

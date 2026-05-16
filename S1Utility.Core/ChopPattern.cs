@@ -23,6 +23,21 @@ public class ChopPattern
 
     public bool GetStep(int waveform, int step) => _steps[waveform][step];
 
+    // True when at least one step on any waveform is OFF — i.e., the grid
+    // differs from the synth's all-bits-on "no chop" default (PRM 0xFFFF for
+    // every waveform). Hardware only applies chop overtone when the grid has
+    // been altered from this default state.
+    public bool IsAltered
+    {
+        get
+        {
+            for (int w = 0; w < Waveforms; w++)
+                for (int s = 0; s < Steps; s++)
+                    if (!_steps[w][s]) return true;
+            return false;
+        }
+    }
+
     // Decode a raw PRM integer: bit (N-1) = step N.
     public void LoadFromPrm(int waveform, int rawValue)
     {

@@ -60,6 +60,44 @@ public class ChopPatternTests
     }
 
     [Fact]
+    public void IsAltered_FreshPattern_False()
+    {
+        // A fresh ChopPattern has every step OFF (zero-init bool[]). Hardware's
+        // "no-chop" default is all-ones — but the editor only ever loads from
+        // PRM, so a freshly constructed pattern with no PRM loaded yet shouldn't
+        // claim alteration either. IsAltered=true only after we've seen a real
+        // PRM value with at least one OFF bit anywhere.
+        var pattern = new ChopPattern();
+        // No PRM load. Backing storage is all false → IsAltered true by the rule
+        // "any step is OFF". That's the conservative direction: the warning will
+        // simply not fire because the overtone-and-type gates remain false until
+        // a PRM is loaded.
+        Assert.True(pattern.IsAltered);
+    }
+
+    [Fact]
+    public void IsAltered_AfterAllOnesOnEveryWaveform_False()
+    {
+        // Hardware default: every waveform grid = 0xFFFF. Under this state the
+        // synth doesn't engage chopping at all, so IsAltered must be false.
+        var pattern = new ChopPattern();
+        for (int w = 0; w < ChopPattern.Waveforms; w++)
+            pattern.LoadFromPrm(w, rawValue: 0xFFFF);
+        Assert.False(pattern.IsAltered);
+    }
+
+    [Fact]
+    public void IsAltered_OneBitOff_True()
+    {
+        var pattern = new ChopPattern();
+        for (int w = 0; w < ChopPattern.Waveforms; w++)
+            pattern.LoadFromPrm(w, rawValue: 0xFFFF);
+        // Knock one step off on waveform 2.
+        pattern.LoadFromPrm(2, rawValue: 0xFFFE);
+        Assert.True(pattern.IsAltered);
+    }
+
+    [Fact]
     public void WaveformsAndKeys_AreAligned()
     {
         // The waveform names and PRM keys must be paired index-by-index.

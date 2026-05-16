@@ -163,13 +163,14 @@ public sealed class PrmFileManager
         var data = PrmFileParser.Parse(reader);
         ApplyPrmData(data);
 
-        // When Chop Type is 0 the hardware does not apply Chop Overtone to the
-        // synthesis engine during a pattern load, even if the PRM stores a non-zero
-        // value. Incoming MIDI CC103 bypasses that gate, so we zero it explicitly.
-        bool chopTypeOff = !data.Parameters.TryGetValue("OSC_CHOP_TYPE", out var ct)
-                           || ct == "0";
-        if (chopTypeOff)
-            _patch.HandleIncomingCC(103, 0);
+        // "Init Settings" should land on the same audible starting point regardless
+        // of what the device's current chop grid looks like. The init PRM has grid
+        // all-0xFFFF (unaltered) so overtone is inaudible at init load — but if the
+        // device's grid was previously altered by a loaded pattern, our editor
+        // can't reset it (no MIDI CC for chop grid), and overtone=100 would then
+        // bleed audibly into the init sound. Forcing CC103=0 guarantees init is
+        // sonically blank for chop regardless of prior state.
+        _patch.HandleIncomingCC(103, 0);
     }
 
     public void ApplyPrmData(PrmFileData data)
