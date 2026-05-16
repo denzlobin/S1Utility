@@ -24,9 +24,8 @@ internal sealed class VoiceCard
 
     public Border Build()
     {
-        // Row-major fill of a 3-col grid (last cell empty since we have 8 params):
-        // Col 1 = Polyphony/Portamento/Glide · Col 2 = Mod Wheel/Exp/Damper · Col 3 = Transpose/Pan.
-        int[] mainOrder = { 80, 1, 77,    31, 11, 10,    5, 64 };
+        // Single row: Polyphony · Portamento · Glide Time.
+        int[] mainOrder = { 80, 31, 5 };
         var mainItems = mainOrder.Select(cc => InspectorRows.BuildCcDataRow(_prm, Cc(cc))).ToList();
 
         var chordItems = new List<Control>
