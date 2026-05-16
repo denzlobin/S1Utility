@@ -246,46 +246,26 @@ public partial class MainWindow
 
     private void LoadSettings()
     {
-        try
-        {
-            if (!System.IO.File.Exists(SettingsPath)) return;
-            using var doc = JsonDocument.Parse(System.IO.File.ReadAllText(SettingsPath));
-            if (doc.RootElement.TryGetProperty("autoConnect",      out var autoConnectEl))      _autoConnect                = autoConnectEl.GetBoolean();
-            if (doc.RootElement.TryGetProperty("filterModEnabled", out var filterModEl))       _viewModel.FilterModEnabled = filterModEl.GetBoolean();
-            if (doc.RootElement.TryGetProperty("prmFolder",        out var prmFolderEl))       _prm.PrmFolder              = prmFolderEl.GetString() ?? "";
-            if (doc.RootElement.TryGetProperty("patternSync",      out var patternSyncEl))     _prm.PatternSync            = patternSyncEl.GetBoolean();
-            if (doc.RootElement.TryGetProperty("midiChannel",      out var midiChannelEl))     _midiChannel                = Math.Clamp(midiChannelEl.GetInt32(), 1, 16);
-            if (doc.RootElement.TryGetProperty("pcChannel",        out var pcChannelEl))       _pcChannel                  = Math.Clamp(pcChannelEl.GetInt32(), 1, 16);
-            if (doc.RootElement.TryGetProperty("skipPatternSyncWarning", out var skipWarnEl)) _skipPatternSyncWarning     = skipWarnEl.GetBoolean();
-        }
-        catch (Exception ex)
-        {
-            Log.Logger.Error($"Settings load failed: {SettingsPath}", ex);
-            SetStatus("Settings failed to load. Using defaults.", StatusKind.Warn);
-        }
+        var s = SettingsStore.Load(SettingsPath);
+        _autoConnect                = s.AutoConnect;
+        _viewModel.FilterModEnabled = s.FilterModEnabled;
+        _prm.PrmFolder              = s.PrmFolder;
+        _prm.PatternSync            = s.PatternSync;
+        _midiChannel                = s.MidiChannel;
+        _pcChannel                  = s.PcChannel;
+        _skipPatternSyncWarning     = s.SkipPatternSyncWarning;
     }
 
-    private void SaveSettings()
+    private void SaveSettings() => SettingsStore.Save(SettingsPath, new SettingsV1
     {
-        try
-        {
-            System.IO.File.WriteAllText(SettingsPath, JsonSerializer.Serialize(new
-            {
-                autoConnect      = _autoConnect,
-                filterModEnabled = _viewModel.FilterModEnabled,
-                prmFolder        = _prm.PrmFolder,
-                patternSync      = _prm.PatternSync,
-                midiChannel      = MidiChannel,
-                pcChannel        = PcChannel,
-                skipPatternSyncWarning = _skipPatternSyncWarning,
-            }, JsonOptions));
-        }
-        catch (Exception ex)
-        {
-            Log.Logger.Error($"Settings save failed: {SettingsPath}", ex);
-            SetStatus("Settings could not be saved.", StatusKind.Warn);
-        }
-    }
+        AutoConnect            = _autoConnect,
+        FilterModEnabled       = _viewModel.FilterModEnabled,
+        PrmFolder              = _prm.PrmFolder,
+        PatternSync            = _prm.PatternSync,
+        MidiChannel            = MidiChannel,
+        PcChannel              = PcChannel,
+        SkipPatternSyncWarning = _skipPatternSyncWarning,
+    });
 
     private async void OnInitPatchClicked(object? sender, RoutedEventArgs e)
     {
