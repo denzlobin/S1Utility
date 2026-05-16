@@ -72,6 +72,12 @@ public partial class MainWindow
                 RestoreSnapshotValues(dirtySnap);
                 _patch.MarkAllSynced();
                 _prm.TryLoadInspectorOnly(program);
+                // The non-dirty branch emits its Pattern Sync status via
+                // TryLoadPatternPrm. This branch bypasses that, so the footer
+                // would otherwise show stale text from the previously selected
+                // non-dirty patch. Emit our own message so the footer always
+                // reflects the currently selected slot.
+                SetStatus($"Pattern Sync: {_prm.PrmFileNameForProgram(program)} · modified", StatusKind.Info);
             }
             else
             {

@@ -130,7 +130,16 @@ public partial class MainWindow : Window
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "S1Utility", "logs"));
 
-        _patch.UiDispatcher = action => Dispatcher.UIThread.Post(action);
+        // Only marshal when we're NOT already on the UI thread. Posting
+        // unconditionally would defer ValueChanged events fired inside
+        // synchronous UI-thread code (e.g. PRM load), breaking patterns like
+        // _suppressDirtyTracking = true; load; _suppressDirtyTracking = false
+        // — the suppress flag would lapse before the queued callbacks ran.
+        _patch.UiDispatcher = action =>
+        {
+            if (Dispatcher.UIThread.CheckAccess()) action();
+            else Dispatcher.UIThread.Post(action);
+        };
 
         _viewModel = new S1EditorViewModel(_patch);
         _prm       = new PrmFileManager(_patch);

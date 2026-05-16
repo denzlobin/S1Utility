@@ -205,8 +205,10 @@ public class S1Patch : IDisposable
 
     // Optional marshaller used by HandleIncomingCC so S1Parameter.ValueChanged
     // always fires on the UI thread when MIDI arrives. The host (app startup)
-    // wires this to Dispatcher.UIThread.Post; Core itself stays UI-agnostic.
-    // If null, HandleIncomingCC runs inline on the caller's thread.
+    // wires this to a "run inline if already on UI thread, post otherwise"
+    // helper — synchronous-from-UI delivery is required so callers can wrap
+    // bulk loads with a transient suppress flag without racing the dispatch.
+    // Core itself stays UI-agnostic; if null, HandleIncomingCC runs inline.
     public Action<Action>? UiDispatcher { get; set; }
 
     // Called by the host when a CC arrives from the hardware.

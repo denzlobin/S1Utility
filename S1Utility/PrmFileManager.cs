@@ -374,12 +374,17 @@ public sealed class PrmFileManager
         return false;
     }
 
-    private string PrmFileForProgram(int program)
+    // Just the file name (no folder) — exposed so callers can label UI without
+    // needing the absolute path or replicating the bank/pattern formula.
+    public string PrmFileNameForProgram(int program)
     {
         int bank    = program / 16 + 1;
         int pattern = program % 16 + 1;
-        return Path.Combine(PrmFolder, $"S1_PTN{bank}-{pattern:D2}.PRM");
+        return $"S1_PTN{bank}-{pattern:D2}.PRM";
     }
+
+    private string PrmFileForProgram(int program) =>
+        Path.Combine(PrmFolder, PrmFileNameForProgram(program));
 
     private static void LoadPrmOnly(PrmFileData data, IEnumerable<PrmParameter> prms)
     {
