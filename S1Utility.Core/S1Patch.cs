@@ -201,10 +201,28 @@ public class S1Patch : IDisposable
 
     public void Disconnect() => SetTransport(null);
 
+    // ── UI dispatcher ───────────────────────────────────────────────────────
+
+    // Optional marshaller used by HandleIncomingCC so S1Parameter.ValueChanged
+    // always fires on the UI thread when MIDI arrives. The host (app startup)
+    // wires this to Dispatcher.UIThread.Post; Core itself stays UI-agnostic.
+    // If null, HandleIncomingCC runs inline on the caller's thread.
+    public Action<Action>? UiDispatcher { get; set; }
+
     // Called by the host when a CC arrives from the hardware.
     // Routes it to the right parameter without echoing back to the output.
-    public void HandleIncomingCC(int ccNumber, int value) =>
-        GetByCC(ccNumber)?.UpdateFromMidi(value);
+    // With UiDispatcher wired, the parameter update (and the ValueChanged event
+    // it raises) is marshalled to the UI thread, so subscribers may safely
+    // touch UI state without dispatching themselves.
+    public void HandleIncomingCC(int ccNumber, int value)
+    {
+        var param = GetByCC(ccNumber);
+        if (param == null) return;
+        if (UiDispatcher is { } dispatch)
+            dispatch(() => param.UpdateFromMidi(value));
+        else
+            param.UpdateFromMidi(value);
+    }
 
     private void SendOne(S1Parameter param) =>
         _transport?.SendCC(_channel, param.CcNumber, param.Value);

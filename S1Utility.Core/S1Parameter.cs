@@ -91,8 +91,14 @@ public class S1Parameter
     internal Action<S1Parameter>? _onSend;
 
     // Subscribed by UI controls (knobs, toggles) to stay in sync with the model.
-    // Fires on both UI-driven changes and incoming MIDI — subscribers must not
-    // assume which thread this is called on.
+    // Threading contract:
+    //   - UI-driven changes (Value setter): fires on the caller's thread, which
+    //     for the editor is always the UI thread.
+    //   - Incoming MIDI (UpdateFromMidi via S1Patch.HandleIncomingCC): fires on
+    //     the UI thread when S1Patch.UiDispatcher is wired (the app does this
+    //     at startup). Without a dispatcher it fires on the MIDI receive thread.
+    // Subscribers that touch UI state may therefore rely on UI-thread delivery
+    // as long as MIDI ingress goes through S1Patch.HandleIncomingCC.
     public event EventHandler<int>? ValueChanged;
 
     public S1Parameter(string name, int cc, S1Section section,

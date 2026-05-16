@@ -125,6 +125,8 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _patch.UiDispatcher = action => Dispatcher.UIThread.Post(action);
+
         _viewModel = new S1EditorViewModel(_patch);
         _prm       = new PrmFileManager(_patch);
         _midiMgr   = new MidiManager(_patch);
