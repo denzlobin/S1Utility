@@ -66,10 +66,15 @@ public sealed class MidiManager : IDisposable
         var outPort = OutputPorts[outIndex];
         IMidiOutput output;
         try { output = await _midi.OpenOutputAsync(outPort.Id); }
-        catch (Exception ex) { return (false, outPort.Name, null, ex.Message); }
+        catch (Exception ex)
+        {
+            Log.Logger.Error($"OpenOutputAsync failed for port '{outPort.Name}' (id '{outPort.Id}')", ex);
+            return (false, outPort.Name, null, ex.Message);
+        }
 
-        var transport = new ManagedMidiTransport(output,
+        var transport = new ManagedMidiTransport(output, outPort.Name,
             onDisconnect: () => Disconnected?.Invoke(this, EventArgs.Empty));
+        Log.Logger.Info($"MIDI output opened: '{outPort.Name}' (channel {channel})");
         _patch.SetTransport(transport, channel);
 
         if (inIndex < 0 || inIndex >= _inputDevices.Count)
@@ -85,6 +90,8 @@ public sealed class MidiManager : IDisposable
         }
         catch (Exception ex)
         {
+            var inName = _activeInput?.Name ?? "?";
+            Log.Logger.Error($"MIDI input listener failed to start on '{inName}'", ex);
             if (_activeInput != null)
                 _activeInput.EventReceived -= OnMidiEventReceived;
             _activeInput = null;

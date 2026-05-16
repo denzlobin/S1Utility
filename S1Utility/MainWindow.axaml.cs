@@ -125,6 +125,11 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        Log.Logger = new RollingFileLogger(
+            System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "S1Utility", "logs"));
+
         _patch.UiDispatcher = action => Dispatcher.UIThread.Post(action);
 
         _viewModel = new S1EditorViewModel(_patch);
@@ -273,6 +278,7 @@ public partial class MainWindow : Window
         _modTimer.Stop();
         _midiMgr.Dispose();
         _patch.Dispose();
+        (Log.Logger as IDisposable)?.Dispose();
         base.OnClosed(e);
     }
 }

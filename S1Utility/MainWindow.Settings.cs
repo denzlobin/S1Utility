@@ -260,7 +260,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Settings] Load failed: {ex.Message}");
+            Log.Logger.Error($"Settings load failed: {SettingsPath}", ex);
             SetStatus("Settings failed to load. Using defaults.", StatusKind.Warn);
         }
     }
@@ -282,7 +282,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Settings] Save failed: {ex.Message}");
+            Log.Logger.Error($"Settings save failed: {SettingsPath}", ex);
             SetStatus("Settings could not be saved.", StatusKind.Warn);
         }
     }
@@ -508,13 +508,14 @@ public partial class MainWindow
         if (files.Count == 0) return;
 
         PrmFileData parsed;
+        var localPath = files[0].TryGetLocalPath() ?? files[0].Name;
         try
         {
-            var localPath = files[0].TryGetLocalPath()!;
             parsed = await Task.Run(() => PrmFileParser.Parse(localPath));
         }
         catch (Exception ex)
         {
+            Log.Logger.Error($"PRM parse failed (manual open): {localPath}", ex);
             SetStatus($"PRM load error: {ex.Message}", StatusKind.Error);
             return;
         }

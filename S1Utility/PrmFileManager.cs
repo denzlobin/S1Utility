@@ -297,6 +297,7 @@ public sealed class PrmFileManager
         try { parsed = PrmFileParser.Parse(path); }
         catch (Exception ex)
         {
+            Log.Logger.Error($"PRM parse failed (pattern sync): {path}", ex);
             StatusChanged?.Invoke(this, ($"Pattern Sync: parse error — {ex.Message}", StatusKind.Error));
             return false;
         }
