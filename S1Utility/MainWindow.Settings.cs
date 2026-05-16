@@ -113,7 +113,7 @@ public partial class MainWindow
         _initPatchButton!.IsEnabled      = false;
         PanicButton.IsEnabled        = false;
         ConnectButton.Content        = "Reconnect";
-        SetStatus("Device disconnected.", "#FF6B6B");
+        SetStatus("Device disconnected.", StatusKind.Error);
         // Null the transport so further knob drags don't throw inside the stale
         // ManagedMidiTransport and get silently swallowed.
         _patch.Disconnect();
@@ -192,7 +192,7 @@ public partial class MainWindow
 
         if (DeviceCombo.SelectedIndex < 0 || DeviceCombo.SelectedIndex >= _midiMgr.OutputPorts.Count)
         {
-            SetStatus("Select a MIDI output device first.", "#FF6B6B");
+            SetStatus("Select a MIDI output device first.", StatusKind.Error);
             return;
         }
 
@@ -203,7 +203,7 @@ public partial class MainWindow
 
         if (!outputOk)
         {
-            SetStatus($"Output error: {inputError}", "#FF6B6B");
+            SetStatus($"Output error: {inputError}", StatusKind.Error);
             return;
         }
 
@@ -220,11 +220,11 @@ public partial class MainWindow
             GoToPattern1();
 
         if (inputError != null)
-            SetStatus($"→ {outName}  (input unavailable: {inputError})", "#F0A040");
+            SetStatus($"→ {outName}  (input unavailable: {inputError})", StatusKind.Warn);
         else if (inName != null)
-            SetStatus($"↔ {outName}  |  listening on {inName}", "#70C870");
+            SetStatus($"↔ {outName}  |  listening on {inName}", StatusKind.Ok);
         else
-            SetStatus($"→ {outName}  (no input selected)", "#70C870");
+            SetStatus($"→ {outName}  (no input selected)", StatusKind.Ok);
     }
 
     private async void TryAutoConnect()
@@ -232,7 +232,7 @@ public partial class MainWindow
         int outIdx = _midiMgr.FindOutputIndex(n => n.Contains("S-1", StringComparison.OrdinalIgnoreCase));
         if (outIdx < 0)
         {
-            SetStatus("Auto-connect: S-1 output not found.", "#F0A040");
+            SetStatus("Auto-connect: S-1 output not found.", StatusKind.Warn);
             return;
         }
 
@@ -261,7 +261,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[Settings] Load failed: {ex.Message}");
-            SetStatus("Settings failed to load. Using defaults.", "#F0A040");
+            SetStatus("Settings failed to load. Using defaults.", StatusKind.Warn);
         }
     }
 
@@ -283,14 +283,14 @@ public partial class MainWindow
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[Settings] Save failed: {ex.Message}");
-            SetStatus("Settings could not be saved.", "#F0A040");
+            SetStatus("Settings could not be saved.", StatusKind.Warn);
         }
     }
 
     private async void OnInitPatchClicked(object? sender, RoutedEventArgs e)
     {
         _initPatchButton!.IsEnabled = false;
-        SetStatus("Initializing…", "#AAAAAA");
+        SetStatus("Initializing…", StatusKind.Info);
         _suppressUndoTracking = true;
         try { _prm.ApplyInitPatch(); }
         finally { _suppressUndoTracking = false; }
@@ -298,13 +298,13 @@ public partial class MainWindow
         await _patch.SendAllAsync();
         _patch.MarkAllSynced();
         _initPatchButton!.IsEnabled = true;
-        SetStatus("Patch initialized.", "#70C870");
+        SetStatus("Patch initialized.", StatusKind.Ok);
     }
 
     private void OnPanicClicked(object? sender, RoutedEventArgs e)
     {
         _patch.SendPanic();
-        SetStatus("All Sound Off / All Notes Off sent.", "#F0A040");
+        SetStatus("All Sound Off / All Notes Off sent.", StatusKind.Warn);
     }
 
     // ── Preset save / load ────────────────────────────────────────────────────
@@ -328,7 +328,7 @@ public partial class MainWindow
         await using var stream = await file.OpenWriteAsync();
         await JsonSerializer.SerializeAsync(stream, preset, JsonOptions);
 
-        SetStatus($"Saved: {file.Name}", "#70C870");
+        SetStatus($"Saved: {file.Name}", StatusKind.Ok);
     }
 
     private async void OnLoadClicked(object? sender, RoutedEventArgs e)
@@ -350,7 +350,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            SetStatus($"Load error: {ex.Message}", "#FF6B6B");
+            SetStatus($"Load error: {ex.Message}", StatusKind.Error);
             return;
         }
 
@@ -376,7 +376,7 @@ public partial class MainWindow
         ClearUndoHistory();
 
         await _patch.SendAllAsync();
-        SetStatus($"Loaded: {preset.Name}", "#70C870");
+        SetStatus($"Loaded: {preset.Name}", StatusKind.Ok);
     }
 
     private async Task<bool> ShowPatternSyncWarningAsync()
@@ -413,7 +413,7 @@ public partial class MainWindow
                         Text       = "⚠  EXPERIMENTAL FEATURE",
                         FontSize   = 13,
                         FontWeight = FontWeight.Bold,
-                        Foreground = new SolidColorBrush(Color.Parse("#F0A040")),
+                        Foreground = Palette.StatusWarn,
                     },
                     new TextBlock
                     {
@@ -515,7 +515,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            SetStatus($"PRM load error: {ex.Message}", "#FF6B6B");
+            SetStatus($"PRM load error: {ex.Message}", StatusKind.Error);
             return;
         }
 
@@ -527,7 +527,7 @@ public partial class MainWindow
         if (choice == OpenPrmChoice.InspectOnly)
         {
             _prm.LoadInspector(parsed);
-            SetStatus($"Inspecting: {fileName}", "#70C870");
+            SetStatus($"Inspecting: {fileName}", StatusKind.Ok);
             return;
         }
 
@@ -537,9 +537,9 @@ public partial class MainWindow
         finally { _suppressUndoTracking = false; }
         ClearUndoHistory();
         PresetNameBox.Text = fileName;
-        SetStatus("Sending PRM values…", "#AAAAAA");
+        SetStatus("Sending PRM values…", StatusKind.Info);
         await _patch.SendAllAsync();
-        SetStatus($"Loaded PRM: {fileName}", "#70C870");
+        SetStatus($"Loaded PRM: {fileName}", StatusKind.Ok);
     }
 
     private async Task<OpenPrmChoice> ShowOpenPrmChoiceAsync(string fileName)
@@ -584,7 +584,7 @@ public partial class MainWindow
                     {
                         FontSize     = 11,
                         FontWeight   = FontWeight.SemiBold,
-                        Foreground   = new SolidColorBrush(Color.Parse("#70C870")),
+                        Foreground   = Palette.StatusOk,
                         Text         = "Inspect Only",
                     },
                     new TextBlock
@@ -601,7 +601,7 @@ public partial class MainWindow
                     {
                         FontSize     = 11,
                         FontWeight   = FontWeight.SemiBold,
-                        Foreground   = new SolidColorBrush(Color.Parse("#F0A040")),
+                        Foreground   = Palette.StatusWarn,
                         Margin       = new Thickness(0, 6, 0, 0),
                         Text         = "Load Into Editor",
                     },
@@ -644,17 +644,14 @@ public partial class MainWindow
             _motionCcLabels[i].Text = e.MotionCcLabels[i];
     }
 
-    private void SetStatus(string message, string hexColour)
+    private void SetStatus(string message, StatusKind kind)
     {
         StatusText.Text       = message;
-        StatusText.Foreground = new SolidColorBrush(Color.Parse(hexColour));
+        StatusText.Foreground = Palette.ForStatus(kind);
     }
 
+    // Off-state dot is a one-off dark fill not shared with any other surface; kept local.
     private static readonly IBrush s_footerDotOff = new SolidColorBrush(Color.Parse("#2A2A33"));
-    private static readonly IBrush s_footerDotOn  = new SolidColorBrush(Color.Parse("#70C870"));
-    private static readonly IBrush s_footerTextConnected    = new SolidColorBrush(Color.Parse("#70C870"));
-    private static readonly IBrush s_footerTextDisconnected = new SolidColorBrush(Color.Parse("#7878A0"));
-    private static readonly IBrush s_unsyncedAmber          = new SolidColorBrush(Color.Parse("#F0A040"));
 
     private void UpdateSyncIndicator(int unsyncedCount)
     {
@@ -673,8 +670,8 @@ public partial class MainWindow
         // Footer dot + label carry connection state.
         if (_isConnected)
         {
-            FooterConnDot.Background = s_footerDotOn;
-            FooterConnText.Foreground = s_footerTextConnected;
+            FooterConnDot.Background  = Palette.StatusOk;
+            FooterConnText.Foreground = Palette.StatusOk;
             FooterConnText.Text = string.IsNullOrEmpty(_outPortName)
                 ? "MIDI · Connected"
                 : $"MIDI · {_outPortName}";
@@ -682,8 +679,8 @@ public partial class MainWindow
         }
         else
         {
-            FooterConnDot.Background = s_footerDotOff;
-            FooterConnText.Foreground = s_footerTextDisconnected;
+            FooterConnDot.Background  = s_footerDotOff;
+            FooterConnText.Foreground = Palette.FgLabel;
             FooterConnText.Text = "Not connected";
             ConnectButton.Classes.Set("connected", false);
         }
@@ -710,7 +707,7 @@ public partial class MainWindow
             _midiDotLit = midiLit;
             MidiActivityDot.Background = midiLit ? MidiDotActive : MidiDotIdle;
             FooterActivityText.Text       = midiLit ? "active" : "idle";
-            FooterActivityText.Foreground = midiLit ? s_unsyncedAmber : Palette.FgMute;
+            FooterActivityText.Foreground = midiLit ? Palette.StatusWarn : Palette.FgMute;
         }
 
         if (_viewModel.Tick(dt))

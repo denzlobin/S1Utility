@@ -80,7 +80,7 @@ public sealed class PrmFileManager
     // ── Events ────────────────────────────────────────────────────────────────
 
     public event EventHandler<PrmMetaArgs>? MetaLoaded;
-    public event EventHandler<(string Message, string Color)>? StatusChanged;
+    public event EventHandler<(string Message, StatusKind Kind)>? StatusChanged;
     public event EventHandler? CcSnapshotChanged;
     public event EventHandler? PatchAvailabilityChanged;
 
@@ -289,7 +289,7 @@ public sealed class PrmFileManager
         string path = PrmFileForProgram(program);
         if (!File.Exists(path))
         {
-            StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)} not found in PRM folder", "#F0A040"));
+            StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)} not found in PRM folder", StatusKind.Warn));
             return false;
         }
 
@@ -297,13 +297,13 @@ public sealed class PrmFileManager
         try { parsed = PrmFileParser.Parse(path); }
         catch (Exception ex)
         {
-            StatusChanged?.Invoke(this, ($"Pattern Sync: parse error — {ex.Message}", "#FF6B6B"));
+            StatusChanged?.Invoke(this, ($"Pattern Sync: parse error — {ex.Message}", StatusKind.Error));
             return false;
         }
 
         ApplyPrmData(parsed);
         _patch.MarkAllSynced();
-        StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)}", "#888888"));
+        StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)}", StatusKind.Info));
         return true;
     }
 

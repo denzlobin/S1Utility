@@ -43,6 +43,14 @@
         <SolidColorBrush x:Key="AccentDm">#60A8E0</SolidColorBrush>
         <SolidColorBrush x:Key="AccentDmAlt">#7080F0</SolidColorBrush>
         <SolidColorBrush x:Key="AccentWarn">#D0702A</SolidColorBrush>
+
+        <!-- ── Status colours (transient app state: errors, progress, etc.) ── -->
+        <!-- Distinct from section accents even when hex overlaps; reference via
+             Palette.StatusError/Ok/Warn/Info so semantics are explicit at call sites. -->
+        <SolidColorBrush x:Key="StatusError">#FF6B6B</SolidColorBrush>
+        <SolidColorBrush x:Key="StatusOk">#70C870</SolidColorBrush>
+        <SolidColorBrush x:Key="StatusWarn">#F0A040</SolidColorBrush>
+        <SolidColorBrush x:Key="StatusInfo">#AAAAAA</SolidColorBrush>
     </Application.Resources>
 
     <Application.Styles>

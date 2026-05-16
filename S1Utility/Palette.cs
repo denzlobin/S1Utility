@@ -71,6 +71,21 @@ internal static class Palette
     public static IBrush FgDim   => Get("FgDim");
     public static IBrush FgOff   => Get("FgOff");
 
+    // ── Status (transient app state) ─────────────────────────────────────────
+    public static IBrush StatusError => Get("StatusError");
+    public static IBrush StatusOk    => Get("StatusOk");
+    public static IBrush StatusWarn  => Get("StatusWarn");
+    public static IBrush StatusInfo  => Get("StatusInfo");
+
+    public static IBrush ForStatus(StatusKind kind) => kind switch
+    {
+        StatusKind.Error => StatusError,
+        StatusKind.Ok    => StatusOk,
+        StatusKind.Warn  => StatusWarn,
+        StatusKind.Info  => StatusInfo,
+        _                => StatusInfo,
+    };
+
     // Monospace font stack — used wherever numeric values are rendered.
     public static readonly FontFamily MonoFont = new("Cascadia Mono,Consolas,monospace");
 }

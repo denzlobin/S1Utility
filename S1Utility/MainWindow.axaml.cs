@@ -132,7 +132,7 @@ public partial class MainWindow : Window
         _midiMgr   = new MidiManager(_patch);
 
         _prm.MetaLoaded               += OnPrmMetaLoaded;
-        _prm.StatusChanged            += (_, args) => SetStatus(args.Message, args.Color);
+        _prm.StatusChanged            += (_, args) => SetStatus(args.Message, args.Kind);
         _prm.PatchAvailabilityChanged += (_, _) => RefreshAllPatchButtonStyles();
 
         _midiMgr.Disconnected          += (_, _) => Dispatcher.UIThread.Post(OnDeviceDisconnected);
