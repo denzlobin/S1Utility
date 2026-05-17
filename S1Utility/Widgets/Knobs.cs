@@ -35,12 +35,6 @@ internal static class Knobs
     private static readonly IBrush s_chordBorderUnsync = new SolidColorBrush(Color.Parse("#252525"));
     private static readonly IBrush s_chordTextUnsync   = new SolidColorBrush(Color.Parse("#333333"));
 
-    private static readonly IBrush s_droneBgOff        = Palette.BgCard;
-    private static readonly IBrush s_droneBorderOff    = Palette.BdInset;
-    private static readonly IBrush s_droneLedOff       = new SolidColorBrush(Color.Parse("#2A2A2A"));
-    private static readonly IBrush s_droneLabelOff     = Palette.FgMute;
-    private static readonly IBrush s_droneBorderUnsync = new SolidColorBrush(Color.Parse("#252525"));
-    private static readonly IBrush s_droneLabelUnsync  = new SolidColorBrush(Color.Parse("#404040"));
 
     // ── Standard rotary knob with value/label rows ────────────────────────────
 
@@ -166,9 +160,11 @@ internal static class Knobs
             }
             else
             {
-                var lbl = new TextBlock { Text = opts[i].ToUpperInvariant(), FontSize = 10 };
+                var (display, tooltip) = ShortLabel(opts[i]);
+                var lbl = new TextBlock { Text = display, FontSize = 10 };
                 content = lbl;
                 setColor[i] = brush => lbl.Foreground = brush;
+                if (tooltip is not null) ToolTip.SetTip(lbl, tooltip);
             }
 
             var cell = new Border
@@ -177,6 +173,7 @@ internal static class Knobs
                 CornerRadius    = new CornerRadius(2),
                 Padding         = waveIcons ? new Thickness(5, 4) : new Thickness(8, 3),
                 Margin          = new Thickness(1),
+                Height          = 22,
                 Cursor          = new Cursor(StandardCursorType.Hand),
                 Child           = content,
             };
@@ -199,7 +196,7 @@ internal static class Knobs
 
         return new StackPanel
         {
-            Margin              = new Thickness(3, 2, 3, 4),
+            Margin              = new Thickness(0, 2, 0, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Children =
             {
@@ -213,6 +210,105 @@ internal static class Knobs
                 },
             },
         };
+    }
+
+    // Heterogeneous toggle-cell row — each cell can bind to a different param
+    // (radio-style "set value X" or toggle-style "flip 0↔127"). Chrome matches
+    // MakeLedButtonGroup exactly so it lines up with neighbouring LED strips.
+    // Optional IsEnabled dims a cell at 0.4 opacity and ignores clicks while
+    // preserving the underlying param value (e.g. NORMAL/FAST when Sync is on).
+    // Observe forces the cell to re-refresh whenever a foreign param changes,
+    // which is needed for IsEnabled predicates that read another param.
+    public readonly record struct ToggleCell(
+        string Label,
+        S1Parameter Param,
+        Func<bool> IsOn,
+        Action OnClick,
+        Func<bool>? IsEnabled = null,
+        S1Parameter? Observe = null);
+
+    public static Control MakeMixedToggleRow(S1Patch patch, IBrush accent, params ToggleCell[] cells)
+    {
+        var borders  = new Border[cells.Length];
+        var labels   = new TextBlock[cells.Length];
+        var synced   = new bool[cells.Length];
+
+        var row = new UniformGrid { Rows = 1 };
+
+        for (int i = 0; i < cells.Length; i++)
+        {
+            int idx     = i;
+            var spec    = cells[i];
+            synced[idx] = spec.Param.IsSynced;
+
+            var lbl = new TextBlock
+            {
+                Text                = spec.Label,
+                FontSize            = 10,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+            var cell = new Border
+            {
+                BorderThickness = new Thickness(1),
+                CornerRadius    = new CornerRadius(2),
+                Padding         = new Thickness(8, 3),
+                Margin          = new Thickness(1),
+                Height          = 22,
+                Cursor          = new Cursor(StandardCursorType.Hand),
+                Child           = lbl,
+            };
+            cell.PointerPressed += (_, _) =>
+            {
+                if (spec.IsEnabled is not null && !spec.IsEnabled()) return;
+                if (patch.IsConnected) spec.Param.MarkSynced();
+                spec.OnClick();
+            };
+
+            borders[idx] = cell;
+            labels[idx]  = lbl;
+
+            void RefreshCell()
+            {
+                bool on      = spec.IsOn();
+                bool enabled = spec.IsEnabled?.Invoke() ?? true;
+                if (synced[idx])
+                {
+                    cell.Background  = on ? s_ledCellOn  : s_ledCellOff;
+                    cell.BorderBrush = on ? accent       : s_ledBorderOff;
+                    lbl.Foreground   = on ? accent       : s_ledTextOff;
+                }
+                else
+                {
+                    cell.Background  = s_ledCellOff;
+                    cell.BorderBrush = s_ledBorderUnsync;
+                    lbl.Foreground   = s_ledTextUnsync;
+                }
+                cell.Opacity = enabled ? 1.0 : 0.4;
+            }
+            RefreshCell();
+            spec.Param.ValueChanged     += (_, _)      => Dispatcher.UIThread.Post(RefreshCell);
+            spec.Param.SyncStateChanged += (_, s)      => Dispatcher.UIThread.Post(() => { synced[idx] = s; RefreshCell(); });
+            if (spec.Observe is not null && !ReferenceEquals(spec.Observe, spec.Param))
+                spec.Observe.ValueChanged += (_, _) => Dispatcher.UIThread.Post(RefreshCell);
+
+            row.Children.Add(cell);
+        }
+
+        return new StackPanel
+        {
+            Margin              = new Thickness(0, 2, 0, 4),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Children            = { row },
+        };
+    }
+
+    // Short cell label for option strings that don't fit a uniform LED strip.
+    // Returns (display, tooltip-or-null). Tooltip is the original full label.
+    private static (string display, string? tooltip) ShortLabel(string option)
+    {
+        if (string.Equals(option, "Gate+Trig", System.StringComparison.OrdinalIgnoreCase))
+            return ("G+T", "Gate+Trig");
+        return (option.ToUpperInvariant(), null);
     }
 
     // Polyline point sets for the six LFO waveform icons (26×12 canvas).
@@ -360,65 +456,50 @@ internal static class Knobs
 
     // ── Drone latching button (sustain hold) ──────────────────────────────────
 
-    public static Control MakeDroneButton(S1Patch patch, S1Parameter param, IBrush accent)
-    {
-        var led = new Border
-        {
-            Width             = 5,
-            Height            = 5,
-            CornerRadius      = new CornerRadius(3),
-            Margin            = new Thickness(0, 0, 5, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
+    public static Control MakeDroneButton(S1Patch patch, S1Parameter param, IBrush accent) =>
+        MakeToggleButton(patch, param, accent, "HOLD", "Click to latch / release held notes");
 
+    // Generic on/off toggle styled identically to a MakeMixedToggleRow cell —
+    // text-only, accent tint when on, dim when unsynced.
+    public static Control MakeToggleButton(S1Patch patch, S1Parameter param, IBrush accent, string labelText, string? tooltip = null)
+    {
         var label = new TextBlock
         {
-            Text              = "HOLD",
-            FontSize          = 8.5,
-            LetterSpacing     = 0.7,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        var inner = new StackPanel
-        {
-            Orientation       = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center,
-            Children          = { led, label },
+            Text                = labelText,
+            FontSize            = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment   = VerticalAlignment.Center,
         };
 
         var btn = new Border
         {
             BorderThickness     = new Thickness(1),
-            CornerRadius        = new CornerRadius(3),
-            Padding             = new Thickness(10, 4),
-            Margin              = new Thickness(3, 2),
+            CornerRadius        = new CornerRadius(2),
+            Padding             = new Thickness(8, 3),
+            Margin              = new Thickness(1),
+            Height              = 22,
             Cursor              = new Cursor(StandardCursorType.Hand),
             HorizontalAlignment = HorizontalAlignment.Center,
-            Child               = inner,
+            Child               = label,
         };
-        ToolTip.SetTip(btn, "Click to latch / release held notes");
+        if (tooltip is not null) ToolTip.SetTip(btn, tooltip);
 
-        bool droneIsSynced = param.IsSynced;
-        // Accent-tinted "on" background (0x14 alpha over accent colour) — stable per instance.
-        var col = ((ISolidColorBrush)accent).Color;
-        IBrush droneBgOn = new SolidColorBrush(Color.FromArgb(0x14, col.R, col.G, col.B));
+        bool synced = param.IsSynced;
 
         void Refresh()
         {
             bool on = param.Value > 0;
-            if (droneIsSynced)
+            if (synced)
             {
-                btn.Background   = on ? droneBgOn : s_droneBgOff;
-                btn.BorderBrush  = on ? accent    : s_droneBorderOff;
-                led.Background   = on ? accent    : s_droneLedOff;
-                label.Foreground = on ? accent    : s_droneLabelOff;
+                btn.Background   = on ? s_ledCellOn  : s_ledCellOff;
+                btn.BorderBrush  = on ? accent       : s_ledBorderOff;
+                label.Foreground = on ? accent       : s_ledTextOff;
             }
             else
             {
-                btn.Background   = s_droneBgOff;
-                btn.BorderBrush  = s_droneBorderUnsync;
-                led.Background   = s_droneLedOff;
-                label.Foreground = s_droneLabelUnsync;
+                btn.Background   = s_ledCellOff;
+                btn.BorderBrush  = s_ledBorderUnsync;
+                label.Foreground = s_ledTextUnsync;
             }
         }
         Refresh();
@@ -428,9 +509,9 @@ internal static class Knobs
             param.Value = param.Value > 0 ? 0 : 127;
         };
         param.ValueChanged     += (_, _) => Dispatcher.UIThread.Post(Refresh);
-        param.SyncStateChanged += (_, synced) => Dispatcher.UIThread.Post(() =>
+        param.SyncStateChanged += (_, s) => Dispatcher.UIThread.Post(() =>
         {
-            droneIsSynced = synced;
+            synced = s;
             Refresh();
         });
 

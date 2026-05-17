@@ -28,17 +28,22 @@ internal sealed class LfoPanel
 
         target.Children.Add(Knobs.MakeLedButtonGroup(_patch, Cc(12), _accent));
 
-        var modeRow = new StackPanel
-        {
-            Orientation         = Orientation.Horizontal,
-            Spacing             = 2,
-            Margin              = new Thickness(3, 1, 3, 2),
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        modeRow.Children.Add(Knobs.MakeLedButtonGroup(_patch, Cc(79),  _accent));
-        modeRow.Children.Add(Knobs.MakeLedButtonGroup(_patch, Cc(106), _accent));
-        modeRow.Children.Add(Knobs.MakeLedButtonGroup(_patch, Cc(105), _accent));
-        target.Children.Add(modeRow);
+        var modeP    = Cc(79);
+        var syncP    = Cc(106);
+        var keyTrigP = Cc(105);
+
+        // NORMAL/FAST select the Mode param value, but only matter when Sync is
+        // off. While Sync is on, they dim and ignore clicks — the underlying
+        // modeP value is preserved so toggling Sync back off restores the
+        // previously chosen Mode visually.
+        bool ModeEnabled() => syncP.Value == 0;
+
+        target.Children.Add(Knobs.MakeMixedToggleRow(_patch, _accent,
+            new Knobs.ToggleCell("NORMAL",   modeP,    () => modeP.Value == 0,  () => modeP.Value = 0,  ModeEnabled, syncP),
+            new Knobs.ToggleCell("FAST",     modeP,    () => modeP.Value == 1,  () => modeP.Value = 1,  ModeEnabled, syncP),
+            new Knobs.ToggleCell("SYNC",     syncP,    () => syncP.Value > 0,   () => syncP.Value = syncP.Value > 0 ? 0 : 127),
+            new Knobs.ToggleCell("KEY TRIG", keyTrigP, () => keyTrigP.Value > 0, () => keyTrigP.Value = keyTrigP.Value > 0 ? 0 : 127)
+        ));
     }
 
     private S1Parameter Cc(int cc) =>

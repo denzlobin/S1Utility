@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private string _outPortName = "";
     private Window? _seqWindow;
     private Window? _settingsWindow;
+    private Window? _infoWindow;
     private int    _midiChannel  = 3;
     private int    _pcChannel    = 16;
 
@@ -202,6 +203,8 @@ public partial class MainWindow : Window
         };
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
         SettingsButton.Click         += OnSettingsClicked;
+        InfoButton.Click             += OnInfoClicked;
+        DonateButton.Click           += OnDonateClicked;
 
         AutoConnectCheckBox.IsChecked = _autoConnect;
         AutoConnectCheckBox.IsCheckedChanged += (_, _) =>

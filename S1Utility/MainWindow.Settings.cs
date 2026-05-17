@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -1073,5 +1076,130 @@ public partial class MainWindow
 
         _settingsWindow = window;
         window.Show(this);
+    }
+
+    // Placeholder until a real donation page is set up.
+    private const string DonateUrl = "https://example.com/donate";
+    private const string RepoUrl   = "https://github.com/denzlobin/S1Utility";
+
+    private void OnDonateClicked(object? sender, RoutedEventArgs e) => OpenUrl(DonateUrl);
+
+    private void OnInfoClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_infoWindow != null) { _infoWindow.Activate(); return; }
+
+        string version = Assembly.GetExecutingAssembly().GetName().Version is { } v
+            ? $"v{v.Major}.{v.Minor}.{v.Build}"
+            : "";
+
+        var titleText = new TextBlock
+        {
+            Text                = "S-1 UTILITY",
+            FontSize            = 22,
+            FontWeight          = FontWeight.Bold,
+            LetterSpacing       = 2.5,
+            Foreground          = new SolidColorBrush(Color.Parse("#E0E0E8")),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        var versionText = new TextBlock
+        {
+            Text                = version,
+            FontSize            = 11,
+            FontFamily          = new FontFamily("Cascadia Mono,Consolas,monospace"),
+            Foreground          = new SolidColorBrush(Color.Parse("#7878A0")),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin              = new Thickness(0, 2, 0, 0),
+        };
+
+        var rule = new Border
+        {
+            Height              = 1,
+            Width               = 120,
+            Background          = new SolidColorBrush(Color.Parse("#3A3A46")),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin              = new Thickness(0, 16, 0, 16),
+        };
+
+        var authorText = new TextBlock
+        {
+            Text                = "by Denis Zlobin",
+            FontSize            = 12,
+            Foreground          = new SolidColorBrush(Color.Parse("#A0A0B8")),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
+        var repoLink = MakeLink(RepoUrl, "github.com/denzlobin/S1Utility");
+        var repoLinkHost = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin              = new Thickness(0, 4, 0, 0),
+            Children            = { repoLink },
+        };
+
+        var licenseText = new TextBlock
+        {
+            Text                = "Licensed under GPL-3.0",
+            FontSize            = 11,
+            Foreground          = new SolidColorBrush(Color.Parse("#7878A0")),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin              = new Thickness(0, 16, 0, 0),
+        };
+
+        var disclaimerText = new TextBlock
+        {
+            Text       = "Not affiliated with Roland Corporation. \"S-1\" is a trademark of Roland Corporation.",
+            FontSize   = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#666677")),
+            TextAlignment = TextAlignment.Center,
+            TextWrapping  = TextWrapping.Wrap,
+            Margin     = new Thickness(0, 14, 0, 0),
+            MaxWidth   = 360,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
+        var stack = new StackPanel
+        {
+            Margin   = new Thickness(28, 28, 28, 22),
+            Children = { titleText, versionText, rule, authorText, repoLinkHost, licenseText, disclaimerText },
+        };
+
+        _infoWindow = new Window
+        {
+            Title                 = "About S-1 Utility",
+            Width                 = 440,
+            SizeToContent         = SizeToContent.Height,
+            CanResize             = false,
+            Background            = new SolidColorBrush(Color.Parse("#18181E")),
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content               = stack,
+        };
+        _infoWindow.Closed += (_, _) => _infoWindow = null;
+        _infoWindow.Show(this);
+    }
+
+    private static TextBlock MakeLink(string url, string label)
+    {
+        var link = new TextBlock
+        {
+            Text       = label,
+            FontSize   = 11,
+            FontFamily = new FontFamily("Cascadia Mono,Consolas,monospace"),
+            Foreground = new SolidColorBrush(Color.Parse("#80B0E0")),
+            Cursor     = new Cursor(StandardCursorType.Hand),
+        };
+        link.PointerPressed += (_, _) => OpenUrl(url);
+        return link;
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Logger.Error($"Failed to open URL: {url}", ex);
+        }
     }
 }
