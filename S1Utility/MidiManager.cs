@@ -103,6 +103,19 @@ public sealed class MidiManager : IDisposable
         }
     }
 
+    // User-initiated disconnect. Stops the active input listener so the next
+    // Connect starts clean. Does not fire the Disconnected event — the caller
+    // already knows. Does not dispose _inputDevices (those live until Dispose()).
+    public void Disconnect()
+    {
+        if (_activeInput != null)
+        {
+            try { _activeInput.StopEventsListening(); } catch { /* tolerate already-stopped device */ }
+            _activeInput.EventReceived -= OnMidiEventReceived;
+            _activeInput = null;
+        }
+    }
+
     public int FindOutputIndex(Func<string, bool> predicate)
     {
         for (int i = 0; i < OutputDeviceNames.Count; i++)

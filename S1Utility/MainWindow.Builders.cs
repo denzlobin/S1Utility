@@ -729,22 +729,6 @@ public partial class MainWindow
 
     private void BuildLiveFeaturesPanel()
     {
-        // ── Auto-connect ──────────────────────────────────────────────────────
-        var (autoBtn, autoState) = MakeHeuristicToggle(
-            "AUTO-CONNECT",
-            "Heuristic feature: searches MIDI device names for \"S-1\" and connects automatically on launch " +
-            "or refresh. Any device containing \"S-1\" will match regardless of model. " +
-            "Verify the right device is selected after auto-connect.",
-            DmAccent);
-
-        autoState.SetActive(_autoConnect);
-        autoBtn.PointerPressed += (_, _) =>
-        {
-            _autoConnect = !_autoConnect;
-            autoState.SetActive(_autoConnect);
-            SaveSettings();
-        };
-
         // ── Live View: filter curve + ADSR animation (requires Patch Mirror) ──
         var (liveViewBtn, liveViewState) = MakeHeuristicToggle(
             "ANIMATIONS",
@@ -827,7 +811,6 @@ public partial class MainWindow
         // ── Assemble panel ────────────────────────────────────────────────────
         // LiveFeaturesPanel is a horizontal StackPanel sitting on the tab strip row;
         // buttons size to their content rather than stretching.
-        LiveFeaturesPanel.Children.Add(autoBtn);
         LiveFeaturesPanel.Children.Add(patchMirrorBtn);
         LiveFeaturesPanel.Children.Add(liveViewBtn);
     }

@@ -62,8 +62,24 @@ public partial class MainWindow
         DeviceCombo.DropDownOpened += (_, _) => ReenumerateDevices();
         InputCombo.DropDownOpened  += (_, _) => ReenumerateDevices();
 
-        if (DeviceCombo.Items.Count > 0) DeviceCombo.SelectedIndex = 0;
-        if (InputCombo.Items.Count  > 0) InputCombo.SelectedIndex  = 0;
+        DeviceCombo.SelectedIndex = PreferredOutputIndex();
+        InputCombo.SelectedIndex  = PreferredInputIndex();
+    }
+
+    // Pre-select an S-1 device when available so the dropdown is useful out of the box
+    // even when auto-connect is off. Falls back to index 0 (first OS-enumerated device).
+    private int PreferredOutputIndex()
+    {
+        if (_midiMgr.OutputDeviceNames.Count == 0) return -1;
+        int idx = _midiMgr.FindOutputIndex(n => n.Contains("S-1", StringComparison.OrdinalIgnoreCase));
+        return idx >= 0 ? idx : 0;
+    }
+
+    private int PreferredInputIndex()
+    {
+        if (_midiMgr.InputDeviceNames.Count == 0) return -1;
+        int idx = _midiMgr.FindInputIndex(n => n.Contains("S-1", StringComparison.OrdinalIgnoreCase));
+        return idx >= 0 ? idx : 0;
     }
 
     private void ReenumerateDevices()
@@ -84,36 +100,57 @@ public partial class MainWindow
         foreach (var name in _midiMgr.InputDeviceNames)
             InputCombo.Items.Add(name);
 
-        // Restore previous selections by name
+        // Restore previous selection by name; if the user had no prior selection
+        // (or the device is gone), fall back to the preferred S-1-first index.
         if (prevOut != null)
         {
             int idx = DeviceCombo.Items.Cast<string>().ToList().IndexOf(prevOut);
-            DeviceCombo.SelectedIndex = idx >= 0 ? idx : (DeviceCombo.Items.Count > 0 ? 0 : -1);
+            DeviceCombo.SelectedIndex = idx >= 0 ? idx : PreferredOutputIndex();
         }
-        else if (DeviceCombo.Items.Count > 0)
-            DeviceCombo.SelectedIndex = 0;
+        else
+            DeviceCombo.SelectedIndex = PreferredOutputIndex();
 
         if (prevIn != null)
         {
             int idx = _midiMgr.FindInputIndex(n => n == prevIn);
-            if (idx >= 0) InputCombo.SelectedIndex = idx;
+            InputCombo.SelectedIndex = idx >= 0 ? idx : PreferredInputIndex();
         }
-        else if (InputCombo.Items.Count > 0)
-            InputCombo.SelectedIndex = 0;
+        else
+            InputCombo.SelectedIndex = PreferredInputIndex();
     }
 
     // ── Toolbar actions ───────────────────────────────────────────────────────
 
-    private async void OnConnectClicked(object? sender, RoutedEventArgs e) => await PerformConnectAsync();
+    private async void OnConnectClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_isConnected)
+            PerformDisconnect();
+        else
+            await PerformConnectAsync();
+    }
 
-    private void OnDeviceDisconnected()
+    // Involuntary disconnect: transport SendEvent failed and the MidiManager fired
+    // its Disconnected event. Treat as an error condition for the user.
+    private void OnDeviceDisconnected() =>
+        ApplyDisconnectedState("Device disconnected.", StatusKind.Error);
+
+    // User-initiated disconnect from the Connect/Disconnect toggle. Stop the input
+    // listener so the next Connect starts from a clean state, then mirror the
+    // involuntary-disconnect UI cleanup.
+    private void PerformDisconnect()
+    {
+        _midiMgr.Disconnect();
+        ApplyDisconnectedState("Disconnected.", StatusKind.Info);
+    }
+
+    private void ApplyDisconnectedState(string status, StatusKind kind)
     {
         _isConnected                 = false;
         _outPortName                 = "";
-        _initPatchButton!.IsEnabled      = false;
+        _initPatchButton!.IsEnabled  = false;
         PanicButton.IsEnabled        = false;
-        ConnectButton.Content        = "Reconnect";
-        SetStatus("Device disconnected.", StatusKind.Error);
+        ConnectButton.Content        = "Connect";
+        SetStatus(status, kind);
         // Null the transport so further knob drags don't throw inside the stale
         // DryWetMidiTransport and get silently swallowed.
         _patch.Disconnect();
@@ -196,6 +233,20 @@ public partial class MainWindow
             return;
         }
 
+        // Foot-gun guard: if the user clicks Connect with the S-1 powered off but
+        // another MIDI device present, the dropdown fell back to that other device.
+        // Confirm before we silently start sending CC traffic to the wrong target.
+        var pickedName = _midiMgr.OutputDeviceNames[DeviceCombo.SelectedIndex];
+        if (!pickedName.Contains("S-1", StringComparison.OrdinalIgnoreCase))
+        {
+            bool ok = await ShowNonS1ConnectWarningAsync(pickedName);
+            if (!ok)
+            {
+                SetStatus("Connect cancelled.", StatusKind.Info);
+                return;
+            }
+        }
+
         _patch.ResetAllSync();
 
         var (outputOk, outName, inName, inputError) = await _midiMgr.ConnectAsync(
@@ -209,8 +260,8 @@ public partial class MainWindow
 
         _isConnected                 = true;
         _outPortName                 = outName ?? "";
-        ConnectButton.Content        = "Reconnect";
-        _initPatchButton!.IsEnabled      = true;
+        ConnectButton.Content        = "Disconnect";
+        _initPatchButton!.IsEnabled  = true;
         PanicButton.IsEnabled        = true;
         UpdatePatchGridAvailability();
         UpdateSyncIndicator(_patch.UnsyncedCount);
@@ -229,17 +280,15 @@ public partial class MainWindow
 
     private async void TryAutoConnect()
     {
+        // PopulateDeviceLists already pre-selects an S-1 device when present. If
+        // none is found, don't try to connect — the dropdown defaulted to whatever
+        // first output the OS reported, which probably isn't the synth.
         int outIdx = _midiMgr.FindOutputIndex(n => n.Contains("S-1", StringComparison.OrdinalIgnoreCase));
         if (outIdx < 0)
         {
             SetStatus("Auto-connect: S-1 output not found.", StatusKind.Warn);
             return;
         }
-
-        int inIdx = _midiMgr.FindInputIndex(n => n.Contains("S-1", StringComparison.OrdinalIgnoreCase));
-
-        DeviceCombo.SelectedIndex = outIdx;
-        if (inIdx >= 0) InputCombo.SelectedIndex = inIdx;
 
         await PerformConnectAsync();
     }
@@ -357,6 +406,61 @@ public partial class MainWindow
 
         await _patch.SendAllAsync();
         SetStatus($"Loaded: {preset.Name}", StatusKind.Ok);
+    }
+
+    private async Task<bool> ShowNonS1ConnectWarningAsync(string deviceName)
+    {
+        bool confirmed = false;
+
+        var yesBtn = new Button { Content = "Connect anyway", Classes = { "toolbar" } };
+        var noBtn  = new Button { Content = "Cancel",         Classes = { "toolbar" } };
+
+        var dlg = new Window
+        {
+            Title                 = "Connect to non-S-1 device?",
+            Width                 = 460,
+            SizeToContent         = SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background            = new SolidColorBrush(Color.Parse("#1C1C1C")),
+            Content = new StackPanel
+            {
+                Margin   = new Thickness(24, 20),
+                Spacing  = 14,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text       = "⚠  NON-S-1 DEVICE SELECTED",
+                        FontSize   = 13,
+                        FontWeight = FontWeight.Bold,
+                        Foreground = Palette.StatusWarn,
+                    },
+                    new TextBlock
+                    {
+                        FontSize     = 11,
+                        Foreground   = new SolidColorBrush(Color.Parse("#CCCCCC")),
+                        TextWrapping = TextWrapping.Wrap,
+                        Text         =
+                            $"The selected output \"{deviceName}\" doesn't look like an S-1.\n\n" +
+                            "If you continue, the editor will send CC traffic to that device. " +
+                            "If the S-1 is just powered off, cancel and turn it on, then click Connect again.",
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing     = 8,
+                        Children    = { yesBtn, noBtn },
+                    },
+                },
+            },
+        };
+
+        yesBtn.Click += (_, _) => { confirmed = true; dlg.Close(); };
+        noBtn.Click  += (_, _) => dlg.Close();
+
+        await dlg.ShowDialog(this);
+        return confirmed;
     }
 
     private async Task<bool> ShowPatternSyncWarningAsync()
@@ -648,7 +752,8 @@ public partial class MainWindow
             UnsyncedChip.IsVisible = false;
         }
 
-        // Footer dot + label carry connection state.
+        // Footer dot + label carry connection state. The Connect/Disconnect button
+        // expresses state via its label rather than tint.
         if (_isConnected)
         {
             FooterConnDot.Background  = Palette.StatusOk;
@@ -656,14 +761,12 @@ public partial class MainWindow
             FooterConnText.Text = string.IsNullOrEmpty(_outPortName)
                 ? "MIDI · Connected"
                 : $"MIDI · {_outPortName}";
-            ConnectButton.Classes.Set("connected", true);
         }
         else
         {
             FooterConnDot.Background  = s_footerDotOff;
             FooterConnText.Foreground = Palette.FgLabel;
             FooterConnText.Text = "Not connected";
-            ConnectButton.Classes.Set("connected", false);
         }
     }
 
@@ -759,7 +862,7 @@ public partial class MainWindow
         var grid = new Grid
         {
             Margin            = new Thickness(22, 18, 22, 18),
-            RowDefinitions    = RowDefinitions.Parse("Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
+            RowDefinitions    = RowDefinitions.Parse("Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
             ColumnDefinitions = ColumnDefinitions.Parse("180,*,Auto"),
             ColumnSpacing     = 12,
             RowSpacing        = 8,
@@ -782,19 +885,22 @@ public partial class MainWindow
         Place(RowLabel("Program Change Channel"),     2, 0);
         Place(ProgramChangeChannelCombo,               2, 1, 2);
 
+        Place(RowLabel("Startup"),                    3, 0);
+        Place(AutoConnectCheckBox,                     3, 1, 2);
+
         var sep = new Border
         {
             Height     = 1,
             Background = new SolidColorBrush(Color.Parse("#2C2C36")),
             Margin     = new Thickness(0, 10, 0, 8),
         };
-        Place(sep, 3, 0, 3);
+        Place(sep, 4, 0, 3);
 
-        Place(SectionHeader("PRM FILES"), 4, 0, 3);
+        Place(SectionHeader("PRM FILES"), 5, 0, 3);
 
-        Place(RowLabel("PRM Folder"),     5, 0);
-        Place(PrmFolderBox,                5, 1);
-        Place(BrowsePrmFolderButton,       5, 2);
+        Place(RowLabel("PRM Folder"),     6, 0);
+        Place(PrmFolderBox,                6, 1);
+        Place(BrowsePrmFolderButton,       6, 2);
 
         var prmHint = new TextBlock
         {
@@ -804,7 +910,7 @@ public partial class MainWindow
             TextWrapping = TextWrapping.Wrap,
             Margin       = new Thickness(0, 2, 0, 0),
         };
-        Grid.SetRow(prmHint, 6);
+        Grid.SetRow(prmHint, 7);
         Grid.SetColumn(prmHint, 1);
         Grid.SetColumnSpan(prmHint, 2);
         grid.Children.Add(prmHint);
@@ -817,7 +923,7 @@ public partial class MainWindow
             MinWidth            = 72,
             Margin              = new Thickness(0, 18, 0, 0),
         };
-        Grid.SetRow(closeBtn, 7);
+        Grid.SetRow(closeBtn, 8);
         Grid.SetColumn(closeBtn, 0);
         Grid.SetColumnSpan(closeBtn, 3);
         grid.Children.Add(closeBtn);
@@ -841,6 +947,7 @@ public partial class MainWindow
             // Detach so the controls can be re-parented into the next popup.
             (ChannelCombo.Parent              as Panel)?.Children.Remove(ChannelCombo);
             (ProgramChangeChannelCombo.Parent as Panel)?.Children.Remove(ProgramChangeChannelCombo);
+            (AutoConnectCheckBox.Parent       as Panel)?.Children.Remove(AutoConnectCheckBox);
             (PrmFolderBox.Parent              as Panel)?.Children.Remove(PrmFolderBox);
             (BrowsePrmFolderButton.Parent     as Panel)?.Children.Remove(BrowsePrmFolderButton);
             _settingsWindow = null;

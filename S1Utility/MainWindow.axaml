@@ -157,16 +157,6 @@
             <Setter Property="Opacity" Value="0.45"/>
         </Style>
 
-        <!-- Connect button when connected: green-tinted -->
-        <Style Selector="Button.toolbar.connected">
-            <Setter Property="Background"  Value="#1A2A1A"/>
-            <Setter Property="Foreground"  Value="#70C870"/>
-            <Setter Property="BorderBrush" Value="#3A6A3A"/>
-        </Style>
-        <Style Selector="Button.toolbar.connected /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#1A2A1A"/>
-        </Style>
-
         <!-- Patch bank buttons -->
         <Style Selector="Button.patch-btn">
             <Setter Property="HorizontalAlignment"        Value="Stretch"/>

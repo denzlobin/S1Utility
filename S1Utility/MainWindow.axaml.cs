@@ -81,6 +81,12 @@ public partial class MainWindow : Window
         Content  = "Browse…",
         Classes  = { "toolbar" },
     };
+    private readonly CheckBox AutoConnectCheckBox = new()
+    {
+        Content    = "Attempt auto-connect on app start",
+        FontSize   = 11,
+        Foreground = new SolidColorBrush(Color.Parse("#A0A0B8")),
+    };
 
     private sealed record HeuristicToggleState(Action<bool> SetActive, Action<bool> SetEnabled);
 
@@ -198,6 +204,13 @@ public partial class MainWindow : Window
         };
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
         SettingsButton.Click         += OnSettingsClicked;
+
+        AutoConnectCheckBox.IsChecked = _autoConnect;
+        AutoConnectCheckBox.IsCheckedChanged += (_, _) =>
+        {
+            _autoConnect = AutoConnectCheckBox.IsChecked == true;
+            SaveSettings();
+        };
 
         AddHandler(KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
 
