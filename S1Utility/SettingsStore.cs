@@ -26,6 +26,13 @@ public sealed record SettingsV1
     // a fresh connection is made while Mirror is already on. 0 = Bank 1 Pat 01,
     // matching the legacy hard-coded behaviour.
     public int    MirrorInitialProgram   { get; init; }
+
+    // When true, every Patch Mirror program change (editor click, keyboard nav,
+    // initial connect, or PC received from the device) is followed by a SendAll
+    // that pushes the editor's CC values to the synth. Only CC-mapped parameters
+    // are covered — sequencer steps, draw wave, chop pattern, D-Motion, advanced
+    // FX, etc. have no MIDI path and stay whatever the device loaded.
+    public bool   MirrorForcePushOnPc    { get; init; }
 }
 
 public static class SettingsStore
@@ -98,6 +105,7 @@ public static class SettingsStore
             PcChannel              = Math.Clamp(ReadInt(root, "pcChannel",   defaults.PcChannel),   1, 16),
             SkipPatternSyncWarning = ReadBool  (root, "skipPatternSyncWarning", defaults.SkipPatternSyncWarning),
             MirrorInitialProgram   = Math.Clamp(ReadInt(root, "mirrorInitialProgram", defaults.MirrorInitialProgram), 0, 63),
+            MirrorForcePushOnPc    = ReadBool  (root, "mirrorForcePushOnPc", defaults.MirrorForcePushOnPc),
         };
     }
 

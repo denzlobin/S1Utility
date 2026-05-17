@@ -52,6 +52,7 @@ public partial class MainWindow : Window
     private int    _midiChannel  = 3;
     private int    _pcChannel    = 16;
     private int    _mirrorInitialProgram;
+    private bool   _mirrorForcePushOnPc;
 
     // Settings popup controls — declared here so they survive the popup being closed
     // and can be re-parented next time it opens. Populated/wired in PopulateDeviceLists
@@ -103,6 +104,12 @@ public partial class MainWindow : Window
     private readonly CheckBox AutoConnectCheckBox = new()
     {
         Content    = "Attempt auto-connect on app start",
+        FontSize   = 11,
+        Foreground = new SolidColorBrush(Color.Parse("#A0A0B8")),
+    };
+    private readonly CheckBox MirrorForcePushCheckBox = new()
+    {
+        Content    = "Force editor values on Program Change",
         FontSize   = 11,
         Foreground = new SolidColorBrush(Color.Parse("#A0A0B8")),
     };
@@ -228,6 +235,13 @@ public partial class MainWindow : Window
         AutoConnectCheckBox.IsCheckedChanged += (_, _) =>
         {
             _autoConnect = AutoConnectCheckBox.IsChecked == true;
+            SaveSettings();
+        };
+
+        MirrorForcePushCheckBox.IsChecked = _mirrorForcePushOnPc;
+        MirrorForcePushCheckBox.IsCheckedChanged += (_, _) =>
+        {
+            _mirrorForcePushOnPc = MirrorForcePushCheckBox.IsChecked == true;
             SaveSettings();
         };
 

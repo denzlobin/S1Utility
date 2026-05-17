@@ -89,6 +89,13 @@ public partial class MainWindow
                 if (loaded) _slotSnapshots[program] = CaptureSnapshot();
             }
             UpdateRestorePatchButton();
+
+            // Optional Patch Mirror feature: push the editor's CC-mapped values to
+            // the device so the synth's audible state matches the file. PRM-only
+            // data (sequencer, draw, chop, D-Motion, etc.) has no MIDI path and
+            // stays whatever the device loaded — surfaced in the warning popup.
+            if (_mirrorForcePushOnPc && _isConnected)
+                _ = _patch.SendAllAsync();
         }
         else
         {

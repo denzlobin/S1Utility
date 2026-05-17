@@ -31,6 +31,7 @@ public partial class MainWindow
         _pcChannel                  = s.PcChannel;
         _skipPatternSyncWarning     = s.SkipPatternSyncWarning;
         _mirrorInitialProgram       = Math.Clamp(s.MirrorInitialProgram, 0, 63);
+        _mirrorForcePushOnPc        = s.MirrorForcePushOnPc;
     }
 
     private void SaveSettings() => SettingsStore.Save(SettingsPath, new SettingsV1
@@ -43,5 +44,6 @@ public partial class MainWindow
         PcChannel              = PcChannel,
         SkipPatternSyncWarning = _skipPatternSyncWarning,
         MirrorInitialProgram   = _mirrorInitialProgram,
+        MirrorForcePushOnPc    = _mirrorForcePushOnPc,
     });
 }

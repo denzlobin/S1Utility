@@ -59,7 +59,7 @@ public partial class MainWindow
         var grid = new Grid
         {
             Margin            = new Thickness(22, 18, 22, 18),
-            RowDefinitions    = RowDefinitions.Parse("Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
+            RowDefinitions    = RowDefinitions.Parse("Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
             ColumnDefinitions = ColumnDefinitions.Parse("180,*,Auto"),
             ColumnSpacing     = 12,
             RowSpacing        = 8,
@@ -139,6 +139,18 @@ public partial class MainWindow
         Place(mirrorPatchLabel, 10, 0);
         Place(mirrorPatchRow,   10, 1, 2);
 
+        const string forcePushTooltip =
+            "After every Program Change (whether you click a pattern button, navigate with " +
+            "arrow keys, or the synth sends PC), push the editor's CC values to the device.\n\n" +
+            "Only CC-mapped parameters are sent. PRM-only data (sequencer steps, draw wave, " +
+            "chop pattern, D-Motion assigns, advanced FX, riser) has no MIDI path and stays " +
+            "whatever the device loaded.";
+        var forcePushLabel = RowLabel("Force CCs on PC");
+        ToolTip.SetTip(forcePushLabel,           forcePushTooltip);
+        ToolTip.SetTip(MirrorForcePushCheckBox,  forcePushTooltip);
+        Place(forcePushLabel,           11, 0);
+        Place(MirrorForcePushCheckBox,  11, 1, 2);
+
         var resetBtn = new Button
         {
             Content             = "Reset preferences",
@@ -147,7 +159,7 @@ public partial class MainWindow
             Margin              = new Thickness(0, 18, 0, 0),
         };
         ToolTip.SetTip(resetBtn, "Wipe all stored preferences and revert to first-launch defaults.");
-        Grid.SetRow(resetBtn, 11);
+        Grid.SetRow(resetBtn, 12);
         Grid.SetColumn(resetBtn, 0);
         Grid.SetColumnSpan(resetBtn, 3);
         grid.Children.Add(resetBtn);
@@ -160,7 +172,7 @@ public partial class MainWindow
             MinWidth            = 72,
             Margin              = new Thickness(0, 18, 0, 0),
         };
-        Grid.SetRow(closeBtn, 11);
+        Grid.SetRow(closeBtn, 12);
         Grid.SetColumn(closeBtn, 0);
         Grid.SetColumnSpan(closeBtn, 3);
         grid.Children.Add(closeBtn);
@@ -187,6 +199,7 @@ public partial class MainWindow
             (ProgramChangeChannelCombo.Parent as Panel)?.Children.Remove(ProgramChangeChannelCombo);
             (MirrorInitialBankCombo.Parent    as Panel)?.Children.Remove(MirrorInitialBankCombo);
             (MirrorInitialPatternCombo.Parent as Panel)?.Children.Remove(MirrorInitialPatternCombo);
+            (MirrorForcePushCheckBox.Parent   as Panel)?.Children.Remove(MirrorForcePushCheckBox);
             (AutoConnectCheckBox.Parent       as Panel)?.Children.Remove(AutoConnectCheckBox);
             (PrmFolderBox.Parent              as Panel)?.Children.Remove(PrmFolderBox);
             (BrowsePrmFolderButton.Parent     as Panel)?.Children.Remove(BrowsePrmFolderButton);
@@ -211,6 +224,7 @@ public partial class MainWindow
         ProgramChangeChannelCombo.SelectedIndex = _pcChannel - 1;
         MirrorInitialBankCombo.SelectedIndex    = _mirrorInitialProgram / 16;
         MirrorInitialPatternCombo.SelectedIndex = _mirrorInitialProgram % 16;
+        MirrorForcePushCheckBox.IsChecked       = _mirrorForcePushOnPc;
         AutoConnectCheckBox.IsChecked           = _autoConnect;
         PrmFolderBox.Text                       = _prm.PrmFolder;
         UpdateFooterChannels();
