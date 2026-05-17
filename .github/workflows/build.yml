@@ -32,3 +32,30 @@ jobs:
 
       - name: Test
         run: dotnet test --configuration Release --no-build --nologo --verbosity normal
+
+      - name: Short commit SHA
+        id: sha
+        shell: bash
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish (Windows x64, self-contained)
+        run: >
+          dotnet publish S1Utility/S1Utility.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output publish/S1Utility-${{ steps.sha.outputs.short }}-win-x64
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          $name = "S1Utility-${{ steps.sha.outputs.short }}-win-x64"
+          Compress-Archive -Path "publish/$name/*" -DestinationPath "publish/$name.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: S1Utility-${{ steps.sha.outputs.short }}-win-x64
+          path: publish/S1Utility-${{ steps.sha.outputs.short }}-win-x64.zip
+          retention-days: 30
+          if-no-files-found: error
