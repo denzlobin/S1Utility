@@ -1,0 +1,57 @@
+name: Release
+
+# Fires when a tag matching `v*` is pushed (e.g. v0.1.0, v1.2.3-beta).
+# Builds + tests, publishes a self-contained Windows x64 zip, and attaches
+# it to a GitHub Release with auto-generated release notes.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write  # softprops/action-gh-release needs this to create the Release
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK pinned by global.json
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Extract version from tag
+        id: ver
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Test
+        run: dotnet test --configuration Release --nologo --verbosity normal
+
+      - name: Publish (Windows x64, self-contained)
+        run: >
+          dotnet publish S1Utility/S1Utility.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output publish/S1Utility-${{ steps.ver.outputs.version }}-win-x64
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          $name = "S1Utility-${{ steps.ver.outputs.version }}-win-x64"
+          Compress-Archive -Path "publish/$name/*" -DestinationPath "publish/$name.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish/S1Utility-${{ steps.ver.outputs.version }}-win-x64.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true
