@@ -343,4 +343,24 @@ public partial class MainWindow : Window
         (Log.Logger as IDisposable)?.Dispose();
         base.OnClosed(e);
     }
+
+    // ── Window sizing ────────────────────────────────────────────────────────
+    //
+    // Aspect-ratio enforcement during resize is platform-specific and lives in
+    // `IWindowSizePolicy` / `WindowsAspectRatioPolicy`. `FitToScreen` is the
+    // cross-platform piece that runs on Opened.
+
+    private void FitToScreen()
+    {
+        var screen = Screens.Primary;
+        if (screen is null) return;
+        double maxW = screen.WorkingArea.Width  / screen.Scaling;
+        double maxH = screen.WorkingArea.Height / screen.Scaling;
+        if (Width > maxW || Height > maxH)
+        {
+            double scale = Math.Min(maxW / DesignWidth, maxH / DesignHeight);
+            Width  = Math.Round(DesignWidth  * scale);
+            Height = Math.Round(DesignHeight * scale);
+        }
+    }
 }

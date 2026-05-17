@@ -7,7 +7,9 @@ using S1Utility.Widgets;
 
 namespace S1Utility.Panels;
 
-// LFO card body: rate knob (sync-aware) + mod-depth knob + waveform LED + 3 mode LEDs.
+// LFO card body: rate knob (sync-aware) + mod-depth knob + waveform LED strip +
+// 4-cell mode row (NORMAL/FAST radio + SYNC/KEY TRIG toggles). NORMAL/FAST dim
+// while Sync is on but preserve their value.
 internal sealed class LfoPanel
 {
     private readonly S1Patch _patch;
