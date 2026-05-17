@@ -207,7 +207,7 @@ public partial class MainWindow
 
         if (!hasFolder)
         {
-            InspectorBannerHeadline.Text  = "No patch data to inspect";
+            InspectorBannerHeadline.Text  = "NO PATCH DATA TO INSPECT";
             InspectorBannerPrimary.Text   = "Back up your patches from the synth, then point the PRM folder below at the resulting files.";
             InspectorBannerSecondary.Text = "The Patch Inspector reads .PRM files saved by the S-1. With a folder configured, this tab shows every parameter in the selected pattern, including the sequencer steps, draw wave, chop pattern, and D-Motion assigns that have no MIDI equivalent.";
             InspectorBanner.IsVisible     = true;
@@ -216,7 +216,7 @@ public partial class MainWindow
         else if (slotBroken)
         {
             (int bank, int pat) = SlotLabel(slot);
-            InspectorBannerHeadline.Text  = "PRM file is malformed";
+            InspectorBannerHeadline.Text  = "PRM FILE IS MALFORMED";
             InspectorBannerPrimary.Text   = $"Bank {bank}, Pattern {pat} contains unknown keys or failed to parse. The data on disk is not reliable enough to display.";
             InspectorBannerSecondary.Text = "This usually means the file was edited by hand or saved by another tool. Other slots in the folder are unaffected.";
             InspectorBanner.IsVisible     = true;
@@ -225,7 +225,7 @@ public partial class MainWindow
         else if (slotMissing)
         {
             (int bank, int pat) = SlotLabel(slot);
-            InspectorBannerHeadline.Text  = "No PRM file for this slot";
+            InspectorBannerHeadline.Text  = "NO PRM FILE FOR THIS SLOT";
             InspectorBannerPrimary.Text   = $"Bank {bank}, Pattern {pat} has no backup file in the PRM folder. Selecting it still sends Program Change to the synth, but there is no patch data to inspect.";
             InspectorBannerSecondary.Text = "Back up this pattern from the synth to add it to the folder.";
             InspectorBanner.IsVisible     = true;
