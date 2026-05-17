@@ -669,7 +669,7 @@ public partial class MainWindow
 
         var btn = new Border
         {
-            Height              = 24,
+            Height              = 26,
             BorderThickness     = new Thickness(1),
             CornerRadius        = new CornerRadius(3),
             Padding             = new Thickness(9, 3),

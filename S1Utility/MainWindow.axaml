@@ -4,8 +4,8 @@
         Title="S-1 Utility"
         Icon="/Assets/icon-256.png"
         Background="#1A1A1A"
-        Width="1100" Height="1130"
-        MinWidth="550" MinHeight="565">
+        Width="1100" Height="1098"
+        MinWidth="550" MinHeight="549">
 
     <Window.Resources>
         <!-- Shared brushes live in App.axaml's Application.Resources so the C#
@@ -233,51 +233,7 @@
     </Window.Styles>
 
     <Viewbox Stretch="Uniform">
-        <DockPanel Width="1100" Height="1130">
-
-        <!-- ── Window header (logo + version + unsynced chip) ───────────── -->
-        <Border DockPanel.Dock="Top"
-                Background="#15151A"
-                BorderBrush="#2C2C36"
-                BorderThickness="0,0,0,1"
-                Padding="14,0"
-                Height="32">
-            <Grid>
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Border Width="8" Height="8" CornerRadius="4"
-                            Background="#F0A040"
-                            BoxShadow="0 0 6 0 #88F0A040"/>
-                    <TextBlock Text="S-1 UTILITY"
-                               FontSize="11.5" FontWeight="SemiBold"
-                               Foreground="#CCCCDD" LetterSpacing="2"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="12"
-                            HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <StackPanel x:Name="UnsyncedChip"
-                                Orientation="Horizontal" Spacing="5"
-                                VerticalAlignment="Center"
-                                IsVisible="False"
-                                ToolTip.Tip="Parameters the editor has not confirmed from the synth.">
-                        <Border Width="6" Height="6" CornerRadius="3"
-                                Background="#F0A040"
-                                BoxShadow="0 0 4 0 #88F0A040"/>
-                        <TextBlock x:Name="UnsyncedChipText"
-                                   FontSize="10"
-                                   FontFamily="Cascadia Mono,Consolas,monospace"
-                                   Foreground="#F0A040"
-                                   LetterSpacing="0.8"
-                                   VerticalAlignment="Center"
-                                   Text="0 UNSYNCED"/>
-                    </StackPanel>
-                    <TextBlock Text="v1.0"
-                               FontSize="9.5"
-                               FontFamily="Cascadia Mono,Consolas,monospace"
-                               Foreground="#3A3A48"
-                               LetterSpacing="0.8"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-            </Grid>
-        </Border>
+        <DockPanel Width="1100" Height="1098">
 
         <!-- ── Top bar / Toolbar (MIDI + edit history + preset + settings) ── -->
         <Border DockPanel.Dock="Top"
@@ -333,6 +289,11 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <StackPanel x:Name="LiveFeaturesPanel"
+                                Orientation="Horizontal"
+                                Spacing="4"
+                                VerticalAlignment="Center"/>
+                    <Border Width="1" Height="18" Background="#2C2C36" Margin="4,0"/>
                     <Button x:Name="SettingsButton"
                             Classes="toolbar"
                             Content="⚙"
@@ -351,7 +312,7 @@
                 BorderThickness="0,1,0,0"
                 Padding="14,4"
                 Height="24">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                 <Border Grid.Column="0"
                         x:Name="FooterConnDot"
                         Width="6" Height="6" CornerRadius="3"
@@ -381,7 +342,25 @@
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding #StatusText.Text}"/>
-                <TextBlock Grid.Column="4"
+                <StackPanel Grid.Column="4"
+                            x:Name="UnsyncedChip"
+                            Orientation="Horizontal" Spacing="5"
+                            VerticalAlignment="Center"
+                            Margin="12,0,0,0"
+                            IsVisible="False"
+                            ToolTip.Tip="Parameters the editor has not confirmed from the synth.">
+                    <Border Width="6" Height="6" CornerRadius="3"
+                            Background="#F0A040"
+                            BoxShadow="0 0 4 0 #88F0A040"/>
+                    <TextBlock x:Name="UnsyncedChipText"
+                               FontSize="9.5"
+                               FontFamily="Cascadia Mono,Consolas,monospace"
+                               Foreground="#F0A040"
+                               LetterSpacing="0.8"
+                               VerticalAlignment="Center"
+                               Text="0 UNSYNCED"/>
+                </StackPanel>
+                <TextBlock Grid.Column="5"
                            x:Name="FooterMidiChText"
                            Text="CH 3"
                            FontSize="9.5"
@@ -391,13 +370,13 @@
                            VerticalAlignment="Center"
                            Margin="12,0,0,0"
                            ToolTip.Tip="MIDI channel for parameter CC traffic"/>
-                <TextBlock Grid.Column="5"
+                <TextBlock Grid.Column="6"
                            Text="·"
                            FontSize="9.5"
                            Foreground="#3A3A48"
                            VerticalAlignment="Center"
                            Margin="8,0,8,0"/>
-                <TextBlock Grid.Column="6"
+                <TextBlock Grid.Column="7"
                            x:Name="FooterPcChText"
                            Text="PC CH 16"
                            FontSize="9.5"
@@ -406,19 +385,19 @@
                            LetterSpacing="0.3"
                            VerticalAlignment="Center"
                            ToolTip.Tip="Program Change channel"/>
-                <Border Grid.Column="7"
+                <Border Grid.Column="8"
                         Width="1" Height="10"
                         Background="#2C2C36"
                         VerticalAlignment="Center"
                         Margin="12,0,0,0"/>
-                <Border Grid.Column="8"
+                <Border Grid.Column="9"
                         x:Name="MidiActivityDot"
                         Width="6" Height="6" CornerRadius="3"
                         Background="#2C2C3A"
                         VerticalAlignment="Center"
                         Margin="12,0,0,0"
                         ToolTip.Tip="MIDI activity"/>
-                <TextBlock Grid.Column="9"
+                <TextBlock Grid.Column="10"
                            x:Name="FooterActivityText"
                            Text="idle"
                            FontSize="9.5"
@@ -440,19 +419,12 @@
         </Border>
 
         <!-- ── Tabs ───────────────────────────────────────────────────────── -->
-        <Grid>
-        <!-- Overlay: live heuristic feature toggles, aligned to the right edge of the
-             section cards (cards have Margin=3 inside a content Grid with Margin=4
-             → ~7px from the TabControl right edge). Built in code-behind. -->
-        <StackPanel x:Name="LiveFeaturesPanel"
-                    Orientation="Horizontal"
-                    Spacing="4"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Margin="0,7,7,0"
-                    ZIndex="1"/>
-
         <TabControl x:Name="MainTabs" Margin="7,0,7,0">
+            <TabControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                </ItemsPanelTemplate>
+            </TabControl.ItemsPanel>
 
             <!-- ── Tab 1: Realtime Editor ──────────────────────────────── -->
             <TabItem Header="Realtime Editor">
@@ -637,7 +609,6 @@
             </TabItem>
 
         </TabControl>
-        </Grid>
 
         </DockPanel>
     </Viewbox>

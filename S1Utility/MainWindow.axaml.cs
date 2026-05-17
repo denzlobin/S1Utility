@@ -107,7 +107,7 @@ public partial class MainWindow : Window
     // ── Aspect-ratio scaling ──────────────────────────────────────────────────
 
     private const  double DesignWidth  = 1100;
-    private const  double DesignHeight = 1130;
+    private const  double DesignHeight = 1098;
     private const  double AspectRatio  = DesignWidth / DesignHeight;
 
     private IWindowSizePolicy? _sizePolicy;
