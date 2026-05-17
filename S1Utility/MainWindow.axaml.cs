@@ -91,7 +91,7 @@ public partial class MainWindow : Window
     private sealed record HeuristicToggleState(Action<bool> SetActive, Action<bool> SetEnabled);
 
     private HeuristicToggleState? _patchMirrorToggle;
-    private HeuristicToggleState? _liveViewToggle;
+    private HeuristicToggleState? _animationsToggle;
 
     // ── Filter modulation animation ───────────────────────────────────────────
 
@@ -260,6 +260,27 @@ public partial class MainWindow : Window
         if (!inTextBox && ctrl && (e.Key == Key.Y || (e.Key == Key.Z && shift)))
         {
             Redo();
+            e.Handled = true;
+            return;
+        }
+
+        if (!inTextBox && ctrl && e.Key == Key.M)
+        {
+            OnConnectClicked(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (!inTextBox && ctrl && e.Key == Key.I && _initPatchButton?.IsEnabled == true)
+        {
+            OnInitPatchClicked(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (!inTextBox && ctrl && e.Key == Key.R && _restorePatchButton?.IsEnabled == true)
+        {
+            OnRestorePatchClicked();
             e.Handled = true;
             return;
         }

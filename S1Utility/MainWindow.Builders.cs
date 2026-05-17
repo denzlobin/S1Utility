@@ -705,7 +705,7 @@ public partial class MainWindow
         catch { return false; }
     }
 
-    // Refreshes the enabled and active state of both Patch Mirror and Live View
+    // Refreshes the enabled and active state of both Patch Mirror and Animations
     // whenever the PRM folder changes or Patch Mirror is toggled.
     private void RefreshLiveFeaturesState()
     {
@@ -714,12 +714,12 @@ public partial class MainWindow
 
         _patchMirrorToggle?.SetEnabled(valid);
         _patchMirrorToggle?.SetActive(patchMirrorOn);
-        _liveViewToggle?.SetEnabled(patchMirrorOn);
+        _animationsToggle?.SetEnabled(patchMirrorOn);
 
         if (!patchMirrorOn && _viewModel.FilterModEnabled)
         {
             _viewModel.FilterModEnabled = false;
-            _liveViewToggle?.SetActive(false);
+            _animationsToggle?.SetActive(false);
             _filterCurveUpdate?.Invoke();
             _envelopeDotUpdate?.Invoke();
             _envelopeWarningUpdate?.Invoke();
@@ -729,8 +729,8 @@ public partial class MainWindow
 
     private void BuildLiveFeaturesPanel()
     {
-        // ── Live View: filter curve + ADSR animation (requires Patch Mirror) ──
-        var (liveViewBtn, liveViewState) = MakeHeuristicToggle(
+        // ── Animations: filter curve + ADSR animation (requires Patch Mirror) ──
+        var (animationsBtn, animationsState) = MakeHeuristicToggle(
             "ANIMATIONS",
             "Heuristic feature: animates the ADSR and its modulation targets using the editor's current " +
             "CC values as model inputs. The animation is an approximation; it responds to note events " +
@@ -738,7 +738,7 @@ public partial class MainWindow
             "Requires Patch Mirror enabled so the editor values reflect what is on the device.",
             EnvAccent);
 
-        _liveViewToggle = liveViewState;
+        _animationsToggle = animationsState;
 
         bool prmValid      = PrmFolderHasValidFiles();
         bool patchMirrorOn = prmValid && _prm.PatternSync;
@@ -746,13 +746,13 @@ public partial class MainWindow
         if (!patchMirrorOn && _viewModel.FilterModEnabled)
             _viewModel.FilterModEnabled = false;
 
-        liveViewState.SetActive(_viewModel.FilterModEnabled);
-        liveViewState.SetEnabled(patchMirrorOn);
+        animationsState.SetActive(_viewModel.FilterModEnabled);
+        animationsState.SetEnabled(patchMirrorOn);
 
-        liveViewBtn.PointerPressed += (_, _) =>
+        animationsBtn.PointerPressed += (_, _) =>
         {
             _viewModel.FilterModEnabled = !_viewModel.FilterModEnabled;
-            liveViewState.SetActive(_viewModel.FilterModEnabled);
+            animationsState.SetActive(_viewModel.FilterModEnabled);
             if (!_viewModel.FilterModEnabled)
             {
                 _filterCurveUpdate?.Invoke();
@@ -789,7 +789,7 @@ public partial class MainWindow
             }
             _prm.PatternSync = enabling;
             patchMirrorState.SetActive(enabling);
-            liveViewState.SetEnabled(enabling);
+            animationsState.SetEnabled(enabling);
             if (enabling)
             {
                 if (_isConnected)
@@ -799,7 +799,7 @@ public partial class MainWindow
             else
             {
                 _viewModel.FilterModEnabled = false;
-                liveViewState.SetActive(false);
+                animationsState.SetActive(false);
                 _filterCurveUpdate?.Invoke();
                 _envelopeDotUpdate?.Invoke();
                 _envelopeWarningUpdate?.Invoke();
@@ -812,7 +812,7 @@ public partial class MainWindow
         // LiveFeaturesPanel is a horizontal StackPanel sitting on the tab strip row;
         // buttons size to their content rather than stretching.
         LiveFeaturesPanel.Children.Add(patchMirrorBtn);
-        LiveFeaturesPanel.Children.Add(liveViewBtn);
+        LiveFeaturesPanel.Children.Add(animationsBtn);
     }
 
     private void BuildPatchPanel()
@@ -875,6 +875,7 @@ public partial class MainWindow
             IsEnabled = false,
         };
         _initPatchButton.Click += OnInitPatchClicked;
+        ToolTip.SetTip(_initPatchButton, "Reset all parameters to the init patch (Ctrl+I)");
 
         _restorePatchButton = new Button
         {
@@ -883,6 +884,7 @@ public partial class MainWindow
             IsEnabled = false,
         };
         _restorePatchButton.Click += (_, _) => OnRestorePatchClicked();
+        ToolTip.SetTip(_restorePatchButton, "Reload the current slot from its PRM file (Ctrl+R)");
 
         // Tab-2-only PRM controls. Visibility toggled by MainTabs.SelectionChanged.
         OpenPrmButton = new Button
@@ -906,6 +908,7 @@ public partial class MainWindow
             Classes = { "toolbar" },
         };
         saveButton.Click += OnSaveClicked;
+        ToolTip.SetTip(saveButton, "Save the editor state to an .s1patch file (Ctrl+S)");
 
         var loadButton = new Button
         {
@@ -913,6 +916,7 @@ public partial class MainWindow
             Classes = { "toolbar" },
         };
         loadButton.Click += OnLoadClicked;
+        ToolTip.SetTip(loadButton, "Load an .s1patch file into the editor and send it to the device");
 
         // Tab 1 editor actions split into two halves so the gap between
         // [Init Patch | Restore Patch] and [Save Preset | Load Preset] lands

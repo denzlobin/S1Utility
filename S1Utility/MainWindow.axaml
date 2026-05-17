@@ -265,7 +265,8 @@
                     <Border Width="1" Height="18" Background="#2C2C36" Margin="4,0"/>
                     <Button x:Name="ConnectButton"
                             Classes="toolbar"
-                            Content="Connect"/>
+                            Content="Connect"
+                            ToolTip.Tip="Connect / Disconnect (Ctrl+M)"/>
                     <Button x:Name="PanicButton"
                             Classes="toolbar"
                             Content="Panic"
