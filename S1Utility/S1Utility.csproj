@@ -12,10 +12,12 @@
         <AssemblyTitle>S-1 Utility</AssemblyTitle>
         <Version>0.1.0</Version>
         <Authors>denzlobin</Authors>
+        <ApplicationIcon>Assets/icon.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
         <EmbeddedResource Include="InitPatch.prm" LogicalName="InitPatch.prm" />
+        <AvaloniaResource Include="Assets/icon-*.png" />
     </ItemGroup>
 
     <ItemGroup>
