@@ -46,7 +46,7 @@ public partial class MainWindow : Window
     private Window? _seqWindow;
     private Window? _settingsWindow;
     private int    _midiChannel  = 3;
-    private int    _pcChannel    = 3;
+    private int    _pcChannel    = 16;
 
     // Settings popup controls — declared here so they survive the popup being closed
     // and can be re-parented next time it opens. Populated/wired in PopulateDeviceLists

@@ -19,7 +19,7 @@ public sealed record SettingsV1
     public string PrmFolder              { get; init; } = "";
     public bool   PatternSync            { get; init; }
     public int    MidiChannel            { get; init; } = 3;
-    public int    PcChannel              { get; init; } = 3;
+    public int    PcChannel              { get; init; } = 16;
     public bool   SkipPatternSyncWarning { get; init; }
 }
 

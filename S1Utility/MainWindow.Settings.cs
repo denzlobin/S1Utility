@@ -411,6 +411,100 @@ public partial class MainWindow
         SetStatus($"Loaded: {preset.Name}", StatusKind.Ok);
     }
 
+    private async Task ResetPreferencesAsync(Window settingsOwner)
+    {
+        bool ok = await ShowResetPreferencesWarningAsync(settingsOwner);
+        if (!ok) return;
+
+        // Persist defaults to disk and reload backing fields.
+        SettingsStore.Save(SettingsPath, new SettingsV1());
+        LoadSettings();
+
+        // Push the reset values into every UI surface that mirrors them.
+        ChannelCombo.SelectedIndex              = _midiChannel - 1;
+        ProgramChangeChannelCombo.SelectedIndex = _pcChannel - 1;
+        AutoConnectCheckBox.IsChecked           = _autoConnect;
+        PrmFolderBox.Text                       = _prm.PrmFolder;
+        UpdateFooterChannels();
+
+        // Reset live-features toggles: PatternSync just went false, FilterModEnabled
+        // just went false. RefreshLiveFeaturesState handles enabled state; we still
+        // need the explicit SetActive for Animations because the helper only flips
+        // it inside the auto-disable branch.
+        _animationsToggle?.SetActive(_viewModel.FilterModEnabled);
+        RefreshLiveFeaturesState();
+
+        // PRM folder cleared → rescan invalidates the in-memory program table,
+        // PatchAvailabilityChanged refreshes the patch grid, banner updates.
+        _prm.RescanFolder();
+        UpdateInspectorBanner();
+        UpdatePatchGridAvailability();
+
+        // ADSR warning glyph depends on FilterModEnabled — re-evaluate.
+        _envelopeWarningUpdate?.Invoke();
+        _filterCurveUpdate?.Invoke();
+        _envelopeDotUpdate?.Invoke();
+
+        SetStatus("Preferences reset to defaults.", StatusKind.Info);
+    }
+
+    private async Task<bool> ShowResetPreferencesWarningAsync(Window owner)
+    {
+        bool confirmed = false;
+
+        var yesBtn = new Button { Content = "Reset preferences", Classes = { "toolbar" } };
+        var noBtn  = new Button { Content = "Cancel",            Classes = { "toolbar" } };
+
+        var dlg = new Window
+        {
+            Title                 = "Reset preferences?",
+            Width                 = 460,
+            SizeToContent         = SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background            = new SolidColorBrush(Color.Parse("#1C1C1C")),
+            Content = new StackPanel
+            {
+                Margin   = new Thickness(24, 20),
+                Spacing  = 14,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text       = "⚠  THIS WILL OVERWRITE YOUR SETTINGS",
+                        FontSize   = 13,
+                        FontWeight = FontWeight.Bold,
+                        Foreground = Palette.StatusWarn,
+                    },
+                    new TextBlock
+                    {
+                        FontSize     = 11,
+                        Foreground   = new SolidColorBrush(Color.Parse("#CCCCCC")),
+                        TextWrapping = TextWrapping.Wrap,
+                        Text         =
+                            "MIDI Channel, Program Change Channel, auto-connect, the PRM folder " +
+                            "path, Patch Mirror state, and the Patch Mirror dialog opt-out will all " +
+                            "be reset to their first-launch defaults. This cannot be undone.\n\n" +
+                            "The current MIDI connection is left alone — the new MIDI channel " +
+                            "takes effect on the next Connect.",
+                    },
+                    new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing     = 8,
+                        Children    = { yesBtn, noBtn },
+                    },
+                },
+            },
+        };
+
+        yesBtn.Click += (_, _) => { confirmed = true; dlg.Close(); };
+        noBtn.Click  += (_, _) => dlg.Close();
+
+        await dlg.ShowDialog(owner);
+        return confirmed;
+    }
+
     private async Task<bool> ShowNonS1ConnectWarningAsync(string deviceName)
     {
         bool confirmed = false;
@@ -923,6 +1017,19 @@ public partial class MainWindow
         Grid.SetColumnSpan(prmHint, 2);
         grid.Children.Add(prmHint);
 
+        var resetBtn = new Button
+        {
+            Content             = "Reset preferences",
+            Classes             = { "toolbar" },
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin              = new Thickness(0, 18, 0, 0),
+        };
+        ToolTip.SetTip(resetBtn, "Wipe all stored preferences and revert to first-launch defaults.");
+        Grid.SetRow(resetBtn, 8);
+        Grid.SetColumn(resetBtn, 0);
+        Grid.SetColumnSpan(resetBtn, 3);
+        grid.Children.Add(resetBtn);
+
         var closeBtn = new Button
         {
             Content             = "Close",
@@ -948,6 +1055,7 @@ public partial class MainWindow
             Content               = grid,
         };
 
+        resetBtn.Click += async (_, _) => await ResetPreferencesAsync(window);
         closeBtn.Click += (_, _) => window.Close();
 
         window.Closed += (_, _) =>
