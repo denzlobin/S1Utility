@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write  # softprops/action-gh-release needs this to create the Release
 
+# Opt JavaScript actions (checkout, setup-dotnet, action-gh-release) onto Node 24
+# ahead of the 2026-06-02 default flip; Node 20 is removed from runners 2026-09-16.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release:
     runs-on: windows-latest
