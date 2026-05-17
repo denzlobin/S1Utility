@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Commons.Music.Midi;
 using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Multimedia;
 using S1Utility.Core;
@@ -13,10 +12,6 @@ namespace S1Utility;
 // No Avalonia dependency — pure C#, fully unit-testable.
 public sealed class MidiManager : IDisposable
 {
-#pragma warning disable CS0618  // IMidiAccess is obsolete but IMidiAccess2 is not implemented by WinMM
-    private readonly IMidiAccess _midi = MidiAccessManager.Default;
-#pragma warning restore CS0618
-
     private readonly S1Patch _patch;
     private readonly List<InputDevice> _inputDevices = new();
     private InputDevice? _activeInput;
@@ -24,8 +19,8 @@ public sealed class MidiManager : IDisposable
     // Updated at connect time; reflects the active receive/send channel.
     public int Channel { get; set; } = 3;
 
-    public IReadOnlyList<IMidiPortDetails> OutputPorts      { get; private set; } = Array.Empty<IMidiPortDetails>();
-    public IReadOnlyList<string>           InputDeviceNames { get; private set; } = Array.Empty<string>();
+    public IReadOnlyList<string> OutputDeviceNames { get; private set; } = Array.Empty<string>();
+    public IReadOnlyList<string> InputDeviceNames  { get; private set; } = Array.Empty<string>();
 
     // Events fired from the MIDI receive thread — callers must dispatch to UI thread if needed.
     public event EventHandler?      Disconnected;
@@ -49,7 +44,11 @@ public sealed class MidiManager : IDisposable
         foreach (var d in _inputDevices) d.Dispose();
         _inputDevices.Clear();
 
-        OutputPorts = new List<IMidiPortDetails>(_midi.Outputs);
+        // OutputDevice.GetAll() returns live instances we don't intend to hold —
+        // snapshot the names and dispose right away. We re-open by name on connect.
+        var outs = OutputDevice.GetAll().ToList();
+        try { OutputDeviceNames = outs.Select(d => d.Name).ToList(); }
+        finally { foreach (var d in outs) d.Dispose(); }
 
         _inputDevices.AddRange(InputDevice.GetAll());
         InputDeviceNames = _inputDevices.Select(d => d.Name).ToList();
@@ -58,27 +57,32 @@ public sealed class MidiManager : IDisposable
     // Opens the output at outIndex, sets the patch transport, then opens the input at inIndex.
     // OutputOk=false means the output port failed to open; caller should abort and show an error.
     // OutputOk=true with InputError non-null means output is open but input failed (show warning, stay connected).
-    public async Task<(bool OutputOk, string OutPortName, string? InPortName, string? InputError)> ConnectAsync(
+    public Task<(bool OutputOk, string OutPortName, string? InPortName, string? InputError)> ConnectAsync(
         int outIndex, int inIndex, int channel)
     {
         Channel = channel;
 
-        var outPort = OutputPorts[outIndex];
-        IMidiOutput output;
-        try { output = await _midi.OpenOutputAsync(outPort.Id); }
+        var outPortName = OutputDeviceNames[outIndex];
+        OutputDevice output;
+        try
+        {
+            output = OutputDevice.GetByName(outPortName);
+            // Open the port explicitly so failures surface here rather than on the first SendEvent.
+            output.PrepareForEventsSending();
+        }
         catch (Exception ex)
         {
-            Log.Logger.Error($"OpenOutputAsync failed for port '{outPort.Name}' (id '{outPort.Id}')", ex);
-            return (false, outPort.Name, null, ex.Message);
+            Log.Logger.Error($"OutputDevice.GetByName failed for port '{outPortName}'", ex);
+            return Task.FromResult<(bool, string, string?, string?)>((false, outPortName, null, ex.Message));
         }
 
-        var transport = new ManagedMidiTransport(output, outPort.Name,
+        var transport = new DryWetMidiTransport(output, outPortName,
             onDisconnect: () => Disconnected?.Invoke(this, EventArgs.Empty));
-        Log.Logger.Info($"MIDI output opened: '{outPort.Name}' (channel {channel})");
+        Log.Logger.Info($"MIDI output opened: '{outPortName}' (channel {channel})");
         _patch.SetTransport(transport, channel);
 
         if (inIndex < 0 || inIndex >= _inputDevices.Count)
-            return (true, outPort.Name, null, null);
+            return Task.FromResult<(bool, string, string?, string?)>((true, outPortName, null, null));
 
         try
         {
@@ -86,7 +90,7 @@ public sealed class MidiManager : IDisposable
             _activeInput = _inputDevices[inIndex];
             _activeInput.EventReceived += OnMidiEventReceived;
             _activeInput.StartEventsListening();
-            return (true, outPort.Name, _activeInput.Name, null);
+            return Task.FromResult<(bool, string, string?, string?)>((true, outPortName, _activeInput.Name, null));
         }
         catch (Exception ex)
         {
@@ -95,14 +99,14 @@ public sealed class MidiManager : IDisposable
             if (_activeInput != null)
                 _activeInput.EventReceived -= OnMidiEventReceived;
             _activeInput = null;
-            return (true, outPort.Name, null, ex.Message);
+            return Task.FromResult<(bool, string, string?, string?)>((true, outPortName, null, ex.Message));
         }
     }
 
     public int FindOutputIndex(Func<string, bool> predicate)
     {
-        for (int i = 0; i < OutputPorts.Count; i++)
-            if (predicate(OutputPorts[i].Name)) return i;
+        for (int i = 0; i < OutputDeviceNames.Count; i++)
+            if (predicate(OutputDeviceNames[i])) return i;
         return -1;
     }
 

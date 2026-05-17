@@ -42,8 +42,8 @@ public partial class MainWindow
 
     private void PopulateDeviceLists()
     {
-        foreach (var port in _midiMgr.OutputPorts)
-            DeviceCombo.Items.Add(port.Name);
+        foreach (var name in _midiMgr.OutputDeviceNames)
+            DeviceCombo.Items.Add(name);
 
         foreach (var name in _midiMgr.InputDeviceNames)
             InputCombo.Items.Add(name);
@@ -77,8 +77,8 @@ public partial class MainWindow
         _midiMgr.EnumerateDevices();
 
         DeviceCombo.Items.Clear();
-        foreach (var port in _midiMgr.OutputPorts)
-            DeviceCombo.Items.Add(port.Name);
+        foreach (var name in _midiMgr.OutputDeviceNames)
+            DeviceCombo.Items.Add(name);
 
         InputCombo.Items.Clear();
         foreach (var name in _midiMgr.InputDeviceNames)
@@ -115,7 +115,7 @@ public partial class MainWindow
         ConnectButton.Content        = "Reconnect";
         SetStatus("Device disconnected.", StatusKind.Error);
         // Null the transport so further knob drags don't throw inside the stale
-        // ManagedMidiTransport and get silently swallowed.
+        // DryWetMidiTransport and get silently swallowed.
         _patch.Disconnect();
         // Without the synth we no longer know any parameter's state — gray every
         // knob and show "?" in value labels. Honest about what it knows.
@@ -190,7 +190,7 @@ public partial class MainWindow
         // Re-enumerate first so unplug/replug recovers without a separate refresh step.
         ReenumerateDevices();
 
-        if (DeviceCombo.SelectedIndex < 0 || DeviceCombo.SelectedIndex >= _midiMgr.OutputPorts.Count)
+        if (DeviceCombo.SelectedIndex < 0 || DeviceCombo.SelectedIndex >= _midiMgr.OutputDeviceNames.Count)
         {
             SetStatus("Select a MIDI output device first.", StatusKind.Error);
             return;
