@@ -881,7 +881,6 @@ public partial class MainWindow
             Content   = "Restore Patch",
             Classes   = { "toolbar" },
             IsEnabled = false,
-            IsVisible = false,
         };
         _restorePatchButton.Click += (_, _) => OnRestorePatchClicked();
 
@@ -901,24 +900,75 @@ public partial class MainWindow
         };
         ToolTip.SetTip(PrmInfoToggle, "Show / hide file access instructions");
 
-        _initRestoreGroup = new StackPanel
+        var saveButton = new Button
         {
-            Orientation = Orientation.Horizontal,
-            Spacing     = 6,
+            Content = "Save Preset",
+            Classes = { "toolbar" },
         };
-        _initRestoreGroup.Children.Add(_initPatchButton);
-        _initRestoreGroup.Children.Add(_restorePatchButton);
+        saveButton.Click += OnSaveClicked;
 
-        var actionRow = new StackPanel
+        var loadButton = new Button
+        {
+            Content = "Load Preset",
+            Classes = { "toolbar" },
+        };
+        loadButton.Click += OnLoadClicked;
+
+        // Tab 1 editor actions split into two halves so the gap between
+        // [Init Patch | Restore Patch] and [Save Preset | Load Preset] lands
+        // on the horizontal centerline of the patch grid (which lines up with
+        // the boundary between pattern cells 8 and 9 of the 16-wide grid).
+        var leftGroup = new StackPanel
+        {
+            Orientation         = Orientation.Horizontal,
+            Spacing             = 6,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin              = new Thickness(0, 0, 3, 0),
+        };
+        leftGroup.Children.Add(_initPatchButton);
+        leftGroup.Children.Add(_restorePatchButton);
+
+        var rightGroup = new StackPanel
+        {
+            Orientation         = Orientation.Horizontal,
+            Spacing             = 6,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin              = new Thickness(3, 0, 0, 0),
+        };
+        rightGroup.Children.Add(saveButton);
+        rightGroup.Children.Add(loadButton);
+
+        var editorActions = new Grid
+        {
+            ColumnDefinitions   = new ColumnDefinitions("*,*"),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        Grid.SetColumn(leftGroup,  0);
+        Grid.SetColumn(rightGroup, 1);
+        editorActions.Children.Add(leftGroup);
+        editorActions.Children.Add(rightGroup);
+        _initRestoreGroup = editorActions;
+
+        // Tab 2 actions stay centered as a separate centered StackPanel; the
+        // children carry their own IsVisible toggle, so the panel collapses on
+        // Tab 1 without needing a wrapper toggle.
+        var tab2Actions = new StackPanel
         {
             Orientation         = Orientation.Horizontal,
             Spacing             = 6,
             HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        tab2Actions.Children.Add(OpenPrmButton);
+        tab2Actions.Children.Add(PrmInfoToggle);
+
+        // Both groups overlap in the same row; only one is visible per tab.
+        var actionRow = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin              = new Thickness(0, 6, 0, 0),
         };
-        actionRow.Children.Add(_initRestoreGroup);
-        actionRow.Children.Add(OpenPrmButton);
-        actionRow.Children.Add(PrmInfoToggle);
+        actionRow.Children.Add(editorActions);
+        actionRow.Children.Add(tab2Actions);
         PatchGridContainer.Children.Add(actionRow);
 
         PrmInfoText = new TextBlock
@@ -981,8 +1031,6 @@ public partial class MainWindow
         {
             InspectorRows.BuildPrmDataRow(_prm.RiserSw),
             InspectorRows.BuildPrmDataRow(_prm.RiserMode),
-            InspectorRows.BuildPrmDataRow(_prm.RiserCtrl),
-            InspectorRows.BuildPrmDataRow(_prm.RiserBeat),
             InspectorRows.BuildPrmDataRow(_prm.RiserShape),
             InspectorRows.BuildPrmDataRow(_prm.RiserReso),
             InspectorRows.BuildPrmDataRow(_prm.RiserLevel),

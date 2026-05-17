@@ -55,9 +55,10 @@ public partial class MainWindow
         }
         ChannelCombo.SelectedIndex              = _midiChannel - 1;
         ProgramChangeChannelCombo.SelectedIndex = _pcChannel   - 1;
+        UpdateFooterChannels();
 
-        ChannelCombo.SelectionChanged += (_, _) => SaveSettings();
-        ProgramChangeChannelCombo.SelectionChanged += (_, _) => SaveSettings();
+        ChannelCombo.SelectionChanged += (_, _) => { SaveSettings(); UpdateFooterChannels(); };
+        ProgramChangeChannelCombo.SelectionChanged += (_, _) => { SaveSettings(); UpdateFooterChannels(); };
 
         DeviceCombo.DropDownOpened += (_, _) => ReenumerateDevices();
         InputCombo.DropDownOpened  += (_, _) => ReenumerateDevices();
@@ -343,14 +344,17 @@ public partial class MainWindow
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title             = "Save Preset",
-            SuggestedFileName = PresetNameBox.Text?.Trim() is { Length: > 0 } n ? n : "preset",
+            SuggestedFileName = "preset",
             DefaultExtension  = "s1patch",
             FileTypeChoices   = new[] { S1PatchFileType },
         });
 
         if (file is null) return;
 
-        var preset = _patch.ToPreset(PresetNameBox.Text ?? "Untitled");
+        // The preset's own Name field is just the chosen file's stem — no
+        // separate user-editable preset name exists in the UI anymore.
+        var presetName = System.IO.Path.GetFileNameWithoutExtension(file.Name);
+        var preset = _patch.ToPreset(string.IsNullOrWhiteSpace(presetName) ? "Untitled" : presetName);
         preset.PrmOnly = _prm.AllPrmOnlyParams()
             .Select(p => new PrmOnlyEntry { PrmKey = p.PrmKey, Value = p.Value })
             .ToList();
@@ -385,7 +389,6 @@ public partial class MainWindow
 
         if (preset is null) return;
 
-        PresetNameBox.Text = preset.Name;
         _suppressUndoTracking = true;
         try
         {
@@ -621,7 +624,6 @@ public partial class MainWindow
         try { _prm.ApplyPrmData(parsed); }
         finally { _suppressUndoTracking = false; }
         ClearUndoHistory();
-        PresetNameBox.Text = fileName;
         SetStatus("Sending PRM values…", StatusKind.Info);
         await _patch.SendAllAsync();
         SetStatus($"Loaded PRM: {fileName}", StatusKind.Ok);
@@ -733,6 +735,12 @@ public partial class MainWindow
     {
         StatusText.Text       = message;
         StatusText.Foreground = Palette.ForStatus(kind);
+    }
+
+    private void UpdateFooterChannels()
+    {
+        FooterMidiChText.Text = $"CH {MidiChannel}";
+        FooterPcChText.Text   = $"PC CH {PcChannel}";
     }
 
     // Off-state dot is a one-off dark fill not shared with any other surface; kept local.

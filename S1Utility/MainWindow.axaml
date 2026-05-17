@@ -316,12 +316,6 @@
                             IsEnabled="False"
                             ToolTip.Tip="Send All Sound Off + All Notes Off"/>
                     <Border Width="1" Height="18" Background="#2C2C36" Margin="4,0"/>
-                    <Button x:Name="SaveButton"
-                            Classes="toolbar"
-                            Content="Save"/>
-                    <Button x:Name="LoadButton"
-                            Classes="toolbar"
-                            Content="Load"/>
                     <Button x:Name="UndoButton"
                             Classes="toolbar"
                             Content="↶"
@@ -339,16 +333,6 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <TextBlock Text="Preset" FontSize="9.5" Foreground="#7878A0"
-                               VerticalAlignment="Center" LetterSpacing="0.4"/>
-                    <TextBox x:Name="PresetNameBox"
-                             Width="140" Height="26" FontSize="10.5"
-                             Text="Untitled"
-                             PlaceholderText="Preset name…"
-                             Background="#1A1A24"
-                             BorderBrush="#333344"
-                             Foreground="#A0A0B5"
-                             CornerRadius="3"/>
                     <Button x:Name="SettingsButton"
                             Classes="toolbar"
                             Content="⚙"
@@ -367,7 +351,7 @@
                 BorderThickness="0,1,0,0"
                 Padding="14,4"
                 Height="24">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
                 <Border Grid.Column="0"
                         x:Name="FooterConnDot"
                         Width="6" Height="6" CornerRadius="3"
@@ -397,14 +381,44 @@
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding #StatusText.Text}"/>
-                <Border Grid.Column="4"
+                <TextBlock Grid.Column="4"
+                           x:Name="FooterMidiChText"
+                           Text="CH 3"
+                           FontSize="9.5"
+                           FontFamily="Cascadia Mono,Consolas,monospace"
+                           Foreground="#666677"
+                           LetterSpacing="0.3"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"
+                           ToolTip.Tip="MIDI channel for parameter CC traffic"/>
+                <TextBlock Grid.Column="5"
+                           Text="·"
+                           FontSize="9.5"
+                           Foreground="#3A3A48"
+                           VerticalAlignment="Center"
+                           Margin="8,0,8,0"/>
+                <TextBlock Grid.Column="6"
+                           x:Name="FooterPcChText"
+                           Text="PC CH 16"
+                           FontSize="9.5"
+                           FontFamily="Cascadia Mono,Consolas,monospace"
+                           Foreground="#666677"
+                           LetterSpacing="0.3"
+                           VerticalAlignment="Center"
+                           ToolTip.Tip="Program Change channel"/>
+                <Border Grid.Column="7"
+                        Width="1" Height="10"
+                        Background="#2C2C36"
+                        VerticalAlignment="Center"
+                        Margin="12,0,0,0"/>
+                <Border Grid.Column="8"
                         x:Name="MidiActivityDot"
                         Width="6" Height="6" CornerRadius="3"
                         Background="#2C2C3A"
                         VerticalAlignment="Center"
-                        Margin="6,0,0,0"
+                        Margin="12,0,0,0"
                         ToolTip.Tip="MIDI activity"/>
-                <TextBlock Grid.Column="5"
+                <TextBlock Grid.Column="9"
                            x:Name="FooterActivityText"
                            Text="idle"
                            FontSize="9.5"

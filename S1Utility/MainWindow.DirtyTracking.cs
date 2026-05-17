@@ -179,7 +179,8 @@ public partial class MainWindow
     {
         if (_restorePatchButton == null) return;
         bool mirrorOn = _prm.PatternSync;
-        _restorePatchButton.IsVisible = mirrorOn;
+        // Always visible; just disabled when not actionable so the action row
+        // doesn't reflow when Patch Mirror is toggled.
         _restorePatchButton.IsEnabled = mirrorOn
             && _currentSlotIndex >= 0
             && _dirtySlots.Contains(_currentSlotIndex);

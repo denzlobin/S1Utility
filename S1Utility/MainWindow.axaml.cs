@@ -36,7 +36,7 @@ public partial class MainWindow : Window
     private Button?    OpenPrmButton;
     private Button?    PrmInfoToggle;
     private TextBlock? PrmInfoText;
-    private StackPanel? _initRestoreGroup;
+    private Panel? _initRestoreGroup;
 
     private bool   _autoConnect;
     private bool   _isConnected;
@@ -186,8 +186,6 @@ public partial class MainWindow : Window
 
         ConnectButton.Click          += OnConnectClicked;
         PanicButton.Click            += OnPanicClicked;
-        SaveButton.Click             += OnSaveClicked;
-        LoadButton.Click             += OnLoadClicked;
         UndoButton.Click             += OnUndoClicked;
         RedoButton.Click             += OnRedoClicked;
         OpenPrmButton!.Click         += OnOpenPrmClicked;
