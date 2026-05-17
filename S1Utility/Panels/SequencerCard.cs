@@ -12,11 +12,12 @@ using S1Utility.Widgets;
 
 namespace S1Utility.Panels;
 
-// SEQUENCER inspector card — PATTERN / ARPEGGIATOR / AUTOMATION / D-MOTION
-// sub-columns with a "VIEW STEPS →" header button that opens the dedicated
-// sequencer window. The tempo and motion-lane labels are owned by MainWindow
-// (it sets their Text on PrmMetaLoaded); they're passed in so this card just
-// places them.
+// Sequencer inspector cards — split visually into:
+//   1. SEQUENCER: PATTERN + ARPEGGIATOR, with a "VIEW STEPS →" header button
+//      that opens the dedicated sequencer window.
+//   2. MOTION: AUTOMATION lanes + D-MOTION assigns.
+// Tempo and motion-lane labels are owned by MainWindow (it sets their Text on
+// PrmMetaLoaded); they're passed in so the cards just place them.
 internal sealed class SequencerCard
 {
     private readonly PrmFileManager _prm;
@@ -25,6 +26,7 @@ internal sealed class SequencerCard
     private readonly TextBlock _tempoLabel;
     private readonly TextBlock[] _motionCcLabels;
     private readonly Action _openSequencer;
+    private readonly Action _exportMidi;
 
     public SequencerCard(
         PrmFileManager prm,
@@ -32,7 +34,8 @@ internal sealed class SequencerCard
         IBrush dmAccent,
         TextBlock tempoLabel,
         TextBlock[] motionCcLabels,
-        Action openSequencer)
+        Action openSequencer,
+        Action exportMidi)
     {
         _prm            = prm;
         _accent         = accent;
@@ -40,15 +43,16 @@ internal sealed class SequencerCard
         _tempoLabel     = tempoLabel;
         _motionCcLabels = motionCcLabels;
         _openSequencer  = openSequencer;
+        _exportMidi     = exportMidi;
     }
 
-    public Border Build()
+    public Border BuildPatternCard()
     {
         var accentClr = ((ISolidColorBrush)_accent).Color;
 
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*,Auto,*"),  // pattern, arp, motion, divider, d-motion
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
             ColumnSpacing     = 14,
         };
 
@@ -64,7 +68,48 @@ internal sealed class SequencerCard
         arpCol.Children.Add(Dashboard.BuildSubHeader("ARPEGGIATOR", _accent));
         arpCol.Children.Add(InspectorRows.BuildPrmDataRow(_prm.ArpType));
         arpCol.Children.Add(InspectorRows.BuildPrmDataRow(_prm.ArpRate));
+
+        // VIEW STEPS + EXPORT MIDI buttons sit side-by-side at the bottom of
+        // the ARPEGGIATOR column (the shorter of the two), visually separated
+        // by a top margin from the ARP rows.
+        var viewStepsBtn  = MakeActionButton("VIEW STEPS",  accentClr);
+        var exportMidiBtn = MakeActionButton("EXPORT MIDI",   accentClr);
+
+        void RefreshButtons()
+        {
+            bool has = HasSequencerContent(_prm);
+            viewStepsBtn.IsEnabled  = has;
+            viewStepsBtn.Opacity    = has ? 1.0 : 0.35;
+            exportMidiBtn.IsEnabled = has;
+            exportMidiBtn.Opacity   = has ? 1.0 : 0.35;
+        }
+        RefreshButtons();
+        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(RefreshButtons);
+        viewStepsBtn.PointerPressed  += (_, _) => _openSequencer();
+        exportMidiBtn.PointerPressed += (_, _) => _exportMidi();
+
+        var buttonRow = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            ColumnSpacing     = 6,
+            Margin            = new Thickness(0, 14, 0, 0),
+            VerticalAlignment = VerticalAlignment.Bottom,
+        };
+        Grid.SetColumn(viewStepsBtn,  0); buttonRow.Children.Add(viewStepsBtn);
+        Grid.SetColumn(exportMidiBtn, 1); buttonRow.Children.Add(exportMidiBtn);
+        arpCol.Children.Add(buttonRow);
         Grid.SetColumn(arpCol, 1); grid.Children.Add(arpCol);
+
+        return WrapInCard("SEQUENCER", _accent, grid, headerRightContent: null);
+    }
+
+    public Border BuildMotionCard()
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto,*"),
+            ColumnSpacing     = 10,
+        };
 
         var motCol = new StackPanel { Spacing = 1 };
         motCol.Children.Add(Dashboard.BuildSubHeader("AUTOMATION", _accent));
@@ -83,7 +128,7 @@ internal sealed class SequencerCard
             laneGrid.Children.Add(row);
         }
         motCol.Children.Add(laneGrid);
-        Grid.SetColumn(motCol, 2); grid.Children.Add(motCol);
+        Grid.SetColumn(motCol, 0); grid.Children.Add(motCol);
 
         var divider = new Border
         {
@@ -91,72 +136,87 @@ internal sealed class SequencerCard
             Background = Palette.BdCard,
             Margin     = new Thickness(4, 18, 4, 4),
         };
-        Grid.SetColumn(divider, 3); grid.Children.Add(divider);
+        Grid.SetColumn(divider, 1); grid.Children.Add(divider);
 
         var dmCol = new StackPanel { Spacing = 1 };
         dmCol.Children.Add(Dashboard.BuildSubHeader("D-MOTION", _dmAccent));
         dmCol.Children.Add(InspectorRows.BuildPrmDataRow(_prm.DmAssignX));
         dmCol.Children.Add(InspectorRows.BuildPrmDataRow(_prm.DmAssignY));
-        Grid.SetColumn(dmCol, 4); grid.Children.Add(dmCol);
+        Grid.SetColumn(dmCol, 2); grid.Children.Add(dmCol);
 
-        // Header with right-aligned VIEW STEPS → button.
-        var viewStepsLabel = new TextBlock
-        {
-            Text          = "VIEW STEPS  →",
-            FontSize      = 9.5,
-            FontWeight    = FontWeight.SemiBold,
-            LetterSpacing = 0.8,
-            Foreground    = _accent,
-        };
-        var viewStepsBtn = new Border
-        {
-            BorderThickness     = new Thickness(1),
-            BorderBrush         = _accent,
-            Background          = new SolidColorBrush(Color.FromArgb(0x18, accentClr.R, accentClr.G, accentClr.B)),
-            CornerRadius        = new CornerRadius(3),
-            Padding             = new Thickness(8, 3),
-            Cursor              = new Cursor(StandardCursorType.Hand),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment   = VerticalAlignment.Center,
-            Child               = viewStepsLabel,
-        };
+        return WrapInCard("MOTION", _accent, grid, headerRightContent: null);
+    }
 
-        void RefreshViewBtn()
+    // Pure check against the PRM data — used to enable/disable the VIEW STEPS button.
+    public static bool HasSequencerContent(PrmFileManager prm)
+    {
+        int count = prm.Sequence.StepCount;
+        for (int s = 0; s < count; s++)
         {
-            bool has = HasSequencerContent(_prm);
-            viewStepsBtn.IsEnabled = has;
-            viewStepsBtn.Opacity   = has ? 1.0 : 0.35;
+            var step = prm.Sequence.Steps[s];
+            if (step.Notes.Any(n => n >= 0))   return true;
+            if (step.Motions.Any(m => m >= 0)) return true;
+            if (step.PitchBend != -32768)       return true;
         }
-        RefreshViewBtn();
-        _prm.Sequence.DataChanged += (_, _) => Dispatcher.UIThread.Post(RefreshViewBtn);
-        viewStepsBtn.PointerPressed += (_, _) => _openSequencer();
+        return false;
+    }
 
-        var seqAccentDot = new Ellipse
+    private Border MakeActionButton(string text, Color accentClr) => new()
+    {
+        BorderThickness     = new Thickness(1),
+        BorderBrush         = _accent,
+        Background          = new SolidColorBrush(Color.FromArgb(0x18, accentClr.R, accentClr.G, accentClr.B)),
+        CornerRadius        = new CornerRadius(3),
+        Padding             = new Thickness(8, 4),
+        Cursor              = new Cursor(StandardCursorType.Hand),
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        Child = new TextBlock
         {
-            Width = 6, Height = 6, Fill = _accent,
+            Text                = text,
+            FontSize            = 9.5,
+            FontWeight          = FontWeight.SemiBold,
+            LetterSpacing       = 0.8,
+            Foreground          = _accent,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        },
+    };
+
+    // Card chrome with an optional right-aligned header element (e.g. VIEW STEPS button).
+    private static Border WrapInCard(string title, IBrush accent, Control body, Control? headerRightContent)
+    {
+        var accentClr = ((ISolidColorBrush)accent).Color;
+
+        var dot = new Ellipse
+        {
+            Width = 6, Height = 6, Fill = accent,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        var seqTitle = new TextBlock
+        var titleText = new TextBlock
         {
-            Text              = "SEQUENCER",
+            Text              = title,
             FontSize          = 8.5,
             FontWeight        = FontWeight.Bold,
             LetterSpacing     = 1.5,
-            Foreground        = _accent,
+            Foreground        = accent,
             VerticalAlignment = VerticalAlignment.Center,
             Margin            = new Thickness(6, 0, 0, 0),
-        };
-        var headerGrid = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
         };
         var headerLeft = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Children    = { seqAccentDot, seqTitle },
+            Children    = { dot, titleText },
         };
-        Grid.SetColumn(headerLeft, 0);   headerGrid.Children.Add(headerLeft);
-        Grid.SetColumn(viewStepsBtn, 2); headerGrid.Children.Add(viewStepsBtn);
+
+        var headerGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+        };
+        Grid.SetColumn(headerLeft, 0); headerGrid.Children.Add(headerLeft);
+        if (headerRightContent is not null)
+        {
+            Grid.SetColumn(headerRightContent, 2);
+            headerGrid.Children.Add(headerRightContent);
+        }
 
         var headerUnderline = new Border
         {
@@ -174,7 +234,7 @@ internal sealed class SequencerCard
             },
         };
 
-        var body = new StackPanel { Children = { headerGrid, headerUnderline, grid } };
+        var stack = new StackPanel { Children = { headerGrid, headerUnderline, body } };
         return new Border
         {
             Background      = Palette.BgCard,
@@ -182,21 +242,7 @@ internal sealed class SequencerCard
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(4),
             Padding         = new Thickness(8, 6),
-            Child           = body,
+            Child           = stack,
         };
-    }
-
-    // Pure check against the PRM data — used to enable/disable the VIEW STEPS button.
-    public static bool HasSequencerContent(PrmFileManager prm)
-    {
-        int count = prm.Sequence.StepCount;
-        for (int s = 0; s < count; s++)
-        {
-            var step = prm.Sequence.Steps[s];
-            if (step.Notes.Any(n => n >= 0))   return true;
-            if (step.Motions.Any(m => m >= 0)) return true;
-            if (step.PitchBend != -32768)       return true;
-        }
-        return false;
     }
 }

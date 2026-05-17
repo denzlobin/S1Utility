@@ -709,6 +709,7 @@ public partial class MainWindow
         if (choice == OpenPrmChoice.InspectOnly)
         {
             _prm.LoadInspector(parsed);
+            _prm.LastLoadedSourceName = fileName;
             SetStatus($"Inspecting: {fileName}", StatusKind.Ok);
             return;
         }
@@ -717,6 +718,7 @@ public partial class MainWindow
         _suppressUndoTracking = true;
         try { _prm.ApplyPrmData(parsed); }
         finally { _suppressUndoTracking = false; }
+        _prm.LastLoadedSourceName = fileName;
         ClearUndoHistory();
         SetStatus("Sending PRM values…", StatusKind.Info);
         await _patch.SendAllAsync();

@@ -6,9 +6,8 @@ using S1Utility.Widgets;
 
 namespace S1Utility.Panels;
 
-// OSC card body: waveform preview, two knob rows, four LED button strips,
-// DRAW · CHOP sub-section with three knobs and one LED.
-// All accents are explicit so the caller decides the visual theme.
+// OSC card body: waveform preview, two knob rows, four LED button strips.
+// DRAW · CHOP lives in its own top-level card; see DrawChopPanel.
 internal sealed class OscPanel
 {
     private readonly S1Patch _patch;
@@ -44,15 +43,6 @@ internal sealed class OscPanel
         target.Children.Add(Knobs.MakeLedButtonGroup(_patch, Cc(16), _accent));  // PWM Source
         target.Children.Add(Knobs.MakeLedButtonGroup(_patch, Cc(22), _accent));  // Sub Octave
 
-        target.Children.Add(Dashboard.BuildSubHeader("DRAW · CHOP", _accent));
-
-        var dcKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-        dcKnobs.Children.Add(Knobs.MakeKnob(_patch, Cc(102), _accent, minCcValue: 3));
-        dcKnobs.Children.Add(Knobs.MakeKnob(_patch, Cc(104), _accent, minCcValue: 3));
-        dcKnobs.Children.Add(Knobs.MakeKnob(_patch, Cc(103), _accent));
-        target.Children.Add(dcKnobs);
-
-        target.Children.Add(Knobs.MakeLedButtonGroup(_patch, Cc(107), _accent));
     }
 
     private S1Parameter Cc(int cc) =>

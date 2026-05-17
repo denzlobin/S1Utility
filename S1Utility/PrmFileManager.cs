@@ -14,6 +14,12 @@ public sealed class PrmFileManager
 {
     private readonly S1Patch _patch;
 
+    // File name (no extension) of the most recently loaded PRM source — slot
+    // name for pattern sync / Tab 2 navigation, picked file name for a manual
+    // Open PRM. Used by Export MIDI as the suggested file name. Null until the
+    // first successful load.
+    public string? LastLoadedSourceName { get; set; }
+
     // ── Low/high-cut option strings (shared by delay and reverb advanced params) ──
 
     private static readonly string[] s_lowCutOpts = {
@@ -216,6 +222,7 @@ public sealed class PrmFileManager
         try
         {
             LoadInspector(PrmFileParser.Parse(path));
+            LastLoadedSourceName = Path.GetFileNameWithoutExtension(PrmFileNameForProgram(program));
             return true;
         }
         catch { return false; }
@@ -305,6 +312,7 @@ public sealed class PrmFileManager
 
         ApplyPrmData(parsed);
         _patch.MarkAllSynced();
+        LastLoadedSourceName = Path.GetFileNameWithoutExtension(PrmFileNameForProgram(program));
         StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)}", StatusKind.Info));
         return true;
     }

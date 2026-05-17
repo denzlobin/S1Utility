@@ -4,8 +4,8 @@
         Title="S-1 Utility"
         Icon="/Assets/icon-256.png"
         Background="#1A1A1A"
-        Width="1100" Height="1098"
-        MinWidth="550" MinHeight="549">
+        Width="1100" Height="1040"
+        MinWidth="550" MinHeight="520">
 
     <Window.Resources>
         <!-- Shared brushes live in App.axaml's Application.Resources so the C#
@@ -233,7 +233,7 @@
     </Window.Styles>
 
     <Viewbox Stretch="Uniform">
-        <DockPanel Width="1100" Height="1098">
+        <DockPanel Width="1100" Height="1040">
 
         <!-- ── Top bar / Toolbar (MIDI + edit history + preset + settings) ── -->
         <Border DockPanel.Dock="Top"
@@ -431,12 +431,12 @@
             <TabItem Header="Realtime Editor">
                 <Grid Margin="0"
                           ColumnDefinitions="*,*,*"
-                          RowDefinitions="Auto,Auto,*"
+                          RowDefinitions="Auto,Auto,Auto"
                           ColumnSpacing="4"
                           RowSpacing="4">
 
-                        <!-- OSCILLATOR (col 0, all rows) -->
-                        <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="3">
+                        <!-- OSCILLATOR (col 0, rows 0-1) -->
+                        <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse Classes="section-dot" Fill="#F0A040"/>
@@ -451,6 +451,25 @@
                                     </Border.Background>
                                 </Border>
                                 <StackPanel x:Name="OscillatorPanel" Spacing="3"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DRAW · CHOP (col 0, row 2) — shares OSC accent -->
+                        <Border Classes="section-card" Grid.Column="0" Grid.Row="2">
+                            <StackPanel VerticalAlignment="Top">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#F0A040"/>
+                                    <TextBlock Classes="section-title" Text="DRAW · CHOP" Foreground="#F0A040"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#60F0A040"/>
+                                            <GradientStop Offset="1" Color="#00F0A040"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <StackPanel x:Name="DrawChopPanel" Spacing="3"/>
                             </StackPanel>
                         </Border>
 
@@ -530,8 +549,8 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- VOICE (stretches into * row) -->
-                        <Border Classes="section-card" Grid.Column="2" Grid.Row="1" Grid.RowSpan="2">
+                        <!-- VOICE (col 2, row 1) -->
+                        <Border Classes="section-card" Grid.Column="2" Grid.Row="1">
                             <StackPanel VerticalAlignment="Top">
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse Classes="section-dot" Fill="#C05878"/>
@@ -546,6 +565,25 @@
                                     </Border.Background>
                                 </Border>
                                 <StackPanel x:Name="VoicePanel" Spacing="3"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- CHORD (col 2, row 2) — shares VOICE accent, dimmed when Polyphony != Chord -->
+                        <Border x:Name="ChordCard" Classes="section-card" Grid.Column="2" Grid.Row="2">
+                            <StackPanel VerticalAlignment="Top">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Classes="section-dot" Fill="#C05878"/>
+                                    <TextBlock Classes="section-title" Text="CHORD" Foreground="#C05878"/>
+                                </StackPanel>
+                                <Border Height="1" Margin="0,4,0,6">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Offset="0" Color="#60C05878"/>
+                                            <GradientStop Offset="1" Color="#00C05878"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <StackPanel x:Name="ChordPanel" Spacing="3"/>
                             </StackPanel>
                         </Border>
 

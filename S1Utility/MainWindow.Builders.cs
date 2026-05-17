@@ -27,11 +27,13 @@ public partial class MainWindow
     private void BuildRealtimeEditorPanels()
     {
         new Panels.OscPanel(_patch, OscAccent, MakeOscWaveform).Populate(OscillatorPanel);
+        new Panels.DrawChopPanel(_patch, OscAccent).Populate(DrawChopPanel);
         new Panels.FilterPanel(_patch, FiltAccent, MakeFilterCurve).Populate(FilterPanel);
         new Panels.EnvelopePanel(_patch, EnvAccent, MakeAdsrVisualizer).Populate(EnvelopePanel);
         new Panels.LfoPanel(_patch, LfoAccent).Populate(LfoPanel);
         new Panels.EffectsPanel(_patch, _prm, FxAccent).Populate(EffectsPanel);
         new Panels.VoicePanel(_patch, VoiceAccent).Populate(VoicePanel);
+        new Panels.ChordPanel(_patch, VoiceAccent, ChordCard).Populate(ChordPanel);
         BuildPatchPanel();
     }
 
@@ -1055,12 +1057,17 @@ public partial class MainWindow
         PrmViewerGrid.Children.Add(drawCard);
         PrmViewerGrid.Children.Add(chopCard);
 
-        // ── Row 2 — full-width SEQUENCER card ────────────────────────────
-        var seqCard = new Panels.SequencerCard(
+        // ── Row 2 — SEQUENCER (PATTERN/ARP + VIEW STEPS) | MOTION (AUTOMATION + D-MOTION) ─
+        var seqCards = new Panels.SequencerCard(
             _prm, SeqAccent, Palette.AccentDmAlt,
-            _tempoLabel, _motionCcLabels, ShowSequencerWindow).Build();
-        Grid.SetColumn(seqCard, 0); Grid.SetRow(seqCard, 2); Grid.SetColumnSpan(seqCard, 2);
-        PrmViewerGrid.Children.Add(seqCard);
+            _tempoLabel, _motionCcLabels, ShowSequencerWindow,
+            () => _ = ExportMidiAsync());
+        var seqPatternCard = seqCards.BuildPatternCard();
+        var seqMotionCard  = seqCards.BuildMotionCard();
+        Grid.SetColumn(seqPatternCard, 0); Grid.SetRow(seqPatternCard, 2);
+        Grid.SetColumn(seqMotionCard,  1); Grid.SetRow(seqMotionCard,  2);
+        PrmViewerGrid.Children.Add(seqPatternCard);
+        PrmViewerGrid.Children.Add(seqMotionCard);
     }
 
 

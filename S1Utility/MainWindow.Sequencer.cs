@@ -50,41 +50,6 @@ public partial class MainWindow
 
         var (seqControl, seqUnsubscribe) = MakeSequencerControl();
 
-        var seqAccentClr = ((ISolidColorBrush)SeqAccent).Color;
-
-        var exportLbl = new TextBlock
-        {
-            Text          = "EXPORT MIDI",
-            FontSize      = 10.5,
-            FontWeight    = FontWeight.SemiBold,
-            LetterSpacing = 0.8,
-        };
-        var exportBtn = new Border
-        {
-            BorderThickness     = new Thickness(1),
-            CornerRadius        = new CornerRadius(4),
-            Padding             = new Thickness(20, 9),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Margin              = new Thickness(0, 12, 0, 0),
-            Cursor              = new Cursor(StandardCursorType.Hand),
-            Child               = exportLbl,
-        };
-        exportBtn.PointerPressed += async (_, _) => await ExportMidiAsync();
-
-        void RefreshExportBtn()
-        {
-            bool has              = HasSequencerContent();
-            exportBtn.IsEnabled   = has;
-            exportBtn.Opacity     = has ? 1.0 : 0.35;
-            exportBtn.BorderBrush = has ? SeqAccent : new SolidColorBrush(Color.Parse("#2E2E2E"));
-            exportBtn.Background  = has
-                ? new SolidColorBrush(Color.FromArgb(0x18, seqAccentClr.R, seqAccentClr.G, seqAccentClr.B))
-                : new SolidColorBrush(Color.Parse("#161616"));
-            exportLbl.Foreground  = has ? SeqAccent : new SolidColorBrush(Color.Parse("#555555"));
-        }
-
-        RefreshExportBtn();
-
         const int LabelW = 26, ColW = 15, WPad = 56;
         int CalcWidth() => Math.Max(480, LabelW + _prm.Sequence.StepCount * ColW + WPad);
 
@@ -99,7 +64,7 @@ public partial class MainWindow
             Content               = new Border
             {
                 Padding = new Thickness(14),
-                Child   = new StackPanel { Children = { seqControl, exportBtn } },
+                Child   = seqControl,
             },
         };
 
@@ -107,7 +72,6 @@ public partial class MainWindow
         {
             if (_seqWindow == null) return;
             _seqWindow.Width = CalcWidth();
-            RefreshExportBtn();
         });
         _prm.Sequence.DataChanged += dataHandler;
 
@@ -123,12 +87,10 @@ public partial class MainWindow
 
     private async Task ExportMidiAsync()
     {
-        if (_seqWindow == null) return;
-
-        var file = await _seqWindow.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title             = "Export MIDI",
-            SuggestedFileName = "sequencer",
+            SuggestedFileName = _prm.LastLoadedSourceName ?? "sequencer",
             DefaultExtension  = ".mid",
             FileTypeChoices   = new[]
             {
@@ -272,13 +234,6 @@ public partial class MainWindow
         const double StepNumH = 14.0;
         const double LaneH    = 20.0;
 
-        var infoLabel = new TextBlock
-        {
-            FontSize   = 10,
-            Foreground = new SolidColorBrush(Color.Parse("#888888")),
-            Margin     = new Thickness(0, 0, 0, 6),
-        };
-
         var canvas      = new Canvas();
         var motionLanes = new StackPanel { Spacing = 2 };
 
@@ -288,11 +243,6 @@ public partial class MainWindow
             motionLanes.Children.Clear();
 
             int count = _prm.Sequence.StepCount;
-            infoLabel.Text =
-                $"Steps: {count}   " +
-                $"Tempo: {_prm.Sequence.Tempo / 100.0:F1} BPM   " +
-                $"Transpose: {_prm.Sequence.Transpose}   " +
-                $"Shuffle: {_prm.Sequence.Shuffle}";
 
             // Auto-detect pitch range from active notes
             int minNote = 127, maxNote = 0;
@@ -517,7 +467,6 @@ public partial class MainWindow
             {
                 Children =
                 {
-                    infoLabel,
                     new ScrollViewer
                     {
                         HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
