@@ -21,6 +21,11 @@ public sealed record SettingsV1
     public int    MidiChannel            { get; init; } = 3;
     public int    PcChannel              { get; init; } = 16;
     public bool   SkipPatternSyncWarning { get; init; }
+
+    // Program number (0-63) sent to the synth when Patch Mirror is enabled or
+    // a fresh connection is made while Mirror is already on. 0 = Bank 1 Pat 01,
+    // matching the legacy hard-coded behaviour.
+    public int    MirrorInitialProgram   { get; init; }
 }
 
 public static class SettingsStore
@@ -92,13 +97,15 @@ public static class SettingsStore
             MidiChannel            = Math.Clamp(ReadInt(root, "midiChannel", defaults.MidiChannel), 1, 16),
             PcChannel              = Math.Clamp(ReadInt(root, "pcChannel",   defaults.PcChannel),   1, 16),
             SkipPatternSyncWarning = ReadBool  (root, "skipPatternSyncWarning", defaults.SkipPatternSyncWarning),
+            MirrorInitialProgram   = Math.Clamp(ReadInt(root, "mirrorInitialProgram", defaults.MirrorInitialProgram), 0, 63),
         };
     }
 
     private static SettingsV1 Clamp(SettingsV1 s) => s with
     {
-        MidiChannel = Math.Clamp(s.MidiChannel, 1, 16),
-        PcChannel   = Math.Clamp(s.PcChannel,   1, 16),
+        MidiChannel          = Math.Clamp(s.MidiChannel, 1, 16),
+        PcChannel            = Math.Clamp(s.PcChannel,   1, 16),
+        MirrorInitialProgram = Math.Clamp(s.MirrorInitialProgram, 0, 63),
     };
 
     private static SettingsV1 LogUnknownVersion(int version, string path)

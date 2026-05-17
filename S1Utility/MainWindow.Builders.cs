@@ -641,8 +641,13 @@ public partial class MainWindow
 
     // Returns the toggle button plus two delegates to update its visual state
     // from outside: setActive(bool) and setEnabled(bool).
+    // Active state uses a neutral white-ish outline (#E0E0E8) — Patch Mirror
+    // and Animations share the same treatment, no per-button accent.
+    private static readonly IBrush s_heuristicActive   = new SolidColorBrush(Color.Parse("#E0E0E8"));
+    private static readonly IBrush s_heuristicActiveBg = new SolidColorBrush(Color.FromArgb(0x1A, 0xE0, 0xE0, 0xE8));
+
     private (Border btn, HeuristicToggleState state) MakeHeuristicToggle(
-        string name, string tooltip, IBrush accent)
+        string name, string tooltip)
     {
         var led = new Border
         {
@@ -682,12 +687,10 @@ public partial class MainWindow
 
         void SetActive(bool on)
         {
-            var col = ((ISolidColorBrush)accent).Color;
-            btn.Background     = on ? new SolidColorBrush(Color.FromArgb(0x1A, col.R, col.G, col.B))
-                                    : Brushes.Transparent;
-            btn.BorderBrush    = on ? accent : new SolidColorBrush(Color.Parse("#2A2A33"));
-            led.Background     = on ? accent : new SolidColorBrush(Color.Parse("#2A2A2A"));
-            nameLbl.Foreground = on ? accent : Palette.FgMute;
+            btn.Background     = on ? s_heuristicActiveBg : Brushes.Transparent;
+            btn.BorderBrush    = on ? s_heuristicActive   : new SolidColorBrush(Color.Parse("#2A2A33"));
+            led.Background     = on ? s_heuristicActive   : new SolidColorBrush(Color.Parse("#2A2A2A"));
+            nameLbl.Foreground = on ? s_heuristicActive   : Palette.FgMute;
         }
 
         void SetEnabled(bool enabled)
@@ -737,8 +740,7 @@ public partial class MainWindow
             "Heuristic feature: animates the ADSR and its modulation targets using the editor's current " +
             "CC values as model inputs. The animation is an approximation; it responds to note events " +
             "but will not match the S-1 hardware signal path exactly.\n\n" +
-            "Requires Patch Mirror enabled so the editor values reflect what is on the device.",
-            EnvAccent);
+            "Requires Patch Mirror enabled so the editor values reflect what is on the device.");
 
         _animationsToggle = animationsState;
 
@@ -770,8 +772,7 @@ public partial class MainWindow
             "Heuristic feature: loads the backed up PRM file matching the current pattern number when you switch " +
             "patterns via the editor or a MIDI Program Change.\n\n" +
             "Requires a PRM folder containing valid .PRM files. Accuracy depends on keeping the " +
-            "folder in sync with what is stored on the device.",
-            WarnBrush);
+            "folder in sync with what is stored on the device.");
 
         _patchMirrorToggle = patchMirrorState;
 
@@ -795,7 +796,7 @@ public partial class MainWindow
             if (enabling)
             {
                 if (_isConnected)
-                    GoToPattern1();
+                    GoToMirrorInitialPatch();
                 UpdateRestorePatchButton();
             }
             else
@@ -1030,22 +1031,13 @@ public partial class MainWindow
 
         var colB = new Grid
         {
-            RowDefinitions = new RowDefinitions("Auto,Auto,*"),
+            RowDefinitions = new RowDefinitions("Auto,*"),
             RowSpacing     = 4,
         };
-        var riserCard = Dashboard.BuildPrmCard("RISER", Palette.AccentFx, Dashboard.BuildThreeColGrid(new[]
-        {
-            InspectorRows.BuildPrmDataRow(_prm.RiserSw),
-            InspectorRows.BuildPrmDataRow(_prm.RiserMode),
-            InspectorRows.BuildPrmDataRow(_prm.RiserShape),
-            InspectorRows.BuildPrmDataRow(_prm.RiserReso),
-            InspectorRows.BuildPrmDataRow(_prm.RiserLevel),
-        }));
         var effectsCard = new Panels.EffectsCard(_patch, _prm, FxAccent).Build();
         var voiceCard   = new Panels.VoiceCard(_patch, _prm, VoiceAccent).Build();
-        Grid.SetRow(riserCard,   0); colB.Children.Add(riserCard);
-        Grid.SetRow(effectsCard, 1); colB.Children.Add(effectsCard);
-        Grid.SetRow(voiceCard,   2); colB.Children.Add(voiceCard);
+        Grid.SetRow(effectsCard, 0); colB.Children.Add(effectsCard);
+        Grid.SetRow(voiceCard,   1); colB.Children.Add(voiceCard);
         Grid.SetColumn(colB, 1); Grid.SetRow(colB, 0);
         PrmViewerGrid.Children.Add(colB);
 

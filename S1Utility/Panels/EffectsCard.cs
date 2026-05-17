@@ -50,6 +50,22 @@ internal sealed class EffectsCard
             InspectorRows.BuildCcDataRow(_prm, Cc(93)),       // Type
         });
 
+        // RISER lives here (third column, below Chorus) instead of as its own
+        // top-level card — RiserSw is always Off and RiserShape is always 0 on
+        // the device, so only Mode/Resonance/Level are worth surfacing.
+        var riserCol = Dashboard.BuildEffectsSubCol("RISER", _accent, new[]
+        {
+            InspectorRows.BuildPrmDataRow(_prm.RiserMode),
+            InspectorRows.BuildPrmDataRow(_prm.RiserReso),
+            InspectorRows.BuildPrmDataRow(_prm.RiserLevel),
+        });
+
+        var col3 = new StackPanel
+        {
+            Spacing  = 6,
+            Children = { chorusCol, riserCol },
+        };
+
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,*,*"),
@@ -57,7 +73,7 @@ internal sealed class EffectsCard
         };
         Grid.SetColumn(revCol,    0); grid.Children.Add(revCol);
         Grid.SetColumn(delCol,    1); grid.Children.Add(delCol);
-        Grid.SetColumn(chorusCol, 2); grid.Children.Add(chorusCol);
+        Grid.SetColumn(col3,      2); grid.Children.Add(col3);
 
         return Dashboard.BuildPrmCard("EFFECTS", _accent, grid);
     }

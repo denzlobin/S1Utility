@@ -56,12 +56,27 @@ public partial class MainWindow
             ChannelCombo.Items.Add(ch.ToString());
             ProgramChangeChannelCombo.Items.Add(ch.ToString());
         }
+        for (int bank = 1; bank <= 4; bank++)
+            MirrorInitialBankCombo.Items.Add($"Bank {bank}");
+        for (int pattern = 1; pattern <= 16; pattern++)
+            MirrorInitialPatternCombo.Items.Add($"Pattern {pattern:D2}");
+
         ChannelCombo.SelectedIndex              = _midiChannel - 1;
         ProgramChangeChannelCombo.SelectedIndex = _pcChannel   - 1;
+        MirrorInitialBankCombo.SelectedIndex    = _mirrorInitialProgram / 16;
+        MirrorInitialPatternCombo.SelectedIndex = _mirrorInitialProgram % 16;
         UpdateFooterChannels();
 
         ChannelCombo.SelectionChanged += (_, _) => { SaveSettings(); UpdateFooterChannels(); };
         ProgramChangeChannelCombo.SelectionChanged += (_, _) => { SaveSettings(); UpdateFooterChannels(); };
+
+        void OnMirrorPatchChanged(object? _, SelectionChangedEventArgs __)
+        {
+            _mirrorInitialProgram = MirrorInitialProgram;
+            SaveSettings();
+        }
+        MirrorInitialBankCombo.SelectionChanged    += OnMirrorPatchChanged;
+        MirrorInitialPatternCombo.SelectionChanged += OnMirrorPatchChanged;
 
         DeviceCombo.DropDownOpened += (_, _) => ReenumerateDevices();
         InputCombo.DropDownOpened  += (_, _) => ReenumerateDevices();
@@ -272,7 +287,7 @@ public partial class MainWindow
         // Re-scan in case the user added/edited PRM files while disconnected.
         _prm.RescanFolder();
         if (_prm.PatternSync)
-            GoToPattern1();
+            GoToMirrorInitialPatch();
 
         if (inputError != null)
             SetStatus($"→ {outName}  (input unavailable: {inputError})", StatusKind.Warn);
@@ -307,6 +322,7 @@ public partial class MainWindow
         _midiChannel                = s.MidiChannel;
         _pcChannel                  = s.PcChannel;
         _skipPatternSyncWarning     = s.SkipPatternSyncWarning;
+        _mirrorInitialProgram       = Math.Clamp(s.MirrorInitialProgram, 0, 63);
     }
 
     private void SaveSettings() => SettingsStore.Save(SettingsPath, new SettingsV1
@@ -316,8 +332,9 @@ public partial class MainWindow
         PrmFolder              = _prm.PrmFolder,
         PatternSync            = _prm.PatternSync,
         MidiChannel            = MidiChannel,
-        PcChannel              = PcChannel,
+        PcChannel               = PcChannel,
         SkipPatternSyncWarning = _skipPatternSyncWarning,
+        MirrorInitialProgram   = _mirrorInitialProgram,
     });
 
     private async void OnInitPatchClicked(object? sender, RoutedEventArgs e)
@@ -426,6 +443,8 @@ public partial class MainWindow
         // Push the reset values into every UI surface that mirrors them.
         ChannelCombo.SelectedIndex              = _midiChannel - 1;
         ProgramChangeChannelCombo.SelectedIndex = _pcChannel - 1;
+        MirrorInitialBankCombo.SelectedIndex    = _mirrorInitialProgram / 16;
+        MirrorInitialPatternCombo.SelectedIndex = _mirrorInitialProgram % 16;
         AutoConnectCheckBox.IsChecked           = _autoConnect;
         PrmFolderBox.Text                       = _prm.PrmFolder;
         UpdateFooterChannels();
@@ -877,11 +896,12 @@ public partial class MainWindow
         }
     }
 
-    private void GoToPattern1()
+    private void GoToMirrorInitialPatch()
     {
-        _patch.SendProgramChange(0, PcChannel);
-        HighlightPatchButton(0);
-        if (_patchButtons.Count > 0) _patchButtons[0].Focus();
+        int program = Math.Clamp(_mirrorInitialProgram, 0, 63);
+        _patch.SendProgramChange(program, PcChannel);
+        HighlightPatchButton(program);
+        if ((uint)program < (uint)_patchButtons.Count) _patchButtons[program].Focus();
     }
 
     // ── Filter modulation: 60 fps tick ───────────────────────────────────────
@@ -964,12 +984,14 @@ public partial class MainWindow
         // Stretch the field controls inside the popup so they fill their cells.
         ChannelCombo.HorizontalAlignment              = HorizontalAlignment.Stretch;
         ProgramChangeChannelCombo.HorizontalAlignment = HorizontalAlignment.Stretch;
+        MirrorInitialBankCombo.HorizontalAlignment    = HorizontalAlignment.Stretch;
+        MirrorInitialPatternCombo.HorizontalAlignment = HorizontalAlignment.Stretch;
         PrmFolderBox.HorizontalAlignment              = HorizontalAlignment.Stretch;
 
         var grid = new Grid
         {
             Margin            = new Thickness(22, 18, 22, 18),
-            RowDefinitions    = RowDefinitions.Parse("Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
+            RowDefinitions    = RowDefinitions.Parse("Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
             ColumnDefinitions = ColumnDefinitions.Parse("180,*,Auto"),
             ColumnSpacing     = 12,
             RowSpacing        = 8,
@@ -1022,6 +1044,33 @@ public partial class MainWindow
         Grid.SetColumnSpan(prmHint, 2);
         grid.Children.Add(prmHint);
 
+        var mirrorSep = new Border
+        {
+            Height     = 1,
+            Background = new SolidColorBrush(Color.Parse("#2C2C36")),
+            Margin     = new Thickness(0, 10, 0, 8),
+        };
+        Place(mirrorSep, 8, 0, 3);
+
+        Place(SectionHeader("PATCH MIRROR"),  9, 0, 3);
+
+        var mirrorPatchRow = new Grid
+        {
+            ColumnDefinitions = ColumnDefinitions.Parse("*,*"),
+            ColumnSpacing     = 8,
+        };
+        Grid.SetColumn(MirrorInitialBankCombo,    0); mirrorPatchRow.Children.Add(MirrorInitialBankCombo);
+        Grid.SetColumn(MirrorInitialPatternCombo, 1); mirrorPatchRow.Children.Add(MirrorInitialPatternCombo);
+
+        const string mirrorPatchTooltip =
+            "With Patch Mirror enabled, this program is triggered on every connection.";
+        var mirrorPatchLabel = RowLabel("Initial Patch");
+        ToolTip.SetTip(mirrorPatchLabel,           mirrorPatchTooltip);
+        ToolTip.SetTip(MirrorInitialBankCombo,     mirrorPatchTooltip);
+        ToolTip.SetTip(MirrorInitialPatternCombo,  mirrorPatchTooltip);
+        Place(mirrorPatchLabel, 10, 0);
+        Place(mirrorPatchRow,   10, 1, 2);
+
         var resetBtn = new Button
         {
             Content             = "Reset preferences",
@@ -1030,7 +1079,7 @@ public partial class MainWindow
             Margin              = new Thickness(0, 18, 0, 0),
         };
         ToolTip.SetTip(resetBtn, "Wipe all stored preferences and revert to first-launch defaults.");
-        Grid.SetRow(resetBtn, 8);
+        Grid.SetRow(resetBtn, 11);
         Grid.SetColumn(resetBtn, 0);
         Grid.SetColumnSpan(resetBtn, 3);
         grid.Children.Add(resetBtn);
@@ -1043,7 +1092,7 @@ public partial class MainWindow
             MinWidth            = 72,
             Margin              = new Thickness(0, 18, 0, 0),
         };
-        Grid.SetRow(closeBtn, 8);
+        Grid.SetRow(closeBtn, 11);
         Grid.SetColumn(closeBtn, 0);
         Grid.SetColumnSpan(closeBtn, 3);
         grid.Children.Add(closeBtn);
@@ -1068,6 +1117,8 @@ public partial class MainWindow
             // Detach so the controls can be re-parented into the next popup.
             (ChannelCombo.Parent              as Panel)?.Children.Remove(ChannelCombo);
             (ProgramChangeChannelCombo.Parent as Panel)?.Children.Remove(ProgramChangeChannelCombo);
+            (MirrorInitialBankCombo.Parent    as Panel)?.Children.Remove(MirrorInitialBankCombo);
+            (MirrorInitialPatternCombo.Parent as Panel)?.Children.Remove(MirrorInitialPatternCombo);
             (AutoConnectCheckBox.Parent       as Panel)?.Children.Remove(AutoConnectCheckBox);
             (PrmFolderBox.Parent              as Panel)?.Children.Remove(PrmFolderBox);
             (BrowsePrmFolderButton.Parent     as Panel)?.Children.Remove(BrowsePrmFolderButton);

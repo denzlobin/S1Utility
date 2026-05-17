@@ -19,6 +19,9 @@ public partial class MainWindow : Window
 
     private int MidiChannel => ChannelCombo.SelectedIndex >= 0 ? ChannelCombo.SelectedIndex + 1 : 3;
     private int PcChannel   => ProgramChangeChannelCombo.SelectedIndex >= 0 ? ProgramChangeChannelCombo.SelectedIndex + 1 : 16;
+    private int MirrorInitialProgram =>
+        Math.Clamp(MirrorInitialBankCombo.SelectedIndex,    0, 3)  * 16
+      + Math.Clamp(MirrorInitialPatternCombo.SelectedIndex, 0, 15);
 
     // Patch/pattern bank buttons (4 groups × 16 patterns = 64 program changes).
     private readonly List<Button> _patchButtons = new();
@@ -48,6 +51,7 @@ public partial class MainWindow : Window
     private Window? _infoWindow;
     private int    _midiChannel  = 3;
     private int    _pcChannel    = 16;
+    private int    _mirrorInitialProgram;
 
     // Settings popup controls — declared here so they survive the popup being closed
     // and can be re-parented next time it opens. Populated/wired in PopulateDeviceLists
@@ -60,6 +64,20 @@ public partial class MainWindow : Window
         BorderBrush = new SolidColorBrush(Color.Parse("#3A3A46")),
     };
     private readonly ComboBox ProgramChangeChannelCombo = new()
+    {
+        Height      = 26,
+        FontSize    = 11,
+        Background  = new SolidColorBrush(Color.Parse("#1E1E28")),
+        BorderBrush = new SolidColorBrush(Color.Parse("#3A3A46")),
+    };
+    private readonly ComboBox MirrorInitialBankCombo = new()
+    {
+        Height      = 26,
+        FontSize    = 11,
+        Background  = new SolidColorBrush(Color.Parse("#1E1E28")),
+        BorderBrush = new SolidColorBrush(Color.Parse("#3A3A46")),
+    };
+    private readonly ComboBox MirrorInitialPatternCombo = new()
     {
         Height      = 26,
         FontSize    = 11,
