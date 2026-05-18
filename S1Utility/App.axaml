@@ -33,10 +33,10 @@
         <SolidColorBrush x:Key="FgOff">#4A4A4A</SolidColorBrush>
 
         <!-- ── Section accents (hex values are the canonical set) ─────────── -->
-        <SolidColorBrush x:Key="AccentOsc">#F0A040</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentOsc">#70C870</SolidColorBrush>
         <SolidColorBrush x:Key="AccentSeq">#E0C040</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentFilter">#40B0F0</SolidColorBrush>
-        <SolidColorBrush x:Key="AccentEnv">#70C870</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentFilter">#F0A040</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentEnv">#40B0F0</SolidColorBrush>
         <SolidColorBrush x:Key="AccentLfo">#B070D8</SolidColorBrush>
         <SolidColorBrush x:Key="AccentVoice">#C05878</SolidColorBrush>
         <SolidColorBrush x:Key="AccentFx">#40C8A8</SolidColorBrush>

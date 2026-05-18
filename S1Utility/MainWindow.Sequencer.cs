@@ -25,9 +25,9 @@ public partial class MainWindow
     // gets a visually distinct hue from the same palette the rest of the editor uses.
     private static IBrush[] s_voiceColors => new[]
     {
-        Palette.AccentOsc,    // V1 orange
-        Palette.AccentFilter, // V2 blue
-        Palette.AccentEnv,    // V3 green
+        Palette.AccentOsc,    // V1 green
+        Palette.AccentFilter, // V2 orange
+        Palette.AccentEnv,    // V3 blue
         Palette.AccentLfo,    // V4 purple
     };
 

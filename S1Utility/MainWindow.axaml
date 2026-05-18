@@ -451,14 +451,14 @@
                         <Border Classes="section-card" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Classes="section-dot" Fill="#F0A040"/>
-                                    <TextBlock Classes="section-title" Text="OSCILLATOR" Foreground="#F0A040"/>
+                                    <Ellipse Classes="section-dot" Fill="#70C870"/>
+                                    <TextBlock Classes="section-title" Text="OSCILLATOR" Foreground="#70C870"/>
                                 </StackPanel>
                                 <Border Height="1" Margin="0,4,0,6">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                            <GradientStop Offset="0" Color="#60F0A040"/>
-                                            <GradientStop Offset="1" Color="#00F0A040"/>
+                                            <GradientStop Offset="0" Color="#6070C870"/>
+                                            <GradientStop Offset="1" Color="#0070C870"/>
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
@@ -470,14 +470,14 @@
                         <Border Classes="section-card" Grid.Column="0" Grid.Row="2">
                             <StackPanel VerticalAlignment="Top">
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Classes="section-dot" Fill="#F0A040"/>
-                                    <TextBlock Classes="section-title" Text="DRAW · CHOP" Foreground="#F0A040"/>
+                                    <Ellipse Classes="section-dot" Fill="#70C870"/>
+                                    <TextBlock Classes="section-title" Text="DRAW · CHOP" Foreground="#70C870"/>
                                 </StackPanel>
                                 <Border Height="1" Margin="0,4,0,6">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                            <GradientStop Offset="0" Color="#60F0A040"/>
-                                            <GradientStop Offset="1" Color="#00F0A040"/>
+                                            <GradientStop Offset="0" Color="#6070C870"/>
+                                            <GradientStop Offset="1" Color="#0070C870"/>
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
@@ -489,14 +489,14 @@
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="0">
                             <StackPanel VerticalAlignment="Top">
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Classes="section-dot" Fill="#40B0F0"/>
-                                    <TextBlock Classes="section-title" Text="FILTER" Foreground="#40B0F0"/>
+                                    <Ellipse Classes="section-dot" Fill="#F0A040"/>
+                                    <TextBlock Classes="section-title" Text="FILTER" Foreground="#F0A040"/>
                                 </StackPanel>
                                 <Border Height="1" Margin="0,4,0,6">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                            <GradientStop Offset="0" Color="#6040B0F0"/>
-                                            <GradientStop Offset="1" Color="#0040B0F0"/>
+                                            <GradientStop Offset="0" Color="#60F0A040"/>
+                                            <GradientStop Offset="1" Color="#00F0A040"/>
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
@@ -508,14 +508,14 @@
                         <Border Classes="section-card" Grid.Column="1" Grid.Row="1">
                             <StackPanel VerticalAlignment="Top">
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Classes="section-dot" Fill="#70C870"/>
-                                    <TextBlock Classes="section-title" Text="ENVELOPE" Foreground="#70C870"/>
+                                    <Ellipse Classes="section-dot" Fill="#40B0F0"/>
+                                    <TextBlock Classes="section-title" Text="ENVELOPE" Foreground="#40B0F0"/>
                                 </StackPanel>
                                 <Border Height="1" Margin="0,4,0,6">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                            <GradientStop Offset="0" Color="#6070C870"/>
-                                            <GradientStop Offset="1" Color="#0070C870"/>
+                                            <GradientStop Offset="0" Color="#6040B0F0"/>
+                                            <GradientStop Offset="1" Color="#0040B0F0"/>
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
