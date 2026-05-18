@@ -583,6 +583,8 @@ internal static class Knobs
     }
 
     // ── Delay Time knob: ms when sync off, tempo-division when sync on ────────
+    // DELAY_SW semantics on the device: 0 = Sync to Tempo, 1 = Off (free ms).
+    // The knob keeps using CC90 in both modes; only the value mapping changes.
 
     public static Control MakeDelayTimeKnob(S1Patch patch, PrmParameter delaySw, PrmParameter delayTempo, IBrush accent)
     {
@@ -590,8 +592,8 @@ internal static class Knobs
 
         string GetDisplay()
         {
-            if (delaySw.Value != 1)
-                return $"{1 + (int)Math.Round(param.Value * 739.0 / 127)}ms"; // S-1 range: 1–740 ms
+            if (delaySw.Value == 1)
+                return $"{DelayTimeMap.CcToMs(param.Value)}ms";
             var opts = delayTempo.Options!;
             int idx  = Math.Clamp(param.Value, 0, opts.Length - 1);
             return opts[idx];
@@ -617,21 +619,21 @@ internal static class Knobs
         knob.ValueChanged += (_, v) =>
         {
             if (delayUpdatingFromModel) return;
-            param.Value = delaySw.Value == 1 ? KnobToSync(v) : v;
+            param.Value = delaySw.Value == 0 ? KnobToSync(v) : v;
             if (patch.IsConnected) param.MarkSynced();
             Refresh();
         };
         param.ValueChanged += (_, v) => Dispatcher.UIThread.Post(() =>
         {
             delayUpdatingFromModel = true;
-            knob.Value = delaySw.Value == 1 ? SyncToKnob(v) : v;
+            knob.Value = delaySw.Value == 0 ? SyncToKnob(v) : v;
             delayUpdatingFromModel = false;
             Refresh();
         });
         delaySw.ValueChanged += (_, sw) => Dispatcher.UIThread.Post(() =>
         {
             delayUpdatingFromModel = true;
-            knob.Value = sw == 1 ? SyncToKnob(param.Value) : param.Value;
+            knob.Value = sw == 0 ? SyncToKnob(param.Value) : param.Value;
             delayUpdatingFromModel = false;
             Refresh();
         });

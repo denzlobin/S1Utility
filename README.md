@@ -69,7 +69,7 @@ Beta version; Targets Windows for now, portability to macOS/Linux is on the road
 - **Windows-only** at the moment. The aspect-ratio policy uses Win32 APIs (`WM_SIZING`, `WS_MAXIMIZEBOX`); contributing a sibling implementation for Mac/Linux behind the existing `IWindowSizePolicy` interface would unlock cross-platform builds.
 - **Tab 2 (Patch Inspector) is read-only.** The app does not write `.PRM` files — most PRM-only parameters have no MIDI CC path, and writing risks corrupting your patch backups.
 - **No sysex.** The S-1 does not use sysex for parameter control.
-- **CC90 (Delay Time, free mode)** and **CC13 (VCO Mod Depth)** display scaling are unverified — the editor knob may not match the S-1's display.
+- **CC13 (VCO Mod Depth)** display scaling is unverified — the editor knob may not match the S-1's display. (CC90 Delay Time was hardware-verified in May 2026 and now uses a piecewise-linear mapping anchored to seven on-device data points.)
 
 ---
 

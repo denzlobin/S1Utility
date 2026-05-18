@@ -105,6 +105,12 @@ public sealed class PrmFileManager
     private Dictionary<int, int> _ccSnapshot = new();
     public IReadOnlyDictionary<int, int> CcSnapshot => _ccSnapshot;
 
+    // Raw 0..255 PRM byte values, keyed by PRM key. The CC snapshot quantises
+    // 0..255 down to 0..127 (lossy), so for inspector rows that need the full
+    // 8-bit precision (DELAY_TIME ms display) read from here instead.
+    private Dictionary<string, int> _prmRawSnapshot = new();
+    public IReadOnlyDictionary<string, int> PrmRawSnapshot => _prmRawSnapshot;
+
     // ── Construction ─────────────────────────────────────────────────────────
 
     private readonly IReadOnlyList<PrmParameter> _allPrmOnly;
@@ -136,7 +142,9 @@ public sealed class PrmFileManager
 
     private List<PrmParameter> BuildDelayMain() => new()
     {
-        new("Sync", "DELAY_SW", options: new[] { "Off", "Sync to Tempo" }),
+        // Hardware-verified against PTN4-01..07: DELAY_SW=1 is the free-ms
+        // mode shown on the S-1 as "Off", DELAY_SW=0 is tempo-synced.
+        new("Sync", "DELAY_SW", options: new[] { "Sync to Tempo", "Off" }),
     };
 
     private List<PrmParameter> BuildReverbMain() => new()
@@ -259,17 +267,21 @@ public sealed class PrmFileManager
         LoadPrmOnly(data, new[] { DmAssignX, DmAssignY, DmAssignTap, DmAssignFf, DmSensX, DmSensY });
 
         // Build CC snapshot directly from file data so it never reflects
-        // _patch's live (possibly dirty) state.
-        var snap = new Dictionary<int, int>();
+        // _patch's live (possibly dirty) state. Also build a parallel raw-PRM
+        // snapshot for fields where the 8-bit precision matters (DELAY_TIME).
+        var snap    = new Dictionary<int, int>();
+        var rawSnap = new Dictionary<string, int>();
         foreach (var (key, rawValue) in data.Parameters)
         {
-            if (!PrmCcMap.Map.TryGetValue(key, out var info)) continue;
             if (!int.TryParse(rawValue, out int prmValue)) continue;
+            rawSnap[key] = prmValue;
+            if (!PrmCcMap.Map.TryGetValue(key, out var info)) continue;
             snap[info.Cc] = ResolveCcValue(data, key, info, prmValue);
         }
         snap[1]  = 0;    // Mod Wheel
         snap[11] = 127;  // Expression
-        _ccSnapshot = snap;
+        _ccSnapshot     = snap;
+        _prmRawSnapshot = rawSnap;
         CcSnapshotChanged?.Invoke(this, EventArgs.Empty);
 
         // Tempo: stored as integer × 100 (e.g. 10000 = 100.0 BPM)

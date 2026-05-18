@@ -9,8 +9,9 @@ using S1Utility.Widgets;
 
 namespace S1Utility.Panels;
 
-// EFFECTS inspector card: three sub-columns (Reverb / Delay / Chorus). Delay's
-// Time row is context-aware (ms when DELAY_SW=Off, tempo-division when On).
+// EFFECTS inspector card: two columns (Reverb + Chorus on the left, Delay on
+// the right). Delay's Time row is context-aware — ms when DELAY_SW = Off
+// (free), tempo division when Sync to Tempo.
 internal sealed class EffectsCard
 {
     private readonly S1Patch _patch;
@@ -32,7 +33,9 @@ internal sealed class EffectsCard
             InspectorRows.BuildCcDataRow(_prm, Cc(89)),       // Time
             InspectorRows.BuildPrmDataRow(_prm.ReverbMain[0]),// Type
             InspectorRows.BuildPrmDataRow(_prm.ReverbAdv[0]), // Pre-Delay
-            InspectorRows.BuildPrmDataRow(_prm.ReverbAdv[1]),
+            InspectorRows.BuildPrmDataRow(_prm.ReverbAdv[1]), // Density
+            InspectorRows.BuildPrmDataRow(_prm.ReverbAdv[2]), // Low Cut
+            InspectorRows.BuildPrmDataRow(_prm.ReverbAdv[3]), // High Cut
         });
 
         var delItems = new List<Control>
@@ -42,6 +45,8 @@ internal sealed class EffectsCard
             InspectorRows.BuildPrmDataRow(_prm.DelayMain[0]), // Sync (DELAY_SW)
             InspectorRows.BuildPrmDataRow(_prm.DelayTempo),
             InspectorRows.BuildPrmDataRow(_prm.DelayAdv[0]),  // Feedback
+            InspectorRows.BuildPrmDataRow(_prm.DelayAdv[1]),  // Low Cut
+            InspectorRows.BuildPrmDataRow(_prm.DelayAdv[2]),  // High Cut
         };
         var delCol = Dashboard.BuildEffectsSubCol("DELAY", _accent, delItems);
 
@@ -50,46 +55,42 @@ internal sealed class EffectsCard
             InspectorRows.BuildCcDataRow(_prm, Cc(93)),       // Type
         });
 
-        // RISER lives here (third column, below Chorus) instead of as its own
-        // top-level card — RiserSw is always Off and RiserShape is always 0 on
-        // the device, so only Mode/Resonance/Level are worth surfacing.
-        var riserCol = Dashboard.BuildEffectsSubCol("RISER", _accent, new[]
-        {
-            InspectorRows.BuildPrmDataRow(_prm.RiserMode),
-            InspectorRows.BuildPrmDataRow(_prm.RiserReso),
-            InspectorRows.BuildPrmDataRow(_prm.RiserLevel),
-        });
-
-        var col3 = new StackPanel
+        var col1 = new StackPanel
         {
             Spacing  = 6,
-            Children = { chorusCol, riserCol },
+            Children = { revCol, chorusCol },
         };
 
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
             ColumnSpacing     = 14,
         };
-        Grid.SetColumn(revCol,    0); grid.Children.Add(revCol);
-        Grid.SetColumn(delCol,    1); grid.Children.Add(delCol);
-        Grid.SetColumn(col3,      2); grid.Children.Add(col3);
+        Grid.SetColumn(col1,  0); grid.Children.Add(col1);
+        Grid.SetColumn(delCol, 1); grid.Children.Add(delCol);
 
         return Dashboard.BuildPrmCard("EFFECTS", _accent, grid);
     }
 
     private Control BuildDelayTimeRow()
     {
-        var delaySw     = _prm.DelayMain[0];
-        var delayTimeCC = Cc(90);
+        var delaySw = _prm.DelayMain[0];
 
         var lbl = new TextBlock();
         void Refresh()
         {
-            int delayTimeVal = InspectorRows.SnapshotValue(_prm, delayTimeCC);
-            lbl.Text = delaySw.Value == 0
-                ? $"{1 + (int)Math.Round(delayTimeVal * 739.0 / 127)}ms"
-                : CcDisplay.PrmValue(_prm.DelayTempo);
+            // DELAY_SW: 1 = Off (free ms), 0 = Sync to Tempo. Free mode reads
+            // the raw 8-bit DELAY_TIME so the ms anchors stay precise — the
+            // CC snapshot is 7-bit and rounds two raw values into one.
+            if (delaySw.Value == 1)
+            {
+                int raw = _prm.PrmRawSnapshot.TryGetValue("DELAY_TIME", out var v) ? v : 0;
+                lbl.Text = $"{DelayTimeMap.RawToMs(raw)}ms";
+            }
+            else
+            {
+                lbl.Text = CcDisplay.PrmValue(_prm.DelayTempo);
+            }
         }
         Refresh();
         delaySw.ValueChanged         += (_, _) => Dispatcher.UIThread.Post(Refresh);
