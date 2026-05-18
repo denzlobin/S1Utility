@@ -51,7 +51,10 @@ public sealed class RollingFileLogger : ILog, IDisposable
         _maxBytes = maxBytes;
         _writer   = new StreamWriter(Path, append: false) { AutoFlush = true };
 
-        var v = Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "?";
+        var v = Assembly.GetEntryAssembly()
+            ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0]
+            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
+            ?? "?";
         Info($"S1Utility {v} on {Environment.OSVersion}");
     }
 

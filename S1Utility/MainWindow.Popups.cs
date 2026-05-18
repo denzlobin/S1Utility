@@ -468,8 +468,10 @@ public partial class MainWindow
     {
         if (_infoWindow != null) { _infoWindow.Activate(); return; }
 
-        string version = Assembly.GetExecutingAssembly().GetName().Version is { } v
-            ? $"v{v.Major}.{v.Minor}.{v.Build}"
+        var infoVer = Assembly.GetExecutingAssembly()
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        string version = !string.IsNullOrEmpty(infoVer)
+            ? "v" + infoVer.Split('+')[0]
             : "";
 
         var titleText = new TextBlock
