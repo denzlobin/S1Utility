@@ -889,21 +889,13 @@ public partial class MainWindow
         _restorePatchButton.Click += (_, _) => OnRestorePatchClicked();
         ToolTip.SetTip(_restorePatchButton, "Reload the current slot from its PRM file (Ctrl+R)");
 
-        // Tab-2-only PRM controls. Visibility toggled by MainTabs.SelectionChanged.
+        // Tab-2-only PRM control. Visibility toggled by MainTabs.SelectionChanged.
         OpenPrmButton = new Button
         {
             Content   = "Open PRM File",
             Classes   = { "toolbar" },
             IsVisible = false,
         };
-        PrmInfoToggle = new Button
-        {
-            Content   = "ⓘ",
-            Classes   = { "toolbar" },
-            Padding   = new Thickness(6, 4),
-            IsVisible = false,
-        };
-        ToolTip.SetTip(PrmInfoToggle, "Show / hide file access instructions");
 
         var saveButton = new Button
         {
@@ -966,7 +958,6 @@ public partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         tab2Actions.Children.Add(OpenPrmButton);
-        tab2Actions.Children.Add(PrmInfoToggle);
 
         // Both groups overlap in the same row; only one is visible per tab.
         var actionRow = new Grid
@@ -977,20 +968,6 @@ public partial class MainWindow
         actionRow.Children.Add(editorActions);
         actionRow.Children.Add(tab2Actions);
         PatchGridContainer.Children.Add(actionRow);
-
-        PrmInfoText = new TextBlock
-        {
-            IsVisible     = false,
-            Foreground    = new SolidColorBrush(Color.Parse("#7878A0")),
-            FontSize      = 9.5,
-            TextWrapping  = TextWrapping.Wrap,
-            MaxWidth      = 860,
-            TextAlignment = TextAlignment.Center,
-            Margin        = new Thickness(0, 4, 0, 0),
-            Text          = "To access patch files on the S-1: connect USB, then hold PLAY while powering on. " +
-                            "Files are in the BACKUP folder. To restore: copy files to RESTORE folder, eject, then press HOLD on the device.",
-        };
-        PatchGridContainer.Children.Add(PrmInfoText);
     }
 
 
@@ -1007,9 +984,12 @@ public partial class MainWindow
             RowSpacing     = 4,
         };
         var oscCard      = new Panels.OscillatorCard(_patch, _prm, OscAccent).Build();
-        int[] filterOrder   = { 74, 24, 26,    71, 25, 27 };
-        int[] envelopeOrder = { 73, 30, 28,    75, 72, 29 };
-        int[] lfoOrder      = { 12, 79, 105,   3, 106, 17 };
+        // 2-col row-major. Filter: Cutoff/Resonance · Env Amt/LFO Amt · Keytrk/Bend.
+        // Envelope: Attack/Decay · Sustain/Release · Amp Mode/Trigger.
+        // LFO: Waveform/Rate · Sync/Mode · Key Trigger/Mod Depth.
+        int[] filterOrder   = { 74, 71,  24, 25,  26, 27 };
+        int[] envelopeOrder = { 73, 75,  30, 72,  28, 29 };
+        int[] lfoOrder      = { 12,  3, 106, 79, 105, 17 };
 
         Control LfoRow(int cc) =>
             cc == 3
@@ -1017,11 +997,11 @@ public partial class MainWindow
                 : InspectorRows.BuildCcDataRow(_prm, RequireCC(cc));
 
         var filterCard   = Dashboard.BuildPrmCard("FILTER", FiltAccent,
-            Dashboard.BuildThreeColGrid(filterOrder.Select(cc => InspectorRows.BuildCcDataRow(_prm, RequireCC(cc)))));
+            Dashboard.BuildTwoColGrid(filterOrder.Select(cc => InspectorRows.BuildCcDataRow(_prm, RequireCC(cc)))));
         var envelopeCard = Dashboard.BuildPrmCard("ENVELOPE", EnvAccent,
-            Dashboard.BuildThreeColGrid(envelopeOrder.Select(cc => InspectorRows.BuildCcDataRow(_prm, RequireCC(cc)))));
+            Dashboard.BuildTwoColGrid(envelopeOrder.Select(cc => InspectorRows.BuildCcDataRow(_prm, RequireCC(cc)))));
         var lfoCard      = Dashboard.BuildPrmCard("LFO", LfoAccent,
-            Dashboard.BuildThreeColGrid(lfoOrder.Select(LfoRow)));
+            Dashboard.BuildTwoColGrid(lfoOrder.Select(LfoRow)));
         Grid.SetRow(oscCard,      0); colA.Children.Add(oscCard);
         Grid.SetRow(filterCard,   1); colA.Children.Add(filterCard);
         Grid.SetRow(envelopeCard, 2); colA.Children.Add(envelopeCard);
@@ -1031,13 +1011,15 @@ public partial class MainWindow
 
         var colB = new Grid
         {
-            RowDefinitions = new RowDefinitions("Auto,*"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,*"),
             RowSpacing     = 4,
         };
         var effectsCard = new Panels.EffectsCard(_patch, _prm, FxAccent).Build();
         var voiceCard   = new Panels.VoiceCard(_patch, _prm, VoiceAccent).Build();
+        var riserCard   = new Panels.RiserCard(_prm, Palette.AccentDmAlt).Build();
         Grid.SetRow(effectsCard, 0); colB.Children.Add(effectsCard);
         Grid.SetRow(voiceCard,   1); colB.Children.Add(voiceCard);
+        Grid.SetRow(riserCard,   2); colB.Children.Add(riserCard);
         Grid.SetColumn(colB, 1); Grid.SetRow(colB, 0);
         PrmViewerGrid.Children.Add(colB);
 

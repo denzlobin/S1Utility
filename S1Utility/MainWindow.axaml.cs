@@ -35,11 +35,9 @@ public partial class MainWindow : Window
     private Button? _restorePatchButton;
     private Button? _initPatchButton;
 
-    // Tab-2-only PRM controls (created in BuildPatchPanel, visibility toggled by MainTabs).
-    private Button?    OpenPrmButton;
-    private Button?    PrmInfoToggle;
-    private TextBlock? PrmInfoText;
-    private Panel? _initRestoreGroup;
+    // Tab-2-only PRM control (created in BuildPatchPanel, visibility toggled by MainTabs).
+    private Button? OpenPrmButton;
+    private Panel?  _initRestoreGroup;
 
     private bool   _autoConnect;
     private bool   _isConnected;
@@ -215,21 +213,18 @@ public partial class MainWindow : Window
         UndoButton.Click             += OnUndoClicked;
         RedoButton.Click             += OnRedoClicked;
         OpenPrmButton!.Click         += OnOpenPrmClicked;
-        PrmInfoToggle!.Click         += (_, _) => PrmInfoText!.IsVisible = !PrmInfoText.IsVisible;
         MainTabs.SelectionChanged    += (_, _) =>
         {
             bool onTab2 = MainTabs.SelectedIndex == 1;
-            // Tab 1 (Realtime Editor): Init / Restore. Tab 2 (Patch Inspector, read-only): Open PRM / info.
+            // Tab 1 (Realtime Editor): Init / Restore. Tab 2 (Patch Inspector, read-only): Open PRM.
             if (_initRestoreGroup != null) _initRestoreGroup.IsVisible = !onTab2;
             OpenPrmButton.IsVisible = onTab2;
-            PrmInfoToggle.IsVisible = onTab2;
-            if (!onTab2 && PrmInfoText != null) PrmInfoText.IsVisible = false;
             UpdatePatchGridAvailability();
         };
         BrowsePrmFolderButton.Click  += OnBrowsePrmFolderClicked;
         SettingsButton.Click         += OnSettingsClicked;
         InfoButton.Click             += OnInfoClicked;
-        DonateButton.Click           += OnDonateClicked;
+        SupportButton.Click          += OnSupportClicked;
 
         AutoConnectCheckBox.IsChecked = _autoConnect;
         AutoConnectCheckBox.IsCheckedChanged += (_, _) =>

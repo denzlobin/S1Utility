@@ -307,7 +307,7 @@
                             FontSize="13"
                             Padding="8,2"
                             ToolTip.Tip="About S-1 Utility"/>
-                    <Button x:Name="DonateButton"
+                    <Button x:Name="SupportButton"
                             Classes="toolbar"
                             Padding="8,2"
                             ToolTip.Tip="Support development">

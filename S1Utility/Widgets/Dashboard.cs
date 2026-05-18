@@ -148,6 +148,30 @@ internal static class Dashboard
         return grid;
     }
 
+    // 2-column grid. Row-major fill by default; columnMajor=true fills col 0
+    // top-to-bottom before col 1 (use for tightly paired sequences like CHORD).
+    public static Grid BuildTwoColGrid(IEnumerable<Control> items, bool columnMajor = false)
+    {
+        var list = items.ToList();
+        int rows = (list.Count + 1) / 2;
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*"),
+            RowDefinitions    = new RowDefinitions(string.Join(",", Enumerable.Repeat("Auto", System.Math.Max(rows, 1)))),
+            ColumnSpacing     = 10,
+        };
+        for (int i = 0; i < list.Count; i++)
+        {
+            int r, c;
+            if (columnMajor) { r = i % rows; c = i / rows; }
+            else             { r = i / 2;    c = i % 2; }
+            Grid.SetRow(list[i], r);
+            Grid.SetColumn(list[i], c);
+            grid.Children.Add(list[i]);
+        }
+        return grid;
+    }
+
     // Effects card sub-column: accent sub-header followed by stacked data rows.
     public static StackPanel BuildEffectsSubCol(string title, IBrush accent, IEnumerable<Control> rows)
     {

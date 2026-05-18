@@ -11,7 +11,7 @@ using Avalonia.Media;
 
 namespace S1Utility;
 
-// All popup-style windows: the Settings popup, the About / Donate pair, and the
+// All popup-style windows: the Settings popup, the About / Support pair, and the
 // three modal warning dialogs (Reset preferences, non-S-1 Connect, Patch Mirror
 // safety warning).
 public partial class MainWindow
@@ -101,7 +101,8 @@ public partial class MainWindow
 
         var prmHint = new TextBlock
         {
-            Text         = "Folder of .PRM patch backups exported from the S-1. Used by Patch Mirror and the Patch Inspector.",
+            Text         = "Folder of .PRM patch backups exported from the S-1. Used by Patch Mirror and the Patch Inspector. " +
+                           "To export: connect USB, then hold PLAY while powering on. Files appear in the BACKUP folder.",
             FontSize     = 10,
             Foreground   = new SolidColorBrush(Color.Parse("#7878A0")),
             TextWrapping = TextWrapping.Wrap,
@@ -456,13 +457,12 @@ public partial class MainWindow
         return confirmed;
     }
 
-    // ── About / Donate ────────────────────────────────────────────────────────
+    // ── About / Support ───────────────────────────────────────────────────────
 
-    // Placeholder until a real donation page is set up.
-    private const string DonateUrl = "https://example.com/donate";
-    private const string RepoUrl   = "https://github.com/denzlobin/S1Utility";
+    private const string SupportUrl = "https://ko-fi.com/dzl0";
+    private const string RepoUrl    = "https://github.com/denzlobin/S1Utility";
 
-    private void OnDonateClicked(object? sender, RoutedEventArgs e) => OpenUrl(DonateUrl);
+    private void OnSupportClicked(object? sender, RoutedEventArgs e) => OpenUrl(SupportUrl);
 
     private void OnInfoClicked(object? sender, RoutedEventArgs e)
     {

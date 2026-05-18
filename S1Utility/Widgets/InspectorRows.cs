@@ -10,13 +10,15 @@ namespace S1Utility.Widgets;
 // statics — no MainWindow state captured.
 internal static class InspectorRows
 {
-    // CC-mapped parameter → row that re-renders from the CcSnapshot.
-    public static Control BuildCcDataRow(PrmFileManager prm, S1Parameter param)
+    // CC-mapped parameter → row that re-renders from the CcSnapshot. Optional
+    // label override lets the inspector use a different display name than the
+    // canonical S1Parameter.Name (which Tab 1 editor also reads from).
+    public static Control BuildCcDataRow(PrmFileManager prm, S1Parameter param, string? label = null)
     {
         var lbl = new TextBlock { Text = FormatCcValue(param, SnapshotValue(prm, param)) };
         prm.CcSnapshotChanged += (_, _) => Dispatcher.UIThread.Post(
             () => lbl.Text = FormatCcValue(param, SnapshotValue(prm, param)));
-        return Dashboard.BuildDataRow(param.Name, lbl);
+        return Dashboard.BuildDataRow(label ?? param.Name, lbl);
     }
 
     // LFO Rate has two distinct displays: a 1-31 sync-slot label when LFO_SYNC=1,
