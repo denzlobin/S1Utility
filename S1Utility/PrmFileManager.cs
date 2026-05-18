@@ -54,7 +54,7 @@ public sealed class PrmFileManager
     public PrmParameter ArpRate { get; } = new("Rate", "ARP_RATE", prmMax: 7);
 
     public PrmParameter RiserSw    { get; } = new("Riser",     "RISER_SW",    options: new[] { "Off", "On" });
-    public PrmParameter RiserMode  { get; } = new("Mode",      "RISER_MODE",  options: new[] { "Normal", "Rise", "Fall", "Rise+Fall" });
+    public PrmParameter RiserMode  { get; } = new("Mode",      "RISER_MODE",  options: new[] { "Off", "Sync", "Quiv", "QuPn" });
     public PrmParameter RiserCtrl  { get; } = new("Target",    "RISER_CTRL",  prmMax: 127);
     public PrmParameter RiserBeat  { get; } = new("Beat",      "RISER_BEAT",  prmMax: 15);
     public PrmParameter RiserShape { get; } = new("Shape",     "RISER_SHAPE", prmMax: 7);
