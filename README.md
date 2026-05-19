@@ -23,13 +23,20 @@ This is an unofficial third-party tool. This project is not affiliated with, end
 - **Patch Inspector**. Read-only view of all `.PRM` file data, including parameters that have no MIDI CC equivalent and can be only set from the hardware (sequencer data, draw and chop patterns, etc.).
 - **Undo / Redo** for parameter edits, with per-CC coalescing for knob drags.
 - **Hardware-verified encodings**. CC mappings, ADSR timing constants, oscillater waveforms, and other measured values were established by testing against real hardware.
+- **MIDI Export**. One-click export of the pattern sequencer data into a MIDI file.
 - **Keyboard shortcuts**. `Ctrl+M` toggle Connect/Disconnect, `Ctrl+I` Init Patch, `Ctrl+R` Restore Patch, `Ctrl+S` Save Preset, `Ctrl+Z`/`Ctrl+Y` Undo/Redo, `Tab` cycle tabs, arrow keys for patch grid navigation.
 
 ---
 
 ## Screenshots
 
-_TODO: add screenshots of the Realtime Editor tab and the Patch Inspector tab._
+**Realtime Editor**
+
+<img src="docs/screenshots/Editor.png" alt="Realtime Editor tab" width="700">
+
+**Patch Inspector**
+
+<img src="docs/screenshots/Inspector.png" alt="Patch Inspector tab" width="700">
 
 ---
 
@@ -60,7 +67,16 @@ dotnet test
 
 ## Project status
 
-Beta version; Targets Windows for now, portability to macOS/Linux is on the roadmap (the underlying MIDI library, [DryWetMidi.Multimedia](https://github.com/melanchall/drywetmidi), is cross-platform from v7+; the Win32-specific window aspect-ratio policy would need a sibling implementation).
+Release candidate; Targets Windows for now, portability to macOS/Linux is possible in near future (the underlying MIDI library, [DryWetMidi.Multimedia](https://github.com/melanchall/drywetmidi), is cross-platform from v7+; the Win32-specific window aspect-ratio policy would need a sibling implementation).
+
+---
+
+## What will not happen
+
+- **VST, AU, CLAP and other plugin versions.** S-1 Utility is designed as a standalone app, and many of its feature will be difficult or confusing in a plugin version. You are free to reuse any code or design decisions if you want to build a plugin version yourself.
+- **iOS, iPadOS, Android versions.** For the same reasons.
+- **`.PRM` data editing.** The actual usecase is very questionable, and you probably don't want to test what happens with the device if you feed it with corrupted data.
+- **More realtime controls.** Everything controllable by CC is already available on the Realtime Editor tab. Unless the device receives a firmware update with more Control Change parameters, the editor expansion is out of the question.
 
 ---
 
@@ -69,15 +85,14 @@ Beta version; Targets Windows for now, portability to macOS/Linux is on the road
 - **Windows-only** at the moment. The aspect-ratio policy uses Win32 APIs (`WM_SIZING`, `WS_MAXIMIZEBOX`); contributing a sibling implementation for Mac/Linux behind the existing `IWindowSizePolicy` interface would unlock cross-platform builds.
 - **Tab 2 (Patch Inspector) is read-only.** The app does not write `.PRM` files — most PRM-only parameters have no MIDI CC path, and writing risks corrupting your patch backups.
 - **No sysex.** The S-1 does not use sysex for parameter control.
-- **CC13 (VCO Mod Depth)** display scaling is unverified — the editor knob may not match the S-1's display. (CC90 Delay Time was hardware-verified in May 2026 and now uses a piecewise-linear mapping anchored to seven on-device data points.)
+- **Reliance on up-to-date manual backup.** The app cannot detect if the `.PRM` data on the synth diverged from what is stored on the user's machine. Every time you write into a patch/pattern slot on the hardware, you need to manually copy modified files to the `.PRM` folder on your machine.
 
 ---
 
 ## How `.PRM` backup works
 
-The S-1 can export its 64-pattern bank as a folder of `.PRM` files via its USB Disk Mode. Configure that folder in Settings, and the Patch Inspector and Patch Mirror features become available.
+The S-1 can export its 64-pattern bank as a folder of `.PRM` files via its USB Disk Mode. To activate it power on the device while holding down the Play button. The drive will take 1-2 minutes to get ready. The keyboard pads indicate the loading progress. Once loaded, copy the contents of the BACKUP folder to your computer and configure the path to it in Settings.
 
-_TODO: link the official Roland S-1 export procedure once a stable reference page is identified._
 
 ---
 
@@ -97,3 +112,5 @@ This project is licensed under the GNU General Public License v3.0 or later. See
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Hardware-verified values must not be changed without re-verifying against a real S-1; that section is mandatory reading before touching parameter mappings.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/M4M5KXQ5P)
