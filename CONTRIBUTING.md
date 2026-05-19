@@ -136,9 +136,3 @@ Most of the app is platform-agnostic. The Windows-specific bits are isolated:
 
 - `IWindowSizePolicy` is implemented by `WindowsAspectRatioPolicy` (Win32 `WM_SIZING` hook + `WS_MAXIMIZEBOX` strip). A macOS or Linux contributor would add a sibling class and select it in the `Opened` handler in `MainWindow.axaml.cs`.
 - `Melanchall.DryWetMidi.Multimedia` is officially cross-platform from v7+, so the MIDI side should work on macOS / Linux. It just hasn't been smoke-tested there yet.
-
----
-
-## Reporting issues
-
-_TODO: link to issue tracker once configured._
