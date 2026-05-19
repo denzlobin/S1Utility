@@ -1,7 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="S1Utility.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Dark">
 
     <Application.Resources>
         <!-- Shared brush palette. Single source of truth for both XAML and C#.
@@ -55,5 +55,45 @@
 
     <Application.Styles>
         <FluentTheme />
+
+        <!-- Toolbar chip button. Must live at app scope (not MainWindow.Styles)
+             so popup Windows constructed in code-behind also pick it up. -->
+        <Style Selector="Button.toolbar">
+            <Setter Property="Padding"        Value="12,4"/>
+            <Setter Property="FontSize"       Value="10.5"/>
+            <Setter Property="Background"     Value="#1F1F26"/>
+            <Setter Property="Foreground"     Value="#CCCCDD"/>
+            <Setter Property="BorderBrush"    Value="#333344"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius"   Value="3"/>
+            <Setter Property="Height"         Value="26"/>
+        </Style>
+        <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1F1F26"/>
+        </Style>
+        <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#23232C"/>
+        </Style>
+        <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#181820"/>
+        </Style>
+        <Style Selector="Button.toolbar:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+
+        <!-- Body paragraph used by dialog warnings, the Settings PRM hint, the
+             About card, and the Inspector banner. Foreground stays per-instance
+             because semantics (muted hint / primary body / warning) vary. -->
+        <Style Selector="TextBlock.body">
+            <Setter Property="FontSize"     Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight"   Value="17"/>
+        </Style>
+
+        <!-- Tooltips: FluentTheme default is on the small side against the dark
+             chrome. Bump to match body-paragraph size. -->
+        <Style Selector="ToolTip">
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
     </Application.Styles>
 </Application>

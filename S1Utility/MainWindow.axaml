@@ -134,30 +134,6 @@
             <Setter Property="Margin"     Value="4,6"/>
         </Style>
 
-        <!-- Toolbar chip button (matches mockup chip palette: BgChip / BdChip) -->
-        <Style Selector="Button.toolbar">
-            <Setter Property="Padding"        Value="12,4"/>
-            <Setter Property="FontSize"       Value="10.5"/>
-            <Setter Property="Background"     Value="#1F1F26"/>
-            <Setter Property="Foreground"     Value="#CCCCDD"/>
-            <Setter Property="BorderBrush"    Value="#333344"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius"   Value="3"/>
-            <Setter Property="Height"         Value="26"/>
-        </Style>
-        <Style Selector="Button.toolbar /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#1F1F26"/>
-        </Style>
-        <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#23232C"/>
-        </Style>
-        <Style Selector="Button.toolbar:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#181820"/>
-        </Style>
-        <Style Selector="Button.toolbar:disabled">
-            <Setter Property="Opacity" Value="0.45"/>
-        </Style>
-
         <!-- Patch bank buttons -->
         <Style Selector="Button.patch-btn">
             <Setter Property="HorizontalAlignment"        Value="Stretch"/>
@@ -640,17 +616,13 @@
                                 </Border.Background>
                             </Border>
                             <TextBlock x:Name="InspectorBannerPrimary"
+                                       Classes="body"
                                        Text="Back up your patches from the synth, then point the PRM folder below at the resulting files."
-                                       FontSize="11"
-                                       Foreground="#A0A0B8"
-                                       TextWrapping="Wrap"
-                                       LineHeight="16"/>
+                                       Foreground="#A0A0B8"/>
                             <TextBlock x:Name="InspectorBannerSecondary"
+                                       Classes="body"
                                        Text="The Patch Inspector reads .PRM files saved by the S-1. With a folder configured, this tab shows every parameter in the selected pattern, including the sequencer steps, draw wave, chop pattern, and D-Motion assigns that have no MIDI equivalent."
-                                       FontSize="10"
                                        Foreground="#7878A0"
-                                       TextWrapping="Wrap"
-                                       LineHeight="14"
                                        Margin="0,6,0,0"/>
                         </StackPanel>
                     </Border>

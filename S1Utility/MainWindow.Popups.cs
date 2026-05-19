@@ -101,12 +101,11 @@ public partial class MainWindow
 
         var prmHint = new TextBlock
         {
-            Text         = "Folder of .PRM patch backups exported from the S-1. Used by Patch Mirror and the Patch Inspector. " +
-                           "To export: connect USB, then hold PLAY while powering on. Files appear in the BACKUP folder.",
-            FontSize     = 10,
-            Foreground   = new SolidColorBrush(Color.Parse("#7878A0")),
-            TextWrapping = TextWrapping.Wrap,
-            Margin       = new Thickness(0, 2, 0, 0),
+            Text       = "Folder of .PRM patch backups exported from the S-1. Used by Patch Mirror and the Patch Inspector. " +
+                         "To export: connect USB, then hold PLAY while powering on. Files appear in the BACKUP folder.",
+            Classes    = { "body" },
+            Foreground = new SolidColorBrush(Color.Parse("#7878A0")),
+            Margin     = new Thickness(0, 2, 0, 0),
         };
         Grid.SetRow(prmHint, 7);
         Grid.SetColumn(prmHint, 1);
@@ -283,10 +282,9 @@ public partial class MainWindow
                     },
                     new TextBlock
                     {
-                        FontSize     = 11,
-                        Foreground   = new SolidColorBrush(Color.Parse("#CCCCCC")),
-                        TextWrapping = TextWrapping.Wrap,
-                        Text         =
+                        Classes    = { "body" },
+                        Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
+                        Text       =
                             "MIDI Channel, Program Change Channel, auto-connect, the PRM folder " +
                             "path, Patch Mirror state, and the Patch Mirror dialog opt-out will all " +
                             "be reset to their first-launch defaults. This cannot be undone.\n\n" +
@@ -340,10 +338,9 @@ public partial class MainWindow
                     },
                     new TextBlock
                     {
-                        FontSize     = 11,
-                        Foreground   = new SolidColorBrush(Color.Parse("#CCCCCC")),
-                        TextWrapping = TextWrapping.Wrap,
-                        Text         =
+                        Classes    = { "body" },
+                        Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
+                        Text       =
                             $"The selected output \"{deviceName}\" doesn't look like an S-1.\n\n" +
                             "If you continue, the editor will send CC traffic to that device. " +
                             "If the S-1 is just powered off, cancel and turn it on, then click Connect again.",
@@ -403,10 +400,9 @@ public partial class MainWindow
                     },
                     new TextBlock
                     {
-                        FontSize     = 11,
-                        Foreground   = new SolidColorBrush(Color.Parse("#CCCCCC")),
-                        TextWrapping = TextWrapping.Wrap,
-                        Text         =
+                        Classes    = { "body" },
+                        Foreground = new SolidColorBrush(Color.Parse("#CCCCCC")),
+                        Text       =
                             "When Patch Mirror is enabled, switching patterns (by clicking a button " +
                             "in the editor or by pressing a pattern button on the S-1) will " +
                             "automatically load the corresponding PRM file from your PRM folder " +
@@ -421,11 +417,10 @@ public partial class MainWindow
                     },
                     new TextBlock
                     {
-                        FontSize     = 10,
-                        Foreground   = new SolidColorBrush(Color.Parse("#FF8844")),
-                        TextWrapping = TextWrapping.Wrap,
-                        FontWeight   = FontWeight.SemiBold,
-                        Text         =
+                        Classes    = { "body" },
+                        Foreground = new SolidColorBrush(Color.Parse("#FF8844")),
+                        FontWeight = FontWeight.SemiBold,
+                        Text       =
                             "It is your responsibility to ensure your PRM folder is in sync with " +
                             "the patterns stored on the device. If the files do not match what is " +
                             "on the S-1, the editor will display incorrect values.",
@@ -521,7 +516,7 @@ public partial class MainWindow
         var licenseText = new TextBlock
         {
             Text                = "Licensed under GPL-3.0",
-            FontSize            = 11,
+            Classes             = { "body" },
             Foreground          = new SolidColorBrush(Color.Parse("#7878A0")),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin              = new Thickness(0, 16, 0, 0),
@@ -529,13 +524,12 @@ public partial class MainWindow
 
         var disclaimerText = new TextBlock
         {
-            Text       = "Not affiliated with Roland Corporation. \"S-1\" is a trademark of Roland Corporation.",
-            FontSize   = 10,
-            Foreground = new SolidColorBrush(Color.Parse("#666677")),
-            TextAlignment = TextAlignment.Center,
-            TextWrapping  = TextWrapping.Wrap,
-            Margin     = new Thickness(0, 14, 0, 0),
-            MaxWidth   = 360,
+            Text                = "Not affiliated with Roland Corporation. \"S-1\" is a trademark of Roland Corporation.",
+            Classes             = { "body" },
+            Foreground          = new SolidColorBrush(Color.Parse("#666677")),
+            TextAlignment       = TextAlignment.Center,
+            Margin              = new Thickness(0, 14, 0, 0),
+            MaxWidth            = 360,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
 
