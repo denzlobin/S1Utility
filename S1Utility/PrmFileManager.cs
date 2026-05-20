@@ -175,7 +175,12 @@ public sealed class PrmFileManager
         using var stream = typeof(PrmFileManager).Assembly.GetManifestResourceStream("InitPatch.prm")!;
         using var reader = new StreamReader(stream);
         var data = PrmFileParser.Parse(reader);
-        ApplyPrmData(data);
+
+        // Editor only — Init does NOT modify any .PRM on disk, so the Inspector
+        // must keep showing whatever it was showing (typically the current slot's
+        // on-disk file). Routing through ApplyPrmData here would overwrite the
+        // Inspector with InitPatch.prm contents and silently lie about the disk.
+        ApplyToEditor(data);
 
         // "Init Settings" should land on the same audible starting point regardless
         // of what the device's current chop grid looks like. The init PRM has grid
@@ -189,6 +194,12 @@ public sealed class PrmFileManager
 
     public void ApplyPrmData(PrmFileData data)
     {
+        ApplyToEditor(data);
+        LoadInspector(data);
+    }
+
+    private void ApplyToEditor(PrmFileData data)
+    {
         foreach (var (key, rawValue) in data.Parameters)
         {
             if (!PrmCcMap.Map.TryGetValue(key, out var info)) continue;
@@ -198,8 +209,6 @@ public sealed class PrmFileManager
 
         _patch.HandleIncomingCC(1,  0);    // Mod Wheel = 0
         _patch.HandleIncomingCC(11, 127);  // Expression = 127
-
-        LoadInspector(data);
     }
 
     // PRM → CC conversion with the contextual special cases the linear scale in
