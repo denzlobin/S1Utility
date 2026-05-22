@@ -158,6 +158,12 @@ public partial class MainWindow
         UpdateSyncIndicator(_patch.UnsyncedCount);
         ClearDirtyTracking();
         UpdatePatchGridAvailability();
+        // Drop the slot context. Otherwise reconnecting to the same slot we were
+        // last on (very common when the mirror-initial patch is also where you
+        // left off) tripped HighlightPatchButton's `program == _currentSlotIndex`
+        // early-return, skipping the PRM reload + MarkAllSynced and leaving the
+        // editor in the "all unsynced" state ResetAllSync just put it in.
+        _currentSlotIndex = -1;
     }
 
     private async Task PerformConnectAsync()
