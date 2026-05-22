@@ -10,7 +10,7 @@
         <AnalysisLevel>latest</AnalysisLevel>
         <Product>S1Utility</Product>
         <AssemblyTitle>S-1 Utility</AssemblyTitle>
-        <Version>1.0.0-rc2</Version>
+        <Version>1.0.0-rc3</Version>
         <Authors>denzlobin</Authors>
         <ApplicationIcon>Assets/icon.ico</ApplicationIcon>
     </PropertyGroup>

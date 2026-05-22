@@ -5,7 +5,7 @@
         <ImplicitUsings>disable</ImplicitUsings>
         <EnableNETAnalyzers>true</EnableNETAnalyzers>
         <AnalysisLevel>latest</AnalysisLevel>
-        <Version>1.0.0-rc2</Version>
+        <Version>1.0.0-rc3</Version>
         <Authors>denzlobin</Authors>
     </PropertyGroup>
 </Project>
