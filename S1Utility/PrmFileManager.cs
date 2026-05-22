@@ -332,7 +332,10 @@ public sealed class PrmFileManager
         }
 
         ApplyPrmData(parsed);
-        _patch.MarkAllSynced();
+        // Only claim sync to the device when there actually is one. The Patch
+        // Inspector tab keeps the patch grid live while disconnected, so this
+        // path can be hit with no transport — marking synced then would lie.
+        if (_patch.IsConnected) _patch.MarkAllSynced();
         LastLoadedSourceName = Path.GetFileNameWithoutExtension(PrmFileNameForProgram(program));
         StatusChanged?.Invoke(this, ($"Pattern Sync: {Path.GetFileName(path)}", StatusKind.Info));
         return true;

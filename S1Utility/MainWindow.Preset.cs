@@ -97,6 +97,10 @@ public partial class MainWindow
         ClearUndoHistory();
 
         await _patch.SendAllAsync();
+        // Consistent with Init Patch: every CC was just pushed to the device,
+        // so the editor's view matches the synth — mark synced to drop the grey
+        // "?" treatment that ResetAllSync at connect would otherwise leave.
+        if (_patch.IsConnected) _patch.MarkAllSynced();
         SetStatus($"Loaded: {preset.Name}", StatusKind.Ok);
     }
 

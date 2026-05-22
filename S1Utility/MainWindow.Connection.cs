@@ -57,8 +57,12 @@ public partial class MainWindow
         MirrorInitialBankCombo.SelectionChanged    += OnMirrorPatchChanged;
         MirrorInitialPatternCombo.SelectionChanged += OnMirrorPatchChanged;
 
-        DeviceCombo.DropDownOpened += (_, _) => ReenumerateDevices();
-        InputCombo.DropDownOpened  += (_, _) => ReenumerateDevices();
+        // Don't re-enumerate while connected — EnumerateDevices tears down the
+        // active input listener (and disposes every cached InputDevice), so a
+        // dropdown open while connected would silently kill incoming-CC handling
+        // and leave the UI claiming "Connected".
+        DeviceCombo.DropDownOpened += (_, _) => { if (!_isConnected) ReenumerateDevices(); };
+        InputCombo.DropDownOpened  += (_, _) => { if (!_isConnected) ReenumerateDevices(); };
 
         DeviceCombo.SelectedIndex = PreferredOutputIndex();
         InputCombo.SelectedIndex  = PreferredInputIndex();
@@ -132,14 +136,10 @@ public partial class MainWindow
     private void OnDeviceDisconnected() =>
         ApplyDisconnectedState("Device disconnected.", StatusKind.Error);
 
-    // User-initiated disconnect from the Connect/Disconnect toggle. Stop the input
-    // listener so the next Connect starts from a clean state, then mirror the
+    // User-initiated disconnect from the Connect/Disconnect toggle. Mirrors the
     // involuntary-disconnect UI cleanup.
-    private void PerformDisconnect()
-    {
-        _midiMgr.Disconnect();
+    private void PerformDisconnect() =>
         ApplyDisconnectedState("Disconnected.", StatusKind.Info);
-    }
 
     private void ApplyDisconnectedState(string status, StatusKind kind)
     {
@@ -149,6 +149,11 @@ public partial class MainWindow
         PanicButton.IsEnabled        = false;
         ConnectButton.Content        = "Connect";
         SetStatus(status, kind);
+        // Stop the input listener. Both paths reach this method — user-initiated
+        // Disconnect and the transport's involuntary OnDeviceDisconnected — and
+        // both need the input torn down so stray incoming CCs don't un-grey the
+        // just-reset knobs and contradict the "Disconnected" status.
+        _midiMgr.Disconnect();
         // Null the transport so further knob drags don't throw inside the stale
         // DryWetMidiTransport and get silently swallowed.
         _patch.Disconnect();
