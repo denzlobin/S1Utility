@@ -91,7 +91,7 @@ When `ApplyInitPatch()` runs and the init PRM has non-default Chop Grid data, `C
 - **Tab 2 (Patch Inspector) is read-only.** It displays PRM data; it does not edit it. Two reasons: most PRM-only parameters have no MIDI CC path, and writing PRM files risks silently corrupting the user's patch backups.
 - **The app never writes `.PRM` files.** No exceptions.
 - **No sysex.** The S-1 does not use sysex for parameter control.
-- **CC65 is excluded from UI panels.** It is redundant with CC31 (Portamento mode). It remains in `S1Patch.cs` for MIDI completeness but is not surfaced in any editor panel.
+- **CC64 (HOLD) is excluded from bulk send.** Send All / Init Patch / preset load must never override the hardware sustain-pedal state.
 - **`InitPatch.prm` is an embedded resource.** It must never be sourced from the user's backup folder.
 
 ---

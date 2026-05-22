@@ -96,14 +96,14 @@ public class PrmCcMapTests
     [Fact]
     public void FlagParam_PrmZero_IsCc0()
     {
-        var info = PrmCcMap.Map["PORTAMENTO"]; // P(65, 0, 1)
+        var info = PrmCcMap.Map["CHORD_VOICE2_SW"]; // P(81, 0, 1) — 0/1 flag
         Assert.Equal(0, info.ToCc(0));
     }
 
     [Fact]
     public void FlagParam_PrmOne_IsCc127()
     {
-        var info = PrmCcMap.Map["PORTAMENTO"];
+        var info = PrmCcMap.Map["CHORD_VOICE2_SW"];
         Assert.Equal(127, info.ToCc(1));
     }
 

@@ -9,19 +9,23 @@ namespace S1Utility.Core.Tests;
 public class S1PatchTests
 {
     [Fact]
-    public void Construction_HasFiftyFourParameters()
+    public void Construction_HasFiftyThreeParameters()
     {
-        // The S-1 exposes 54 CC-mapped parameters. If this number changes, the
-        // panel builders and the sync indicator both need updating.
+        // The editor exposes 53 CC-mapped parameters. CC65 (legacy portamento
+        // on/off) was dropped — redundant with CC31's Off/Auto/On dropdown.
         var patch = new S1Patch();
-        Assert.Equal(54, patch.AllParameters.Count);
+        Assert.Equal(53, patch.AllParameters.Count);
     }
 
     [Fact]
-    public void Construction_UnsyncedCount_EqualsParameterCount()
+    public void Construction_UnsyncedCount_ExcludesHoldPedal()
     {
+        // Counts the params bulk send actually pushes — only CC64 (HOLD pedal)
+        // is excluded from Send All so the editor never overrides the hardware
+        // sustain-pedal state. Mod Wheel + Expression are included now so Init
+        // Patch resets them on the device.
         var patch = new S1Patch();
-        Assert.Equal(patch.AllParameters.Count, patch.UnsyncedCount);
+        Assert.Equal(52, patch.UnsyncedCount);
     }
 
     [Fact]
@@ -88,12 +92,27 @@ public class S1PatchTests
     }
 
     [Fact]
-    public void ResetAllSync_RestoresUnsyncedCount_ToParameterCount()
+    public void ResetAllSync_RestoresUnsyncedCount_ToTrackedSet()
     {
         var patch = new S1Patch();
         patch.MarkAllSynced();
         patch.ResetAllSync();
-        Assert.Equal(patch.AllParameters.Count, patch.UnsyncedCount);
+        Assert.Equal(52, patch.UnsyncedCount);
+    }
+
+    [Fact]
+    public void MarkSynced_OnHoldPedal_DoesNotAffectCount()
+    {
+        // CC64 (HOLD) is excluded from the aggregate — its per-parameter
+        // IsSynced still flips (the HOLD widget cares), but the chip count
+        // must not move on transitions for it.
+        var patch  = new S1Patch();
+        int before = patch.UnsyncedCount;
+
+        patch.MarkSynced(64);
+
+        Assert.Equal(before, patch.UnsyncedCount);
+        Assert.True(patch.GetByCC(64)!.IsSynced);
     }
 
     [Fact]
@@ -111,11 +130,12 @@ public class S1PatchTests
     }
 
     // ── Bulk send rules ───────────────────────────────────────────────────────
-    // CC1 (Mod Wheel), CC11 (Expression), CC64 (Hold) are physical-controller
-    // inputs whose hardware state must not be overridden by Send All. Memory rule.
+    // CC64 (HOLD) is the only CC excluded from Send All — the editor must not
+    // override the hardware sustain-pedal state. Mod Wheel (CC1) and Expression
+    // (CC11) are bulk-sent so Init Patch can reset them to 0 / 127 on the device.
 
     [Fact]
-    public async Task SendAllAsync_SkipsControllerCcs()
+    public async Task SendAllAsync_SkipsHoldPedal()
     {
         var patch     = new S1Patch();
         var transport = new FakeMidiTransport();
@@ -124,13 +144,11 @@ public class S1PatchTests
         await patch.SendAllAsync();
 
         var sentCcs = transport.CcMessages.Select(m => m.Cc).ToHashSet();
-        Assert.DoesNotContain(1,  sentCcs);
-        Assert.DoesNotContain(11, sentCcs);
         Assert.DoesNotContain(64, sentCcs);
     }
 
     [Fact]
-    public async Task SendAllAsync_SendsRemainingFiftyOneParameters()
+    public async Task SendAllAsync_SendsModWheelAndExpression()
     {
         var patch     = new S1Patch();
         var transport = new FakeMidiTransport();
@@ -138,8 +156,22 @@ public class S1PatchTests
 
         await patch.SendAllAsync();
 
-        // 54 total minus the 3 excluded controller CCs.
-        Assert.Equal(51, transport.CcMessages.Count);
+        var sentCcs = transport.CcMessages.Select(m => m.Cc).ToHashSet();
+        Assert.Contains(1,  sentCcs);
+        Assert.Contains(11, sentCcs);
+    }
+
+    [Fact]
+    public async Task SendAllAsync_SendsRemainingFiftyTwoParameters()
+    {
+        var patch     = new S1Patch();
+        var transport = new FakeMidiTransport();
+        patch.SetTransport(transport);
+
+        await patch.SendAllAsync();
+
+        // 53 total minus the single excluded HOLD pedal CC.
+        Assert.Equal(52, transport.CcMessages.Count);
     }
 
     [Fact]

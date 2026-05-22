@@ -53,7 +53,6 @@ public static class PrmCcMap
             { "PORTAMENTO_TIME",        P(5,   0,   255) },
             { "PAN",                    P(10,  0,   127) },
             { "PORTAMENTO_MODE",        P(31,  0,   127) },
-            { "PORTAMENTO",             P(65,  0,   1)   },   // flag
             { "KBD_TRANSPOSE",          P(77,  0,   127) },
             { "ASSIGN_MODE",            P(80,  0,   127) },
             { "CHORD_VOICE2_SW",        P(81,  0,   1)   },   // flag: 0→CC0, >0→CC127

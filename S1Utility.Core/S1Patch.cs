@@ -61,7 +61,6 @@ public class S1Patch : IDisposable
             new("Pan",                    cc: 10, S1Section.Voice, initialValue: 64),
             new("Portamento",             cc: 31, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Off", "Auto", "On" }),
-            new("Portamento",             cc: 65, S1Section.Voice, initialValue: 0,  Toggle),
             new("Transpose",     cc: 77, S1Section.Voice, initialValue: 64),
             new("Polyphony",              cc: 80, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Mono", "Unison", "Poly", "Chord" }),
@@ -141,7 +140,7 @@ public class S1Patch : IDisposable
 
         _byCC = AllParameters.ToDictionary(p => p.CcNumber);
 
-        _unsyncedCount = AllParameters.Count;
+        _unsyncedCount = AllParameters.Count(p => !_noBulkSend.Contains(p.CcNumber));
         foreach (var p in AllParameters)
             p.SyncStateChanged += OnParameterSyncChanged;
     }
@@ -152,6 +151,11 @@ public class S1Patch : IDisposable
 
     // Number of parameters whose synth value is not yet confirmed to match the editor.
     public int UnsyncedCount => _unsyncedCount;
+
+    // The currently-unsynced tracked parameters (excludes the live-controller set
+    // for the same reason UnsyncedCount does). Order matches AllParameters.
+    public IEnumerable<S1Parameter> UnsyncedParameters =>
+        AllParameters.Where(p => !p.IsSynced && !_noBulkSend.Contains(p.CcNumber));
 
     // Fires (from any thread) whenever UnsyncedCount changes.
     public event EventHandler<int>? SyncCountChanged;
@@ -175,6 +179,7 @@ public class S1Patch : IDisposable
 
     private void OnParameterSyncChanged(object? sender, bool synced)
     {
+        if (sender is S1Parameter p && _noBulkSend.Contains(p.CcNumber)) return;
         int remaining = synced
             ? Interlocked.Decrement(ref _unsyncedCount)
             : Interlocked.Increment(ref _unsyncedCount);
@@ -252,9 +257,14 @@ public class S1Patch : IDisposable
 
     // ── Bulk send ────────────────────────────────────────────────────────────
 
-    // CCs excluded from bulk send — physical controllers whose hardware position
-    // should not be overridden by the editor.
-    private static readonly HashSet<int> _noBulkSend = new() { 1, 11, 64 };
+    // CC64 (HOLD / Damper) is excluded from bulk send so Send All / preset load
+    // / Init Patch never override the hardware sustain-pedal state. Same set is
+    // excluded from the aggregate UnsyncedCount: bulk send is the editor's only
+    // sync mechanism for this CC and the S-1 panel doesn't echo it, so counting
+    // it would be permanent noise. Per-parameter IsSynced still tracks honestly
+    // for the HOLD widget. Mod Wheel (CC1) and Expression (CC11) are bulk-sent
+    // intentionally so Init Patch can reset them to 0 / 127 on the device.
+    private static readonly HashSet<int> _noBulkSend = new() { 64 };
 
     public async Task SendAllAsync()
     {
