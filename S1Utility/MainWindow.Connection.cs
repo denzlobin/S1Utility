@@ -273,10 +273,16 @@ public partial class MainWindow
         {
             UnsyncedChip.IsVisible  = true;
             UnsyncedChipText.Text   = $"{unsyncedCount} UNSYNCED";
+            // Hover tooltip lists which params are unsynced — answers "which
+            // ones?" without needing to scan the whole editor for dim widgets.
+            var names = string.Join("\n",
+                _patch.UnsyncedParameters.Select(FormatParamForTooltip));
+            ToolTip.SetTip(UnsyncedChip, names);
         }
         else
         {
             UnsyncedChip.IsVisible = false;
+            ToolTip.SetTip(UnsyncedChip, null);
         }
 
         // Footer dot + label carry connection state. The Connect/Disconnect button
@@ -303,6 +309,31 @@ public partial class MainWindow
         _patch.SendProgramChange(program, PcChannel);
         HighlightPatchButton(program);
         if ((uint)program < (uint)_patchButtons.Count) _patchButtons[program].Focus();
+    }
+
+    // The chip tooltip lists CCs by their fully-qualified name. The raw
+    // S1Parameter.Name is intentionally short ("Level", "Time", "Mode") so the
+    // small label under each knob doesn't wrap, but those bare words are
+    // ambiguous when stacked in a hover list — both reverb and delay have a
+    // Level knob, OSC and Filter both have Bend Amount, etc. This adds the
+    // section/subsection prefix only where ambiguity (or unclear context) needs it.
+    private static string FormatParamForTooltip(S1Parameter p)
+    {
+        string prefix = p.CcNumber switch
+        {
+            // OSC section — only Bend Amount needs disambiguation from CC27
+            18                        => "OSC ",
+            // Filter section — section is unique enough to be worth labelling
+            24 or 25 or 26 or 27      => "Filter ",
+            // LFO section — same
+            3 or 12 or 17 or 79 or 105 or 106 => "LFO ",
+            // Effects subsections
+            89 or 91                  => "Reverb ",
+            90 or 92                  => "Delay ",
+            93                        => "Chorus ",
+            _                         => "",
+        };
+        return $"CC{p.CcNumber} — {prefix}{p.Name}";
     }
 
     // ── Mod / activity timer ──────────────────────────────────────────────────
