@@ -1,8 +1,8 @@
-# S1Utility
+# S-1 Utility
 
 A desktop companion app for the Roland AIRA Compact S-1 Tweak Synthesizer.
 
-S1Utility connects to a S-1 over MIDI and provides a visual parameter editor, a read-only Patch Inspector for browsing `.PRM` patch backups, and hardware-calibrated heuristic visualizations of the synth's ADSR envelope, filter response and oscillator waveform.
+S-1 Utility connects to a S-1 over MIDI and provides a visual parameter editor, a read-only Patch Inspector for browsing `.PRM` patch backups, and hardware-calibrated heuristic visualizations of the synth's ADSR envelope, filter response and oscillator waveform.
 
 The design principle: **While using heuristics, the app tries to stay honest about what it knows.** When the app can reflect the synth's exact state, it does. When it can't, it surfaces uncertainty rather than displaying wrong or misleading values.
 
@@ -12,7 +12,7 @@ The design principle: **While using heuristics, the app tries to stay honest abo
 
 This is an unofficial third-party tool. This project is not affiliated with, endorsed by, or sponsored by Roland Corporation. Major part of the code is generated with Claude Code, but the app is a product of continuous iteration and refinement.
 
-S1Utility is provided "as is", without warranty of any kind. The author is not responsible for any malfunction, data loss, or damage to your hardware that may result from using this software. That said, the app only sends and receives standard MIDI Control Change (CC) messages — the same messages the S-1 already accepts from any MIDI controller or DAW — and does not write `.PRM` files or use sysex. Practically, the risk of the app harming the device is very low, but you use it at your own risk.
+S-1 Utility is provided "as is", without warranty of any kind. The author is not responsible for any malfunction, data loss, or damage to your hardware that may result from using this software. That said, the app only sends and receives standard MIDI Control Change (CC) messages — the same messages the S-1 already accepts from any MIDI controller or DAW — and does not write `.PRM` files or use sysex. Practically, the risk of the app harming the device is very low, but you use it at your own risk.
 
 ---
 
