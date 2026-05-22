@@ -12,6 +12,8 @@ The design principle: **While using heuristics, the app tries to stay honest abo
 
 This is an unofficial third-party tool. This project is not affiliated with, endorsed by, or sponsored by Roland Corporation. Major part of the code is generated with Claude Code, but the app is a product of continuous iteration and refinement.
 
+S1Utility is provided "as is", without warranty of any kind. The author is not responsible for any malfunction, data loss, or damage to your hardware that may result from using this software. That said, the app only sends and receives standard MIDI Control Change (CC) messages — the same messages the S-1 already accepts from any MIDI controller or DAW — and does not write `.PRM` files or use sysex. Practically, the risk of the app harming the device is very low, but you use it at your own risk.
+
 ---
 
 ## Features
