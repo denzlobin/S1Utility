@@ -15,6 +15,7 @@ public sealed class S1EditorViewModel
     private readonly S1Patch _patch;
 
     private bool     _filterModEnabled;
+    private bool     _envelopeSuspended;
     private double   _filterModOffset;
     private EnvPhase _envPhase = EnvPhase.Off;
     private double   _envLevel;
@@ -24,9 +25,34 @@ public sealed class S1EditorViewModel
     private double   _segmentProgress; // 0..1 within current segment
 
     public bool     FilterModEnabled  { get => _filterModEnabled; set { _filterModEnabled = value; if (!value) _filterModOffset = 0; } }
-    public double   FilterModOffset   => _filterModOffset;
+    // External "freeze the envelope" lever. Set by the view layer when the editor's
+    // NoteOn/NoteOff-driven envelope cannot honestly represent what the device is
+    // doing (e.g. LFO trigger mode, where the hardware retriggers on LFO cycles).
+    // While suspended: Tick / NoteOn / NoteOff are no-ops, EnvLevel / FilterModOffset
+    // report zero, and entering suspension resets the state machine so leaving it
+    // starts from Off rather than wherever the envelope was mid-segment.
+    public bool     EnvelopeSuspended
+    {
+        get => _envelopeSuspended;
+        set
+        {
+            if (_envelopeSuspended == value) return;
+            _envelopeSuspended = value;
+            if (value)
+            {
+                _envPhase          = EnvPhase.Off;
+                _envLevel          = 0;
+                _envLevelAtRelease = 0;
+                _noteCount         = 0;
+                _segmentElapsed    = 0;
+                _segmentProgress   = 0;
+                _filterModOffset   = 0;
+            }
+        }
+    }
+    public double   FilterModOffset   => _envelopeSuspended ? 0 : _filterModOffset;
     public EnvPhase CurrentPhase      => _envPhase;
-    public double   EnvLevel          => _envLevel;
+    public double   EnvLevel          => _envelopeSuspended ? 0 : _envLevel;
     public double   EnvLevelAtRelease => _envLevelAtRelease;
     public double   SegmentProgress   => _segmentProgress;
 
@@ -48,6 +74,7 @@ public sealed class S1EditorViewModel
 
     public void NoteOn()
     {
+        if (_envelopeSuspended) return;
         _noteCount++;
         _envPhase = EnvPhase.Attack;
         _envLevel = 0;
@@ -57,6 +84,7 @@ public sealed class S1EditorViewModel
 
     public void NoteOff()
     {
+        if (_envelopeSuspended) return;
         _noteCount = Math.Max(0, _noteCount - 1);
         if (_noteCount == 0)
         {
@@ -73,6 +101,7 @@ public sealed class S1EditorViewModel
     // Returns true if FilterModEnabled — caller should refresh the filter curve and envelope dot.
     public bool Tick(double dt)
     {
+        if (_envelopeSuspended) return false;
         double attackSecs  = ModEnvTime(CC(73), 3.570, taper: 2.55);
         double decaySecs   = LookupTime(CC(75), s_decayTable);
         double sustainLvl  = CC(30) / 127.0;

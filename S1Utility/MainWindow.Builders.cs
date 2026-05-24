@@ -613,7 +613,13 @@ public partial class MainWindow
             // Only nag about LFO-driven retrigger when the animations overlay is on —
             // otherwise the static A→D→S→R shape is just the parameter readout and
             // does not pretend to represent live dynamics.
-            bool lfoTrigger = triggerP.Value == 0 && _viewModel.FilterModEnabled;
+            bool lfoMode    = triggerP.Value == 0;
+            bool lfoTrigger = lfoMode && _viewModel.FilterModEnabled;
+            // Freeze the envelope in LFO mode regardless of the Animations toggle:
+            // EnvLevel / FilterModOffset are read by the filter curve and OSC PWM
+            // visualizers too, and a note-driven envelope cannot honestly represent
+            // a hardware envelope that is being retriggered by the LFO.
+            _viewModel.EnvelopeSuspended = lfoMode;
             warnGlyph.IsVisible = lfoTrigger;
             canvas.Opacity      = lfoTrigger ? 0.45 : 1.0;
             ToolTip.SetTip(canvas, lfoTrigger
@@ -631,7 +637,16 @@ public partial class MainWindow
         decayP.ValueChanged   += (_, _) => Dispatcher.UIThread.Post(Update);
         sustainP.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
         releaseP.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Update);
-        triggerP.ValueChanged += (_, _) => Dispatcher.UIThread.Post(UpdateWarning);
+        triggerP.ValueChanged += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            UpdateWarning();
+            // Trigger-mode change flips EnvelopeSuspended, which zeroes EnvLevel
+            // and FilterModOffset. Fan out to the other envelope-driven visualizers
+            // so they flush stale offset/duty values at the transition boundary;
+            // OnModTimerTick alone won't redraw them once Tick starts returning false.
+            _filterCurveUpdate?.Invoke();
+            _oscWaveformUpdate?.Invoke();
+        });
 
         return container;
     }
