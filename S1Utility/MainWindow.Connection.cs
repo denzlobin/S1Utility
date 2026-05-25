@@ -364,7 +364,7 @@ public partial class MainWindow
             FooterActivityText.Foreground = midiLit ? Palette.StatusWarn : Palette.FgMute;
         }
 
-        if (_viewModel.Tick(dt))
+        if (_envAnimator.Tick(dt))
         {
             _filterCurveUpdate?.Invoke();
             _envelopeDotUpdate?.Invoke();

@@ -15,7 +15,7 @@ public partial class MainWindow : Window
     private readonly S1Patch        _patch = new();
     private readonly MidiManager    _midiMgr;
     private readonly PrmFileManager _prm;
-    private readonly S1EditorViewModel _viewModel;
+    private readonly EnvelopeAnimator _envAnimator;
 
     private int MidiChannel => ChannelCombo.SelectedIndex >= 0 ? ChannelCombo.SelectedIndex + 1 : 3;
     private int PcChannel   => ProgramChangeChannelCombo.SelectedIndex >= 0 ? ProgramChangeChannelCombo.SelectedIndex + 1 : 16;
@@ -117,11 +117,15 @@ public partial class MainWindow : Window
     private HeuristicToggleState? _patchMirrorToggle;
     private HeuristicToggleState? _animationsToggle;
 
-    // ── Filter modulation animation ───────────────────────────────────────────
+    // ── Animation update delegates ────────────────────────────────────────────
+    //
+    // Wired from the visualiser builders (filter curve, ADSR, OSC waveform).
+    // Invoked from OnModTimerTick at 60 Hz and from event boundaries (LFO
+    // trigger-mode change, Animations toggle, Patch Mirror off) to flush state.
 
     private Action?  _filterCurveUpdate;
     private Action?  _envelopeDotUpdate;
-    private Action?  _envelopeWarningUpdate;
+    private Action?  _envelopeOverlayUpdate;
     private Action?  _oscWaveformUpdate;
     private DateTime _lastModTick;
     private DateTime _lastMidiActivity = DateTime.MinValue;
@@ -171,17 +175,17 @@ public partial class MainWindow : Window
             else Dispatcher.UIThread.Post(action);
         };
 
-        _viewModel = new S1EditorViewModel(_patch);
-        _prm       = new PrmFileManager(_patch);
-        _midiMgr   = new MidiManager(_patch);
+        _envAnimator = new EnvelopeAnimator(_patch);
+        _prm         = new PrmFileManager(_patch);
+        _midiMgr     = new MidiManager(_patch);
 
         _prm.MetaLoaded               += OnPrmMetaLoaded;
         _prm.StatusChanged            += (_, args) => SetStatus(args.Message, args.Kind);
         _prm.PatchAvailabilityChanged += (_, _) => RefreshAllPatchButtonStyles();
 
         _midiMgr.Disconnected          += (_, _) => Dispatcher.UIThread.Post(OnDeviceDisconnected);
-        _midiMgr.NoteOnReceived        += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOn);
-        _midiMgr.NoteOffReceived       += (_, _) => Dispatcher.UIThread.Post(_viewModel.NoteOff);
+        _midiMgr.NoteOnReceived        += (_, _) => Dispatcher.UIThread.Post(_envAnimator.NoteOn);
+        _midiMgr.NoteOffReceived       += (_, _) => Dispatcher.UIThread.Post(_envAnimator.NoteOff);
         _midiMgr.ProgramChangeReceived += (_, prog) => Dispatcher.UIThread.Post(() => HighlightPatchButton(prog));
         _midiMgr.ActivityReceived      += (_, _) => _lastMidiActivity = DateTime.UtcNow;
 

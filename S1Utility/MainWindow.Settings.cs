@@ -23,9 +23,9 @@ public partial class MainWindow
     private void LoadSettings()
     {
         var s = SettingsStore.Load(SettingsPath);
-        _autoConnect                = s.AutoConnect;
-        _viewModel.FilterModEnabled = s.FilterModEnabled;
-        _prm.PrmFolder              = s.PrmFolder;
+        _autoConnect                  = s.AutoConnect;
+        _envAnimator.AnimationsEnabled = s.AnimationsEnabled;
+        _prm.PrmFolder                = s.PrmFolder;
         _prm.PatternSync            = s.PatternSync;
         _midiChannel                = s.MidiChannel;
         _pcChannel                  = s.PcChannel;
@@ -34,10 +34,10 @@ public partial class MainWindow
         _mirrorForcePushOnPc        = s.MirrorForcePushOnPc;
     }
 
-    private void SaveSettings() => SettingsStore.Save(SettingsPath, new SettingsV1
+    private void SaveSettings() => SettingsStore.Save(SettingsPath, new SettingsV2
     {
         AutoConnect            = _autoConnect,
-        FilterModEnabled       = _viewModel.FilterModEnabled,
+        AnimationsEnabled      = _envAnimator.AnimationsEnabled,
         PrmFolder              = _prm.PrmFolder,
         PatternSync            = _prm.PatternSync,
         MidiChannel            = MidiChannel,

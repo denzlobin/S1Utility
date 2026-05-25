@@ -160,8 +160,8 @@ public partial class MainWindow
             // sweeps from 0 (50% duty / square) up to the knob value as the env
             // rises, mirroring how the synth modulates pulse width over A/D/S/R.
             // Only animates when the Animations toggle is on and a note is active.
-            if (pwmSrcP.Value == 0 && _viewModel.FilterModEnabled)
-                pwVal *= _viewModel.EnvLevel;
+            if (pwmSrcP.Value == 0 && _envAnimator.AnimationsEnabled)
+                pwVal *= _envAnimator.EnvLevel;
             double duty     = Math.Max(PwMinDuty, 0.5 * (1.0 - pwVal / 127.0 * PwInternalMax));
 
             Array.Clear(buf, 0, OscWaveformN);
@@ -389,7 +389,7 @@ public partial class MainWindow
             const int    N      = FilterCurveN;
             const double sigma  = 0.15;    // gaussian width in omega space
 
-            double fN          = Math.Clamp(freqParam.Value / 127.0 + _viewModel.FilterModOffset, 0.0, 1.0);
+            double fN          = Math.Clamp(freqParam.Value / 127.0 + _envAnimator.FilterModOffset, 0.0, 1.0);
             double rN          = resParam.Value / 127.0;
             double cutoffFreq  = Math.Pow(10, logMin + fN * (logMax - logMin));
             double xC          = fN * W;
@@ -506,14 +506,14 @@ public partial class MainWindow
             for (int i = 1; i <= segSamples; i++)
             {
                 double t = (double)i / segSamples;
-                double y = H + (3 - H) * S1EditorViewModel.AttackCurve(t);
+                double y = H + (3 - H) * EnvelopeAnimator.AttackCurve(t);
                 pts.Add(new Point(aT * t, y));
             }
             // Decay: y falls from 3 to sL along exponential curve.
             for (int i = 1; i <= segSamples; i++)
             {
                 double t = (double)i / segSamples;
-                double y = 3 + (sL - 3) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
+                double y = 3 + (sL - 3) * (1.0 - EnvelopeAnimator.DecayReleaseCurve(t));
                 pts.Add(new Point(aT + dT * t, y));
             }
             // Sustain: flat hold at sL.
@@ -522,7 +522,7 @@ public partial class MainWindow
             for (int i = 1; i <= segSamples; i++)
             {
                 double t = (double)i / segSamples;
-                double y = sL + (H - sL) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
+                double y = sL + (H - sL) * (1.0 - EnvelopeAnimator.DecayReleaseCurve(t));
                 pts.Add(new Point(aT + dT + hw + rT * t, y));
             }
 
@@ -546,25 +546,25 @@ public partial class MainWindow
 
         void UpdateDot()
         {
-            if (!_viewModel.FilterModEnabled || _viewModel.CurrentPhase == EnvPhase.Off)
+            if (!_envAnimator.AnimationsEnabled || _envAnimator.CurrentPhase == EnvPhase.Off)
             {
                 dot.IsVisible = false;
                 return;
             }
 
             var (aT2, dT2, hw2, rT2, sL2) = ComputeAdsrLayout();
-            double t = _viewModel.SegmentProgress;
+            double t = _envAnimator.SegmentProgress;
 
             double dx, dy;
-            switch (_viewModel.CurrentPhase)
+            switch (_envAnimator.CurrentPhase)
             {
                 case EnvPhase.Attack:
                     dx = aT2 * t;
-                    dy = H + (3 - H) * S1EditorViewModel.AttackCurve(t);
+                    dy = H + (3 - H) * EnvelopeAnimator.AttackCurve(t);
                     break;
                 case EnvPhase.Decay:
                     dx = aT2 + dT2 * t;
-                    dy = 3 + (sL2 - 3) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
+                    dy = 3 + (sL2 - 3) * (1.0 - EnvelopeAnimator.DecayReleaseCurve(t));
                     break;
                 case EnvPhase.Sustain:
                     dx = aT2 + dT2;
@@ -572,7 +572,7 @@ public partial class MainWindow
                     break;
                 case EnvPhase.Release:
                     dx = aT2 + dT2 + hw2 + rT2 * t;
-                    dy = sL2 + (H - sL2) * (1.0 - S1EditorViewModel.DecayReleaseCurve(t));
+                    dy = sL2 + (H - sL2) * (1.0 - EnvelopeAnimator.DecayReleaseCurve(t));
                     break;
                 default:
                     dot.IsVisible = false;
@@ -614,12 +614,12 @@ public partial class MainWindow
             // otherwise the static A→D→S→R shape is just the parameter readout and
             // does not pretend to represent live dynamics.
             bool lfoMode    = triggerP.Value == 0;
-            bool lfoTrigger = lfoMode && _viewModel.FilterModEnabled;
+            bool lfoTrigger = lfoMode && _envAnimator.AnimationsEnabled;
             // Freeze the envelope in LFO mode regardless of the Animations toggle:
             // EnvLevel / FilterModOffset are read by the filter curve and OSC PWM
             // visualizers too, and a note-driven envelope cannot honestly represent
             // a hardware envelope that is being retriggered by the LFO.
-            _viewModel.EnvelopeSuspended = lfoMode;
+            _envAnimator.EnvelopeSuspended = lfoMode;
             warnGlyph.IsVisible = lfoTrigger;
             canvas.Opacity      = lfoTrigger ? 0.45 : 1.0;
             ToolTip.SetTip(canvas, lfoTrigger
@@ -630,7 +630,7 @@ public partial class MainWindow
         }
 
         _envelopeDotUpdate = () => { if (triggerP.Value != 0) UpdateDot(); else dot.IsVisible = false; };
-        _envelopeWarningUpdate = UpdateWarning;
+        _envelopeOverlayUpdate = UpdateWarning;
         Update();
         UpdateWarning();
         attackP.ValueChanged  += (_, _) => Dispatcher.UIThread.Post(Update);
@@ -736,13 +736,13 @@ public partial class MainWindow
         _patchMirrorToggle?.SetActive(patchMirrorOn);
         _animationsToggle?.SetEnabled(patchMirrorOn);
 
-        if (!patchMirrorOn && _viewModel.FilterModEnabled)
+        if (!patchMirrorOn && _envAnimator.AnimationsEnabled)
         {
-            _viewModel.FilterModEnabled = false;
+            _envAnimator.AnimationsEnabled = false;
             _animationsToggle?.SetActive(false);
             _filterCurveUpdate?.Invoke();
             _envelopeDotUpdate?.Invoke();
-            _envelopeWarningUpdate?.Invoke();
+            _envelopeOverlayUpdate?.Invoke();
             _oscWaveformUpdate?.Invoke();
         }
     }
@@ -762,22 +762,22 @@ public partial class MainWindow
         bool prmValid      = PrmFolderHasValidFiles();
         bool patchMirrorOn = prmValid && _prm.PatternSync;
 
-        if (!patchMirrorOn && _viewModel.FilterModEnabled)
-            _viewModel.FilterModEnabled = false;
+        if (!patchMirrorOn && _envAnimator.AnimationsEnabled)
+            _envAnimator.AnimationsEnabled = false;
 
-        animationsState.SetActive(_viewModel.FilterModEnabled);
+        animationsState.SetActive(_envAnimator.AnimationsEnabled);
         animationsState.SetEnabled(patchMirrorOn);
 
         animationsBtn.PointerPressed += (_, _) =>
         {
-            _viewModel.FilterModEnabled = !_viewModel.FilterModEnabled;
-            animationsState.SetActive(_viewModel.FilterModEnabled);
-            if (!_viewModel.FilterModEnabled)
+            _envAnimator.AnimationsEnabled = !_envAnimator.AnimationsEnabled;
+            animationsState.SetActive(_envAnimator.AnimationsEnabled);
+            if (!_envAnimator.AnimationsEnabled)
             {
                 _filterCurveUpdate?.Invoke();
                 _envelopeDotUpdate?.Invoke();
             }
-            _envelopeWarningUpdate?.Invoke();
+            _envelopeOverlayUpdate?.Invoke();
             SaveSettings();
         };
 
@@ -816,11 +816,11 @@ public partial class MainWindow
             }
             else
             {
-                _viewModel.FilterModEnabled = false;
+                _envAnimator.AnimationsEnabled = false;
                 animationsState.SetActive(false);
                 _filterCurveUpdate?.Invoke();
                 _envelopeDotUpdate?.Invoke();
-                _envelopeWarningUpdate?.Invoke();
+                _envelopeOverlayUpdate?.Invoke();
                 ClearDirtyTracking(); // also hides Restore button
             }
             SaveSettings();

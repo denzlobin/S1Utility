@@ -216,7 +216,7 @@ public partial class MainWindow
         if (!ok) return;
 
         // Persist defaults to disk and reload backing fields.
-        SettingsStore.Save(SettingsPath, new SettingsV1());
+        SettingsStore.Save(SettingsPath, new SettingsV2());
         LoadSettings();
 
         // Push the reset values into every UI surface that mirrors them.
@@ -229,11 +229,11 @@ public partial class MainWindow
         PrmFolderBox.Text                       = _prm.PrmFolder;
         UpdateFooterChannels();
 
-        // Reset live-features toggles: PatternSync just went false, FilterModEnabled
+        // Reset live-features toggles: PatternSync just went false, AnimationsEnabled
         // just went false. RefreshLiveFeaturesState handles enabled state; we still
         // need the explicit SetActive for Animations because the helper only flips
         // it inside the auto-disable branch.
-        _animationsToggle?.SetActive(_viewModel.FilterModEnabled);
+        _animationsToggle?.SetActive(_envAnimator.AnimationsEnabled);
         RefreshLiveFeaturesState();
 
         // PRM folder cleared → rescan invalidates the in-memory program table,
@@ -242,8 +242,8 @@ public partial class MainWindow
         UpdateInspectorBanner();
         UpdatePatchGridAvailability();
 
-        // ADSR warning glyph depends on FilterModEnabled — re-evaluate.
-        _envelopeWarningUpdate?.Invoke();
+        // ADSR overlay depends on AnimationsEnabled — re-evaluate.
+        _envelopeOverlayUpdate?.Invoke();
         _filterCurveUpdate?.Invoke();
         _envelopeDotUpdate?.Invoke();
 

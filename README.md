@@ -24,7 +24,7 @@ S-1 Utility is provided "as is", without warranty of any kind. The author is not
 - **Parameter visualization**. Filter frequency-response curve, animated ADSR envelope visualizer, draw-wave bars with signed value labels, chop pattern grid.
 - **Patch Inspector**. Read-only view of all `.PRM` file data, including parameters that have no MIDI CC equivalent and can be only set from the hardware (sequencer data, draw and chop patterns, etc.).
 - **Undo / Redo** for parameter edits, with per-CC coalescing for knob drags.
-- **Hardware-verified encodings**. CC mappings, ADSR timing constants, oscillater waveforms, and other measured values were established by testing against real hardware.
+- **Hardware-verified encodings**. CC mappings, ADSR timing constants, oscillator waveforms, and other measured values were established by testing against real hardware.
 - **MIDI Export**. One-click export of the pattern sequencer data into a MIDI file.
 - **Keyboard shortcuts**. `Ctrl+M` toggle Connect/Disconnect, `Ctrl+I` Init Patch, `Ctrl+R` Restore Patch, `Ctrl+S` Save Preset, `Ctrl+Z`/`Ctrl+Y` Undo/Redo, `Tab` cycle tabs, arrow keys for patch grid navigation.
 

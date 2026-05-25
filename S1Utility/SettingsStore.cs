@@ -9,13 +9,17 @@ namespace S1Utility;
 // failure (caught and migrated, not silently dropped); adding a property bumps
 // SchemaVersion and adds a MigrateFromVN step in SettingsStore.
 //
+// V2 (current): renamed FilterModEnabled → AnimationsEnabled to match the user-facing
+// "Animations" toggle (covers filter cutoff sweep, ADSR dot, and OSC PWM duty mod,
+// not just filter modulation as the old name suggested).
+//
 // Defaults here are the canonical "first launch" values — MainWindow consumes the
 // returned record directly, so it doesn't need to repeat them.
-public sealed record SettingsV1
+public sealed record SettingsV2
 {
-    public int    SchemaVersion          { get; init; } = 1;
+    public int    SchemaVersion          { get; init; } = 2;
     public bool   AutoConnect            { get; init; }
-    public bool   FilterModEnabled       { get; init; }
+    public bool   AnimationsEnabled      { get; init; }
     public string PrmFolder              { get; init; } = "";
     public bool   PatternSync            { get; init; }
     public int    MidiChannel            { get; init; } = 3;
@@ -44,12 +48,12 @@ public static class SettingsStore
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
 
-    // Returns the current SettingsV1 from disk, migrating older schemas in place.
+    // Returns the current SettingsV2 from disk, migrating older schemas in place.
     // Any failure (missing file, bad JSON, unknown future schema) returns defaults
     // and logs — the caller never has to handle exceptions itself.
-    public static SettingsV1 Load(string path)
+    public static SettingsV2 Load(string path)
     {
-        if (!File.Exists(path)) return new SettingsV1();
+        if (!File.Exists(path)) return new SettingsV2();
 
         try
         {
@@ -65,18 +69,19 @@ public static class SettingsStore
             return version switch
             {
                 0 => MigrateFromV0(doc),
-                1 => Clamp(doc.Deserialize<SettingsV1>(JsonOptions) ?? new SettingsV1()),
+                1 => MigrateFromV1(doc),
+                2 => Clamp(doc.Deserialize<SettingsV2>(JsonOptions) ?? new SettingsV2()),
                 _ => LogUnknownVersion(version, path),
             };
         }
         catch (Exception ex)
         {
             Log.Logger.Error($"Settings load failed: {path}", ex);
-            return new SettingsV1();
+            return new SettingsV2();
         }
     }
 
-    public static void Save(string path, SettingsV1 settings)
+    public static void Save(string path, SettingsV2 settings)
     {
         try
         {
@@ -88,17 +93,19 @@ public static class SettingsStore
         }
     }
 
-    // V0 was an anonymous-keyed JSON object with no schemaVersion field. Read each
-    // key by name (missing keys keep the record default) and clamp channels.
-    private static SettingsV1 MigrateFromV0(JsonDocument doc)
-    {
-        var defaults = new SettingsV1();
-        var root     = doc.RootElement;
+    // V0 and V1 spelled the animations flag as `filterModEnabled` on disk. V2
+    // renamed the C# property to AnimationsEnabled (camelCase → `animationsEnabled`
+    // on disk); both legacy schemas share the same key-by-key reader below.
+    private static SettingsV2 MigrateFromV0(JsonDocument doc) => ReadLegacy(doc.RootElement);
+    private static SettingsV2 MigrateFromV1(JsonDocument doc) => ReadLegacy(doc.RootElement);
 
-        return new SettingsV1
+    private static SettingsV2 ReadLegacy(JsonElement root)
+    {
+        var defaults = new SettingsV2();
+        return new SettingsV2
         {
             AutoConnect            = ReadBool  (root, "autoConnect",            defaults.AutoConnect),
-            FilterModEnabled       = ReadBool  (root, "filterModEnabled",       defaults.FilterModEnabled),
+            AnimationsEnabled      = ReadBool  (root, "filterModEnabled",       defaults.AnimationsEnabled),
             PrmFolder              = ReadString(root, "prmFolder",              defaults.PrmFolder),
             PatternSync            = ReadBool  (root, "patternSync",            defaults.PatternSync),
             MidiChannel            = Math.Clamp(ReadInt(root, "midiChannel", defaults.MidiChannel), 1, 16),
@@ -109,17 +116,17 @@ public static class SettingsStore
         };
     }
 
-    private static SettingsV1 Clamp(SettingsV1 s) => s with
+    private static SettingsV2 Clamp(SettingsV2 s) => s with
     {
         MidiChannel          = Math.Clamp(s.MidiChannel, 1, 16),
         PcChannel            = Math.Clamp(s.PcChannel,   1, 16),
         MirrorInitialProgram = Math.Clamp(s.MirrorInitialProgram, 0, 63),
     };
 
-    private static SettingsV1 LogUnknownVersion(int version, string path)
+    private static SettingsV2 LogUnknownVersion(int version, string path)
     {
         Log.Logger.Warn($"Settings schemaVersion {version} at '{path}' is newer than this build understands; using defaults");
-        return new SettingsV1();
+        return new SettingsV2();
     }
 
     private static bool ReadBool(JsonElement root, string name, bool fallback) =>

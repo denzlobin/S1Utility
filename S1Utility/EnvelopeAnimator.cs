@@ -5,16 +5,18 @@ namespace S1Utility;
 
 public enum EnvPhase { Off, Attack, Decay, Sustain, Release }
 
-// Owns filter-modulation animation state: ADSR envelope and note tracking.
+// Drives the editor's envelope-animation state from NoteOn/NoteOff and a per-tick
+// integrator. Consumed by the filter curve (FilterModOffset), the OSC PWM duty
+// (EnvLevel), and the ADSR dot (CurrentPhase + SegmentProgress).
 // LFO is excluded — its phase is unpredictable from the editor side.
 // No Avalonia dependency — pure C#, fully unit-testable.
-public sealed class S1EditorViewModel
+public sealed class EnvelopeAnimator
 {
     private static readonly double ExpDecayEnd = Math.Exp(-4.5); // tail value of decay/release exp curve
 
     private readonly S1Patch _patch;
 
-    private bool     _filterModEnabled;
+    private bool     _animationsEnabled;
     private bool     _envelopeSuspended;
     private double   _filterModOffset;
     private EnvPhase _envPhase = EnvPhase.Off;
@@ -24,7 +26,11 @@ public sealed class S1EditorViewModel
     private double   _segmentElapsed;
     private double   _segmentProgress; // 0..1 within current segment
 
-    public bool     FilterModEnabled  { get => _filterModEnabled; set { _filterModEnabled = value; if (!value) _filterModOffset = 0; } }
+    // Master switch for envelope-driven animations: filter cutoff sweep, ADSR dot,
+    // and OSC PWM-envelope duty modulation. Backed by the user-facing "Animations"
+    // toggle. When false, Tick stops producing offsets and downstream visualizers
+    // see a static state.
+    public bool     AnimationsEnabled { get => _animationsEnabled; set { _animationsEnabled = value; if (!value) _filterModOffset = 0; } }
     // External "freeze the envelope" lever. Set by the view layer when the editor's
     // NoteOn/NoteOff-driven envelope cannot honestly represent what the device is
     // doing (e.g. LFO trigger mode, where the hardware retriggers on LFO cycles).
@@ -67,7 +73,7 @@ public sealed class S1EditorViewModel
     public static double DecayReleaseCurve(double t) =>
         (Math.Exp(-4.5 * t) - ExpDecayEnd) / (1.0 - ExpDecayEnd);
 
-    public S1EditorViewModel(S1Patch patch) => _patch = patch;
+    public EnvelopeAnimator(S1Patch patch) => _patch = patch;
 
     private int CC(int cc) =>
         _patch.GetByCC(cc)?.Value ?? throw new InvalidOperationException($"Required CC {cc} not found");
@@ -98,7 +104,7 @@ public sealed class S1EditorViewModel
     }
 
     // Advances the ADSR envelope by dt seconds.
-    // Returns true if FilterModEnabled — caller should refresh the filter curve and envelope dot.
+    // Returns true if AnimationsEnabled — caller should refresh the filter curve and envelope dot.
     public bool Tick(double dt)
     {
         if (_envelopeSuspended) return false;
@@ -159,7 +165,7 @@ public sealed class S1EditorViewModel
             }
         }
 
-        if (!_filterModEnabled) return false;
+        if (!_animationsEnabled) return false;
         _filterModOffset = CC(24) / 127.0 * _envLevel;
         return true;
     }
