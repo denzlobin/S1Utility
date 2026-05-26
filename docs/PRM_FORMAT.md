@@ -183,10 +183,10 @@ one of the four chop grid masks** (`OSC_CHOP_PWM`, `OSC_CHOP_SAW`,
 synth's "no-chop" idle state; flipping any bit off engages chopping, which
 is what makes overtone audible.
 
-`OSC_CHOP_TYPE` does **not** gate audibility. All 16 PTN1-* factory patches
-ship with type=0; some have altered grids, and raising overtone on those
-patches is audibly active. If `OSC_CHOP_TYPE` has any sonic effect at all,
-it's something else — possibly a chop algorithm selector — not the gate.
+`OSC_CHOP_TYPE` does **not** gate audibility. Patches with `type=0` and an
+altered grid still produce audible overtone when it's raised. If
+`OSC_CHOP_TYPE` has any sonic effect at all, it's something else
+(possibly a chop algorithm selector), not the gate.
 
 ### Editor consequence
 
@@ -210,9 +210,9 @@ The OSC preview's "Chop output is not represented" warning checks
 > ⚠ **History.** Two prior incorrect models were ruled out. First, the
 > hypothesis was `OSC_CHOP_TYPE = 0` as sole gate with raw MIDI bypassing
 > it — falsified when init with type=0 still produced no audible overtone.
-> Second was `type ≠ 0 AND grid altered` — falsified by PTN1_01 (type=0,
-> altered grid) where raising overtone is audibly active. The grid-only
-> gate is the simplest model consistent with all observed behaviour.
+> Second was `type ≠ 0 AND grid altered`, falsified by a real patch with
+> type=0 and an altered grid where raising overtone is audibly active. The
+> grid-only gate is the simplest model consistent with all observed behaviour.
 
 ## PRM-only parameters
 
@@ -294,10 +294,10 @@ Decoded by `ChopPattern.LoadFromPrm`.
 | All CC-mapped parameters in the table | Verified against device round-trip  |
 | `OSC_DRAW_MULT` / `OSC_CHOP_COMB` anchors | Hardware-verified (64-patch backup audit) |
 | `OSC_CHOP_OVERTONE` display formula   | Hardware-verified after iteration   |
-| Chop overtone grid-only gating        | Hardware re-tested 2026-05-17 by ear on PTN1_01 |
-| ADSR curve calibration                | Hardware-calibrated (see `osc_waveform_visualizer.md`) |
+| Chop overtone grid-only gating        | Hardware re-tested by ear         |
+| ADSR curve calibration                | Hardware-calibrated                 |
 | Filter cutoff curve                   | Hardware-verified (spike at xC)     |
-| OSC waveform synthesis model          | Hardware-calibrated against captures in `E:\S-1 Shapes\` |
+| OSC waveform synthesis model          | Hardware-calibrated against oscilloscope captures |
 | `STEP_NOTE` encoding                  | Verified against backup patches     |
 | `STEP_MOTION` encoding                | **Inferred** — no active-motion patches available |
 | `OSC_CHOP_*` bit-per-step encoding    | Verified against backup patches     |

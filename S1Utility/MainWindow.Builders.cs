@@ -44,12 +44,12 @@ public partial class MainWindow
     // The S-1 is analogue-modelled so every component carries RC-circuit character:
     // exponential capacitor discharge on every "flat" region, PolyBLEP at every reset.
     //
-    // Constants below were tuned against oscilloscope captures in E:/S-1 Shapes/.
+    // Constants below were tuned against oscilloscope captures of the device.
     // The saw is a RISING concave wave (capacitor charge → dump) — it starts at
     // SawTarget, climbs toward +1 over the cycle, then resets sharply downward
-    // at the boundary. The visible spike therefore points down (matches Saw255).
+    // at the boundary. The visible spike therefore points down.
     // Square HIGH/LOW plateaus droop toward 0 but never reach it — the cycle ends
-    // with HIGH ≈ +0.37 and LOW ≈ −0.37 at k=1.0 (matches SquarePW0.png).
+    // with HIGH ≈ +0.37 and LOW ≈ −0.37 at k=1.0.
     //
     // PolyBLEP is intentionally NOT applied here. At this canvas resolution
     // (≈64 samples/cycle) the band-limiting either lands on a single sample or
@@ -215,8 +215,8 @@ public partial class MainWindow
             // its all-0xFFFF default (the synth's "no chop" idle state). Init
             // and many factory patches store non-zero overtone with all grid
             // masks at 0xFFFF — sound is unaffected, so warning would be noise.
-            // OSC_CHOP_TYPE turned out NOT to gate audibility: PTN1_01 has type=0
-            // with an altered grid and overtone is audible there once raised.
+            // OSC_CHOP_TYPE turned out NOT to gate audibility: a type=0 patch
+            // with an altered grid still produces audible overtone once raised.
             bool chopActive = chopOvP.Value > 0
                               && _prm.ChopPattern.IsAltered;
             bool drawActive = drawP.Value != 0;
