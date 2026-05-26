@@ -3,16 +3,16 @@ using System;
 namespace S1Utility.Core;
 
 // Piecewise-linear mapping from the raw PRM DELAY_TIME byte (0..255) to the
-// millisecond value the S-1 displays in free mode (DELAY_SW = 1, "Off"). Built
-// from hardware-verified anchors captured on PTN4-01..07.
+// millisecond value the S-1 displays in free mode (TEMPO_SYNC = 0). Built
+// from hardware-verified anchors captured against the device.
 public static class DelayTimeMap
 {
     // Anchor pairs (raw, ms). Captured against the S-1's on-device display.
-    // PTN4-01..07 supplied the first seven anchors; the (255, 740) tail anchor
-    // is the hardware-verified max delay time, so the curve caps at 740 ms.
-    // Three roughly-linear interior segments (~1.18 / ~2.02 / ~3.34 ms/raw)
-    // followed by a near-flat tail — likely a piecewise table in firmware,
-    // so linear interpolation between anchors is the honest representation.
+    // (255, 740) is the hardware-verified max delay time, so the curve caps
+    // at 740 ms. Three roughly-linear interior segments (~1.18 / ~2.02 /
+    // ~3.34 ms/raw) followed by a near-flat tail (likely a piecewise table
+    // in firmware), so linear interpolation between anchors is the honest
+    // representation.
     private static readonly int[] s_anchorRaw = { 0, 11, 26, 55, 106, 179, 245, 255 };
     private static readonly int[] s_anchorMs  = { 1, 14, 44, 103, 273, 517, 737, 740 };
 

@@ -142,9 +142,10 @@ public sealed class PrmFileManager
 
     private List<PrmParameter> BuildDelayMain() => new()
     {
-        // Hardware-verified against PTN4-01..07: DELAY_SW=1 is the free-ms
-        // mode shown on the S-1 as "Off", DELAY_SW=0 is tempo-synced.
-        new("Sync", "DELAY_SW", options: new[] { "Sync to Tempo", "Off" }),
+        // DELAY_SW: semantic unknown. The delay sync flag is TEMPO_SYNC, not
+        // this field. Kept here so the value still round-trips through
+        // .s1patch presets.
+        new("DELAY_SW (unknown)", "DELAY_SW", options: new[] { "0", "1" }),
     };
 
     private List<PrmParameter> BuildReverbMain() => new()

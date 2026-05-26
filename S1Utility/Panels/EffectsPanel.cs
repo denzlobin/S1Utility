@@ -47,7 +47,7 @@ internal sealed class EffectsPanel
         delayCol.Children.Add(Dashboard.BuildSubHeader("DELAY", _accent));
         var delKnobs = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
         delKnobs.Children.Add(Knobs.MakeKnob(_patch, Cc(92), _accent));
-        delKnobs.Children.Add(Knobs.MakeDelayTimeKnob(_patch, _prm.DelayMain[0], _prm.DelayTempo, _accent));
+        delKnobs.Children.Add(Knobs.MakeDelayTimeKnob(_patch, _prm.TempoSync, _prm.DelayTempo, _accent));
         delayCol.Children.Add(delKnobs);
 
         Grid.SetColumn(reverbCol, 0);

@@ -10,8 +10,8 @@ using S1Utility.Widgets;
 namespace S1Utility.Panels;
 
 // EFFECTS inspector card: two columns (Reverb + Chorus on the left, Delay on
-// the right). Delay's Time row is context-aware — ms when DELAY_SW = Off
-// (free), tempo division when Sync to Tempo.
+// the right). Delay's Time row is context-aware: ms when TEMPO_SYNC = 0
+// (free), tempo division when TEMPO_SYNC = 1 (sync to tempo).
 internal sealed class EffectsCard
 {
     private readonly S1Patch _patch;
@@ -42,7 +42,7 @@ internal sealed class EffectsCard
         {
             InspectorRows.BuildCcDataRow(_prm, Cc(92)),       // Level
             BuildDelayTimeRow(),                               // Time (context-aware)
-            InspectorRows.BuildPrmDataRow(_prm.DelayMain[0]), // Sync (DELAY_SW)
+            InspectorRows.BuildPrmDataRow(_prm.TempoSync),    // Sync (TEMPO_SYNC): hardware-verified delay-sync flag
             InspectorRows.BuildPrmDataRow(_prm.DelayTempo),
             InspectorRows.BuildPrmDataRow(_prm.DelayAdv[0]),  // Feedback
             InspectorRows.BuildPrmDataRow(_prm.DelayAdv[1]),  // Low Cut
@@ -74,15 +74,16 @@ internal sealed class EffectsCard
 
     private Control BuildDelayTimeRow()
     {
-        var delaySw = _prm.DelayMain[0];
+        var tempoSync = _prm.TempoSync;
 
         var lbl = new TextBlock();
         void Refresh()
         {
-            // DELAY_SW: 1 = Off (free ms), 0 = Sync to Tempo. Free mode reads
-            // the raw 8-bit DELAY_TIME so the ms anchors stay precise — the
-            // CC snapshot is 7-bit and rounds two raw values into one.
-            if (delaySw.Value == 1)
+            // TEMPO_SYNC: 0 = delay in free-ms mode, 1 = synced to tempo.
+            // Free mode reads the raw 8-bit DELAY_TIME so the ms anchors stay
+            // precise; the CC snapshot is 7-bit and rounds two raw values
+            // into one.
+            if (tempoSync.Value == 0)
             {
                 int raw = _prm.PrmRawSnapshot.TryGetValue("DELAY_TIME", out var v) ? v : 0;
                 lbl.Text = $"{DelayTimeMap.RawToMs(raw)}ms";
@@ -93,7 +94,7 @@ internal sealed class EffectsCard
             }
         }
         Refresh();
-        delaySw.ValueChanged         += (_, _) => Dispatcher.UIThread.Post(Refresh);
+        tempoSync.ValueChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
         _prm.CcSnapshotChanged       += (_, _) => Dispatcher.UIThread.Post(Refresh);
         _prm.DelayTempo.ValueChanged += (_, _) => Dispatcher.UIThread.Post(Refresh);
 
