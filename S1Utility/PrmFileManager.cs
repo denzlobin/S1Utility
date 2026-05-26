@@ -49,9 +49,13 @@ public sealed class PrmFileManager
     public PrmParameter Scale     { get; } = new("Scale",      "SCALE",      prmMax: 7);
     public PrmParameter TempoSync { get; } = new("Tempo Sync", "TEMPO_SYNC", options: new[] { "Off", "On" });
 
+    // Hardware-verified labels: 8 arpeggio types, no Off slot. Arpeggio
+    // enable is a synth-global setting and is not stored in PRM files.
     public PrmParameter ArpType { get; } = new("Type", "ARP_TYPE", options: new[] {
-        "Off", "Up", "Down", "Up/Down", "Random", "Order" });
-    public PrmParameter ArpRate { get; } = new("Rate", "ARP_RATE", prmMax: 7);
+        "Up", "Down", "Up/Down", "Up 2 oct", "Down 2 oct", "Up/Down 2 oct", "Random", "Random 2 oct" });
+    // Hardware-verified rate labels (7 options), linearly indexed by raw value.
+    public PrmParameter ArpRate { get; } = new("Rate", "ARP_RATE", options: new[] {
+        "1_4", "1_8", "1_16", "1_32", "8t", "16t", "32t" });
 
     public PrmParameter RiserSw    { get; } = new("Riser",     "RISER_SW",    options: new[] { "Off", "On" });
     public PrmParameter RiserMode  { get; } = new("Mode",      "RISER_MODE",  options: new[] { "Off", "Sync", "Quiv", "QuPn" });
