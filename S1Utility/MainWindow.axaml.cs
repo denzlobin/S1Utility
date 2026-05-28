@@ -179,11 +179,10 @@ public partial class MainWindow : Window
         _envAnimator = new EnvelopeAnimator(_patch);
         _prm         = new PrmFileManager(_patch);
 
-        // Backend picked by platform. DryWetMidi supports Win/Mac only; the
-        // Linux backend lands in Phase 2 of the Linux port (managed-midi).
+        // Backend picked by platform. DryWetMidi handles Win/Mac (WinMM /
+        // CoreMIDI); managed-midi handles Linux (ALSA sequencer client).
         IS1MidiBackend backend = OperatingSystem.IsLinux()
-            ? throw new PlatformNotSupportedException(
-                "Linux MIDI backend not implemented yet (Phase 2 of the Linux port).")
+            ? new Midi.Linux.AlsaMidiBackend()
             : new DryWetMidiBackend();
         _midiMgr = new MidiManager(_patch, backend);
 
