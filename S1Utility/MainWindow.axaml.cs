@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using S1Utility.Core;
+using S1Utility.Midi;
 
 namespace S1Utility;
 
@@ -177,7 +178,14 @@ public partial class MainWindow : Window
 
         _envAnimator = new EnvelopeAnimator(_patch);
         _prm         = new PrmFileManager(_patch);
-        _midiMgr     = new MidiManager(_patch);
+
+        // Backend picked by platform. DryWetMidi supports Win/Mac only; the
+        // Linux backend lands in Phase 2 of the Linux port (managed-midi).
+        IS1MidiBackend backend = OperatingSystem.IsLinux()
+            ? throw new PlatformNotSupportedException(
+                "Linux MIDI backend not implemented yet (Phase 2 of the Linux port).")
+            : new DryWetMidiBackend();
+        _midiMgr = new MidiManager(_patch, backend);
 
         _prm.MetaLoaded               += OnPrmMetaLoaded;
         _prm.StatusChanged            += (_, args) => SetStatus(args.Message, args.Kind);

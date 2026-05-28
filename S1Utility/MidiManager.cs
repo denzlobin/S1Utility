@@ -1,26 +1,25 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Melanchall.DryWetMidi.Core;
-using Melanchall.DryWetMidi.Multimedia;
 using S1Utility.Core;
 
 namespace S1Utility;
 
 // Owns MIDI device enumeration, connection lifecycle, and incoming event dispatch.
-// No Avalonia dependency — pure C#, fully unit-testable.
+// Backend-agnostic: takes an IS1MidiBackend in the ctor. No Avalonia dependency,
+// no DryWetMidi imports — the host picks the backend by platform.
 public sealed class MidiManager : IDisposable
 {
-    private readonly S1Patch _patch;
-    private readonly List<InputDevice> _inputDevices = new();
-    private InputDevice? _activeInput;
+    private readonly S1Patch         _patch;
+    private readonly IS1MidiBackend  _backend;
+    private IS1MidiTransport?        _activeOutput;
+    private IS1MidiInput?            _activeInput;
 
     // Updated at connect time; reflects the active receive/send channel.
     public int Channel { get; set; } = 3;
 
-    public IReadOnlyList<string> OutputDeviceNames { get; private set; } = Array.Empty<string>();
-    public IReadOnlyList<string> InputDeviceNames  { get; private set; } = Array.Empty<string>();
+    public IReadOnlyList<string> OutputDeviceNames => _backend.OutputNames;
+    public IReadOnlyList<string> InputDeviceNames  => _backend.InputNames;
 
     // Events fired from the MIDI receive thread — callers must dispatch to UI thread if needed.
     public event EventHandler?      Disconnected;
@@ -29,29 +28,20 @@ public sealed class MidiManager : IDisposable
     public event EventHandler<int>? ProgramChangeReceived;
     public event EventHandler?      ActivityReceived;
 
-    public MidiManager(S1Patch patch)
+    public MidiManager(S1Patch patch, IS1MidiBackend backend)
     {
-        _patch = patch;
-        EnumerateDevices();
+        _patch   = patch;
+        _backend = backend;
     }
 
-    // Re-enumerates output ports and input devices.
-    // Stops any active input listener and clears the device lists.
+    // Re-enumerates output and input ports via the backend.
+    // Stops any active input listener; we do not auto-reconnect.
     public void EnumerateDevices()
     {
-        _activeInput?.StopEventsListening();
+        _activeInput?.Stop();
+        _activeInput?.Dispose();
         _activeInput = null;
-        foreach (var d in _inputDevices) d.Dispose();
-        _inputDevices.Clear();
-
-        // OutputDevice.GetAll() returns live instances we don't intend to hold —
-        // snapshot the names and dispose right away. We re-open by name on connect.
-        var outs = OutputDevice.GetAll().ToList();
-        try { OutputDeviceNames = outs.Select(d => d.Name).ToList(); }
-        finally { foreach (var d in outs) d.Dispose(); }
-
-        _inputDevices.AddRange(InputDevice.GetAll());
-        InputDeviceNames = _inputDevices.Select(d => d.Name).ToList();
+        _backend.Refresh();
     }
 
     // Opens the output at outIndex, sets the patch transport, then opens the input at inIndex.
@@ -62,42 +52,44 @@ public sealed class MidiManager : IDisposable
     {
         Channel = channel;
 
-        var outPortName = OutputDeviceNames[outIndex];
-        OutputDevice output;
+        var outPortName = _backend.OutputNames[outIndex];
+        IS1MidiTransport output;
         try
         {
-            output = OutputDevice.GetByName(outPortName);
-            // Open the port explicitly so failures surface here rather than on the first SendEvent.
-            output.PrepareForEventsSending();
+            output = _backend.OpenOutput(outPortName);
         }
         catch (Exception ex)
         {
-            Log.Logger.Error($"OutputDevice.GetByName failed for port '{outPortName}'", ex);
+            Log.Logger.Error($"Backend OpenOutput failed for port '{outPortName}'", ex);
             return Task.FromResult<(bool, string, string?, string?)>((false, outPortName, null, ex.Message));
         }
 
-        var transport = new DryWetMidiTransport(output, outPortName,
-            onDisconnect: () => Disconnected?.Invoke(this, EventArgs.Empty));
+        _activeOutput = output;
+        output.Disconnected += OnTransportDisconnected;
         Log.Logger.Info($"MIDI output opened: '{outPortName}' (channel {channel})");
-        _patch.SetTransport(transport, channel);
+        _patch.SetTransport(output, channel);
 
-        if (inIndex < 0 || inIndex >= _inputDevices.Count)
+        if (inIndex < 0 || inIndex >= _backend.InputNames.Count)
             return Task.FromResult<(bool, string, string?, string?)>((true, outPortName, null, null));
 
+        var inPortName = _backend.InputNames[inIndex];
         try
         {
-            _activeInput?.StopEventsListening();
-            _activeInput = _inputDevices[inIndex];
+            _activeInput?.Stop();
+            _activeInput?.Dispose();
+            _activeInput = _backend.OpenInput(inPortName);
             _activeInput.EventReceived += OnMidiEventReceived;
-            _activeInput.StartEventsListening();
+            _activeInput.Start();
             return Task.FromResult<(bool, string, string?, string?)>((true, outPortName, _activeInput.Name, null));
         }
         catch (Exception ex)
         {
-            var inName = _activeInput?.Name ?? "?";
-            Log.Logger.Error($"MIDI input listener failed to start on '{inName}'", ex);
+            Log.Logger.Error($"MIDI input listener failed to start on '{inPortName}'", ex);
             if (_activeInput != null)
+            {
                 _activeInput.EventReceived -= OnMidiEventReceived;
+                _activeInput.Dispose();
+            }
             _activeInput = null;
             return Task.FromResult<(bool, string, string?, string?)>((true, outPortName, null, ex.Message));
         }
@@ -105,56 +97,74 @@ public sealed class MidiManager : IDisposable
 
     // User-initiated disconnect. Stops the active input listener so the next
     // Connect starts clean. Does not fire the Disconnected event — the caller
-    // already knows. Does not dispose _inputDevices (those live until Dispose()).
+    // already knows.
     public void Disconnect()
     {
         if (_activeInput != null)
         {
-            try { _activeInput.StopEventsListening(); } catch { /* tolerate already-stopped device */ }
             _activeInput.EventReceived -= OnMidiEventReceived;
+            _activeInput.Stop();
+            _activeInput.Dispose();
             _activeInput = null;
+        }
+        if (_activeOutput != null)
+        {
+            _activeOutput.Disconnected -= OnTransportDisconnected;
+            _activeOutput = null;
         }
     }
 
     public int FindOutputIndex(Func<string, bool> predicate)
     {
-        for (int i = 0; i < OutputDeviceNames.Count; i++)
-            if (predicate(OutputDeviceNames[i])) return i;
+        for (int i = 0; i < _backend.OutputNames.Count; i++)
+            if (predicate(_backend.OutputNames[i])) return i;
         return -1;
     }
 
     public int FindInputIndex(Func<string, bool> predicate)
     {
-        for (int i = 0; i < _inputDevices.Count; i++)
-            if (predicate(_inputDevices[i].Name)) return i;
+        for (int i = 0; i < _backend.InputNames.Count; i++)
+            if (predicate(_backend.InputNames[i])) return i;
         return -1;
     }
 
-    private void OnMidiEventReceived(object? sender, MidiEventReceivedEventArgs e)
+    private void OnTransportDisconnected(object? sender, EventArgs e) =>
+        Disconnected?.Invoke(this, EventArgs.Empty);
+
+    private void OnMidiEventReceived(object? sender, S1MidiEvent e)
     {
         ActivityReceived?.Invoke(this, EventArgs.Empty);
-        switch (e.Event)
+        // Wire channel is 0-based; Channel is 1-based at the UI seam.
+        if (e.Channel != Channel - 1) return;
+
+        switch (e.Kind)
         {
-            case ControlChangeEvent cc when (int)cc.Channel == Channel - 1:
-                _patch.MarkSynced((int)cc.ControlNumber);
-                _patch.HandleIncomingCC((int)cc.ControlNumber, (int)cc.ControlValue);
+            case S1MidiEventKind.ControlChange:
+                _patch.MarkSynced(e.Data1);
+                _patch.HandleIncomingCC(e.Data1, e.Data2);
                 break;
-            case NoteOnEvent noteOn when (int)noteOn.Channel == Channel - 1:
-                if (noteOn.Velocity > 0) NoteOnReceived?.Invoke(this, EventArgs.Empty);
-                else NoteOffReceived?.Invoke(this, EventArgs.Empty);
+            case S1MidiEventKind.NoteOn:
+                NoteOnReceived?.Invoke(this, EventArgs.Empty);
                 break;
-            case NoteOffEvent noteOff when (int)noteOff.Channel == Channel - 1:
+            case S1MidiEventKind.NoteOff:
                 NoteOffReceived?.Invoke(this, EventArgs.Empty);
                 break;
-            case ProgramChangeEvent pc when (int)pc.Channel == Channel - 1:
-                ProgramChangeReceived?.Invoke(this, (int)pc.ProgramNumber);
+            case S1MidiEventKind.ProgramChange:
+                ProgramChangeReceived?.Invoke(this, e.Data1);
                 break;
         }
     }
 
     public void Dispose()
     {
-        _activeInput?.StopEventsListening();
-        foreach (var d in _inputDevices) d.Dispose();
+        if (_activeInput != null)
+        {
+            _activeInput.EventReceived -= OnMidiEventReceived;
+            _activeInput.Dispose();
+            _activeInput = null;
+        }
+        if (_activeOutput is IDisposable d)
+            d.Dispose();
+        _activeOutput = null;
     }
 }

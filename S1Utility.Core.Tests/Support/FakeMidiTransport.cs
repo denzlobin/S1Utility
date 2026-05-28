@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using S1Utility.Core;
 
@@ -11,9 +12,14 @@ public sealed class FakeMidiTransport : IS1MidiTransport
     public List<(int Channel, int Cc, int Value)>      CcMessages       { get; } = new();
     public List<(int Channel, int Program)>            ProgramMessages  { get; } = new();
 
+    public event EventHandler? Disconnected;
+
     public void SendCC(int channel, int ccNumber, int value) =>
         CcMessages.Add((channel, ccNumber, value));
 
     public void SendProgramChange(int channel, int program) =>
         ProgramMessages.Add((channel, program));
+
+    // Test helper: fire the disconnect signal as if the underlying port died.
+    public void RaiseDisconnected() => Disconnected?.Invoke(this, EventArgs.Empty);
 }

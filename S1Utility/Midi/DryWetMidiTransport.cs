@@ -5,23 +5,22 @@ using Melanchall.DryWetMidi.Core;
 using Melanchall.DryWetMidi.Multimedia;
 using S1Utility.Core;
 
-namespace S1Utility;
+namespace S1Utility.Midi;
 
-// IS1MidiTransport implementation for the standalone desktop app.
-// Wraps a DryWetMidi OutputDevice opened by the app's connect logic.
-public sealed class DryWetMidiTransport : IS1MidiTransport, IDisposable
+// IS1MidiTransport implementation backed by a DryWetMidi OutputDevice.
+internal sealed class DryWetMidiTransport : IS1MidiTransport, IDisposable
 {
     private readonly OutputDevice _output;
     private readonly string       _portName;
-    private readonly Action?      _onDisconnect;
     private int                   _notified;
 
-    public DryWetMidiTransport(OutputDevice output, string portName, Action? onDisconnect = null)
+    public DryWetMidiTransport(OutputDevice output, string portName)
     {
-        _output       = output;
-        _portName     = portName;
-        _onDisconnect = onDisconnect;
+        _output   = output;
+        _portName = portName;
     }
+
+    public event EventHandler? Disconnected;
 
     public void SendCC(int channel, int ccNumber, int value)
     {
@@ -65,7 +64,7 @@ public sealed class DryWetMidiTransport : IS1MidiTransport, IDisposable
     private void NotifyDisconnect()
     {
         if (Interlocked.Exchange(ref _notified, 1) == 0)
-            _onDisconnect?.Invoke();
+            Disconnected?.Invoke(this, EventArgs.Empty);
     }
 
     public void Dispose() => _output.Dispose();
