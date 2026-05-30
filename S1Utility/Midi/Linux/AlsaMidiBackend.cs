@@ -11,7 +11,12 @@ namespace S1Utility.Midi.Linux;
 // this backend on Linux.
 public sealed class AlsaMidiBackend : IS1MidiBackend
 {
-    private readonly IMidiAccess _access = MidiAccessManager.Default;
+    // managed-midi marks IMidiAccess obsolete in favour of IMidiAccess2 (the two
+    // will converge in a future API-breaking release). On Linux, Default is
+    // AlsaMidiAccess, which implements IMidiAccess2, so the cast is safe. Every
+    // member used below (Outputs/Inputs/OpenOutputAsync/OpenInputAsync) is
+    // inherited from the base interface.
+    private readonly IMidiAccess2 _access = (IMidiAccess2)MidiAccessManager.Default;
 
     // Cached port snapshots. We hold IMidiPortDetails (not just names) because
     // open-by-id is the supported path in managed-midi — looking up a port by
