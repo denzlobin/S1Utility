@@ -721,7 +721,14 @@ public partial class MainWindow
     private bool PrmFolderHasValidFiles()
     {
         if (string.IsNullOrEmpty(_prm.PrmFolder)) return false;
-        try { return System.IO.Directory.EnumerateFiles(_prm.PrmFolder, "*.prm").Any(); }
+        // Case-insensitive so the uppercase .PRM files the S-1 writes are found on
+        // case-sensitive filesystems (Linux). A plain "*.prm" glob matches them on
+        // Windows but not Linux, which left the Inspector blank with a valid folder.
+        try
+        {
+            var opts = new System.IO.EnumerationOptions { MatchCasing = System.IO.MatchCasing.CaseInsensitive };
+            return System.IO.Directory.EnumerateFiles(_prm.PrmFolder, "*.prm", opts).Any();
+        }
         catch { return false; }
     }
 
