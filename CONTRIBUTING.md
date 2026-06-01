@@ -24,7 +24,7 @@ dotnet run --project S1Utility/S1Utility.csproj
 dotnet test
 ```
 
-The test project (`S1Utility.Core.Tests`) covers `S1Utility.Core` only — the UI and MIDI I/O are intentionally not tested. Fixtures are inlined in test files rather than loaded from external `.PRM` files (the `BackupPatches/` folder is not in the repo).
+The test project (`S1Utility.Core.Tests`) covers `S1Utility.Core` only; the UI and MIDI I/O are intentionally not tested. Fixtures are inlined in test files rather than loaded from external `.PRM` files (the `BackupPatches/` folder is not in the repo).
 
 ---
 
@@ -40,7 +40,7 @@ Within `S1Utility/`:
 - `Panels/` - section-card builders (Effects, Voice, Sequencer card, OSC Draw/Chop cards).
 - `Widgets/` - shared factories (knobs, LEDs, dashboards).
 - `Palette.cs` - XAML brush lookup helper.
-- `WindowsAspectRatioPolicy.cs` - Win32-specific window resize behaviour, isolated behind `IWindowSizePolicy`.
+- `WindowsAspectRatioPolicy.cs` / `LinuxAspectRatioPolicy.cs` - per-platform window resize behaviour, isolated behind `IWindowSizePolicy`.
 
 ---
 
@@ -132,7 +132,7 @@ The repo's `.editorconfig` enforces:
 
 ## Cross-platform contributions
 
-Most of the app is platform-agnostic. The Windows-specific bits are isolated:
+Most of the app is platform-agnostic. Windows and Linux are supported and tested; macOS is feasible but unverified. The platform-specific pieces are isolated behind two seams, both selected by `OperatingSystem.Is*()` checks:
 
-- `IWindowSizePolicy` is implemented by `WindowsAspectRatioPolicy` (Win32 `WM_SIZING` hook + `WS_MAXIMIZEBOX` strip). A macOS or Linux contributor would add a sibling class and select it in the `Opened` handler in `MainWindow.axaml.cs`.
-- `Melanchall.DryWetMidi.Multimedia` is officially cross-platform from v7+, so the MIDI side should work on macOS / Linux. It just hasn't been smoke-tested there yet.
+- **Window sizing.** `IWindowSizePolicy` is implemented by `WindowsAspectRatioPolicy` (Win32 `WM_SIZING` hook + `WS_MAXIMIZEBOX` strip) and `LinuxAspectRatioPolicy` (X11). Selection happens in the `Opened` handler in `MainWindow.axaml.cs`. macOS currently falls through with no policy attached, so the window does not lock its aspect ratio there; a contributor could add a `MacAspectRatioPolicy` sibling.
+- **MIDI backend.** `IS1MidiBackend` is implemented by `DryWetMidiBackend` (WinMM on Windows, CoreMIDI on macOS) and `AlsaMidiBackend` (ALSA sequencer on Linux). The backend is chosen in `MainWindow.axaml.cs`. macOS would use the DryWetMidi backend, which has not been exercised on a device.

@@ -12,7 +12,7 @@ The design principle: **While using heuristics, the app tries to stay honest abo
 
 This is an unofficial third-party tool. This project is not affiliated with, endorsed by, or sponsored by Roland Corporation. Major part of the code is generated with Claude Code, but the app is a product of continuous iteration and refinement.
 
-S-1 Utility is provided "as is", without warranty of any kind. The author is not responsible for any malfunction, data loss, or damage to your hardware that may result from using this software. That said, the app only sends and receives standard MIDI Control Change (CC) messages — the same messages the S-1 already accepts from any MIDI controller or DAW — and does not write `.PRM` files or use sysex. Practically, the risk of the app harming the device is very low, but you use it at your own risk.
+S-1 Utility is provided "as is", without warranty of any kind. The author is not responsible for any malfunction, data loss, or damage to your hardware that may result from using this software. That said, the app only sends and receives standard MIDI Control Change (CC) messages, the same messages the S-1 already accepts from any MIDI controller or DAW, and does not write `.PRM` files or use sysex. Practically, the risk of the app harming the device is very low, but you use it at your own risk.
 
 ---
 
@@ -44,9 +44,13 @@ S-1 Utility is provided "as is", without warranty of any kind. The author is not
 
 ## Requirements
 
-- Windows 10 or 11
-- .NET 10 SDK (pinned via `global.json`)
-- A Roland S-1 connected over USB MIDI
+The release builds are self-contained, so no .NET runtime is needed to run them.
+
+- **Windows 10 or 11**, or
+- **Linux** with ALSA (standard on desktop distributions). The AppImage additionally needs FUSE (`libfuse2`, or `libfuse2t64` on newer Ubuntu); the `.tar.gz` build has no such dependency.
+- A **Roland S-1** connected over USB MIDI.
+
+Building from source additionally requires the **.NET 10 SDK** (pinned via `global.json`). For macOS, see [Platform support](#platform-support).
 
 ---
 
@@ -69,13 +73,27 @@ dotnet test
 
 ## Project status
 
-Release candidate; Targets Windows for now, portability to macOS/Linux is possible in near future (the underlying MIDI library, [DryWetMidi.Multimedia](https://github.com/melanchall/drywetmidi), is cross-platform from v7+; the Win32-specific window aspect-ratio policy would need a sibling implementation).
+Feature-complete for its intended scope: everything the S-1 exposes over MIDI CC is implemented, and the encodings and visualizations are calibrated against real hardware. Active development is winding down; further work will be occasional.
+
+---
+
+## Platform support
+
+S-1 Utility runs on **Windows** and **Linux**, both exercised against real hardware. Prebuilt, self-contained downloads for each are on the [Releases](https://github.com/denzlobin/S1Utility/releases) page (Windows `.zip`, Linux `.AppImage` and `.tar.gz`).
+
+**macOS is feasible but unverified.** The app should compile and run there: MIDI goes through CoreMIDI via DryWetMidi, and the only platform-specific component, the window aspect-ratio policy, simply stays inactive, so nothing hard-blocks a Mac build. It has not been built or tested on one. The author does not own a Mac and does not plan to maintain a macOS build; a contributor with a device is welcome to verify it.
+
+---
+
+## Possible future work
+
+The draw and chop waveform visualizers could be made more faithful by drawing on the full PRM data they currently summarize. This is a maybe rather than a plan, with no timeline.
 
 ---
 
 ## What will not happen
 
-- **VST, AU, CLAP and other plugin versions.** S-1 Utility is designed as a standalone app, and many of its feature will be difficult or confusing in a plugin version. You are free to reuse any code or design decisions if you want to build a plugin version yourself.
+- **VST, AU, CLAP and other plugin versions.** S-1 Utility is designed as a standalone app, and many of its features will be difficult or confusing in a plugin version. You are free to reuse any code or design decisions if you want to build a plugin version yourself.
 - **iOS, iPadOS, Android versions.** For the same reasons.
 - **`.PRM` data editing.** The actual usecase is very questionable, and you probably don't want to test what happens with the device if you feed it with corrupted data.
 - **More realtime controls.** Everything controllable by CC is already available on the Realtime Editor tab. Unless the device receives a firmware update with more Control Change parameters, the editor expansion is out of the question.
@@ -84,8 +102,8 @@ Release candidate; Targets Windows for now, portability to macOS/Linux is possib
 
 ## Known limitations
 
-- **Windows-only** at the moment. The aspect-ratio policy uses Win32 APIs (`WM_SIZING`, `WS_MAXIMIZEBOX`); contributing a sibling implementation for Mac/Linux behind the existing `IWindowSizePolicy` interface would unlock cross-platform builds.
-- **Tab 2 (Patch Inspector) is read-only.** The app does not write `.PRM` files — most PRM-only parameters have no MIDI CC path, and writing risks corrupting your patch backups.
+- **macOS is unverified.** Windows and Linux are supported and tested; the macOS build has not been validated on a device. See [Platform support](#platform-support).
+- **Tab 2 (Patch Inspector) is read-only.** The app does not write `.PRM` files; most PRM-only parameters have no MIDI CC path, and writing risks corrupting your patch backups.
 - **No sysex.** The S-1 does not use sysex for parameter control.
 - **Reliance on up-to-date manual backup.** The app cannot detect if the `.PRM` data on the synth diverged from what is stored on the user's machine. Every time you write into a patch/pattern slot on the hardware, you need to manually copy modified files to the `.PRM` folder on your machine.
 
@@ -101,7 +119,8 @@ The S-1 can export its 64-pattern bank as a folder of `.PRM` files via its USB D
 ## Acknowledgments
 
 - [Avalonia](https://avaloniaui.net/) for the cross-platform UI framework.
-- [Melanchall.DryWetMidi](https://github.com/melanchall/drywetmidi) for MIDI I/O.
+- [Melanchall.DryWetMidi](https://github.com/melanchall/drywetmidi) for MIDI I/O on Windows and macOS.
+- [managed-midi](https://github.com/atsushieno/managed-midi) for ALSA MIDI I/O on Linux.
 
 ---
 
