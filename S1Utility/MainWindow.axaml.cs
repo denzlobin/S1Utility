@@ -387,9 +387,30 @@ public partial class MainWindow : Window
         if (screen is null) return;
         double maxW = screen.WorkingArea.Width  / screen.Scaling;
         double maxH = screen.WorkingArea.Height / screen.Scaling;
-        if (Width > maxW || Height > maxH)
+
+        // Reserve room for the window's title bar and borders. FrameSize includes
+        // decorations, ClientSize does not, so their difference is the chrome the
+        // WM draws around us. On X11 that height is added after we set Height, so
+        // without this allowance the bottom of the page falls below the work area
+        // and the last cards get clipped (the Viewbox can't recover space that is
+        // off-screen). Fall back to a conservative title-bar estimate when the
+        // platform hasn't reported a frame size yet.
+        double frameExtraW = 0, frameExtraH = 0;
+        if (FrameSize is { } fs && ClientSize.Width > 0 && ClientSize.Height > 0)
         {
-            double scale = Math.Min(maxW / DesignWidth, maxH / DesignHeight);
+            frameExtraW = Math.Max(0, fs.Width  - ClientSize.Width);
+            frameExtraH = Math.Max(0, fs.Height - ClientSize.Height);
+        }
+        if (frameExtraH <= 0) frameExtraH = 48;
+
+        double availW = maxW - frameExtraW;
+        double availH = maxH - frameExtraH;
+
+        // Scale down whenever the design size (at its locked aspect ratio) cannot
+        // fit the available area, not only when the raw width/height exceed it.
+        double scale = Math.Min(availW / DesignWidth, availH / DesignHeight);
+        if (scale < 1)
+        {
             Width  = Math.Round(DesignWidth  * scale);
             Height = Math.Round(DesignHeight * scale);
         }

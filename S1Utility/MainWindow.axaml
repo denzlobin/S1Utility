@@ -209,7 +209,12 @@
     </Window.Styles>
 
     <Viewbox Stretch="Uniform">
-        <DockPanel Width="1100" Height="1040">
+        <!-- MinHeight (not a fixed Height) so a tab whose cards are taller than
+             the nominal canvas (e.g. the Patch Inspector under Linux font
+             metrics) grows the page instead of clipping its bottom row; the
+             Viewbox then scales the taller page down to fit the window. 1040 is
+             the floor so shorter tabs keep the original proportions. -->
+        <DockPanel Width="1100" MinHeight="1040">
 
         <!-- ── Top bar / Toolbar (MIDI + edit history + preset + settings) ── -->
         <Border DockPanel.Dock="Top"
@@ -274,24 +279,41 @@
                     <!-- Glyph wrapped in a TextBlock so FontSize is local to the
                          text element. With bare Content + Button.FontSize the
                          FluentTheme :pointerover state re-measures and shrinks the
-                         glyph on hover. SupportButton below already does this. -->
+                         glyph on hover. The gear also gets a VS15 variation
+                         selector (&#xFE0E;) so Linux fontconfig draws it from the
+                         text font instead of a color-emoji font; the emoji glyph
+                         renders at fixed bitmap metrics (looks smaller) and
+                         re-rasterizes on the hover re-measure. Fixed Width keeps
+                         the three icon buttons identical regardless of glyph ink. -->
                     <Button x:Name="SettingsButton"
                             Classes="toolbar"
-                            Padding="8,2"
+                            Width="32" Padding="0"
                             ToolTip.Tip="Settings">
-                            <TextBlock Text="⚙" FontSize="13"/>
+                            <!-- Drawn as a vector cog rather than the ⚙ glyph: the
+                                 default Linux text font has no monochrome gear, so the
+                                 glyph fell back to a color-emoji font that ignored the
+                                 VS15 selector, rendered off-centre, and re-rasterized
+                                 (drifted) on the hover re-measure. A Path has no font
+                                 fallback, centres exactly, and never re-measures. -->
+                            <Viewbox Width="15" Height="15"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path Fill="#CCCCDD"
+                                      Data="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.4-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1 0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z"/>
+                            </Viewbox>
                     </Button>
                     <Button x:Name="InfoButton"
                             Classes="toolbar"
-                            Padding="8,2"
+                            Width="32" Padding="0"
                             ToolTip.Tip="About S-1 Utility">
-                            <TextBlock Text="ⓘ" FontSize="13"/>
+                            <TextBlock Text="ⓘ&#xFE0E;" FontSize="13"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>
                     <Button x:Name="SupportButton"
                             Classes="toolbar"
-                            Padding="8,2"
+                            Width="32" Padding="0"
                             ToolTip.Tip="Support development">
-                        <TextBlock Text="♥" FontSize="13" Margin="0,3,0,0"/>
+                        <TextBlock Text="♥&#xFE0E;" FontSize="13" Margin="0,3,0,0"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>
                 </StackPanel>
 
