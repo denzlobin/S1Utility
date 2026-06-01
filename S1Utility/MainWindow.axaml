@@ -295,7 +295,7 @@
                                  VS15 selector, rendered off-centre, and re-rasterized
                                  (drifted) on the hover re-measure. A Path has no font
                                  fallback, centres exactly, and never re-measures. -->
-                            <Viewbox Width="15" Height="15"
+                            <Viewbox Width="13" Height="13"
                                      HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Path Fill="#CCCCDD"
                                       Data="M12 15.5A3.5 3.5 0 0 1 8.5 12A3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.53c.04-.32.07-.64.07-.97 0-.33-.03-.66-.07-1l2.11-1.63c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.31-.61-.22l-2.49 1c-.52-.4-1.06-.73-1.69-.98l-.37-2.65A.506.506 0 0 0 14 2h-4c-.25 0-.46.18-.5.42l-.37 2.65c-.63.25-1.17.59-1.69.98l-2.49-1c-.22-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.34-.07.67-.07 1 0 .33.03.65.07.97l-2.11 1.66c-.19.15-.25.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1.01c.52.4 1.06.74 1.69.99l.37 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.37-2.65c.63-.26 1.17-.59 1.69-.99l2.49 1.01c.22.08.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.66Z"/>
@@ -434,16 +434,33 @@
         </Border>
 
         <!-- ── Tabs ───────────────────────────────────────────────────────── -->
-        <TabControl x:Name="MainTabs" Margin="7,0,7,0">
+        <!-- Header-only TabControl: just the selector strip. Both tab bodies live
+             in TabBodyHost below so both stay measured; the host is sized to the
+             taller tab and never changes height when switching, so the scaled page
+             (and the toolbar above) no longer shift on tab change. -->
+        <TabControl x:Name="MainTabs" DockPanel.Dock="Top" Margin="7,0,7,0">
+            <TabControl.Template>
+                <ControlTemplate>
+                    <ItemsPresenter Name="PART_ItemsPresenter"
+                                    ItemsPanel="{TemplateBinding ItemsPanel}"/>
+                </ControlTemplate>
+            </TabControl.Template>
             <TabControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
                 </ItemsPanelTemplate>
             </TabControl.ItemsPanel>
+            <TabItem Header="Realtime Editor"/>
+            <TabItem Header="Patch Inspector"/>
+        </TabControl>
+
+        <!-- The inactive body keeps its layout footprint (Opacity 0 +
+             IsHitTestVisible False, not IsVisible False) so the host always
+             measures both and its height equals max(Realtime, Inspector). -->
+        <Grid x:Name="TabBodyHost" Margin="7,0,7,0">
 
             <!-- ── Tab 1: Realtime Editor ──────────────────────────────── -->
-            <TabItem Header="Realtime Editor">
-                <Grid Margin="0"
+            <Grid x:Name="RealtimeBody"
                           ColumnDefinitions="*,*,*"
                           RowDefinitions="Auto,Auto,Auto"
                           ColumnSpacing="4"
@@ -603,11 +620,8 @@
 
                 </Grid>
 
-            </TabItem>
-
-            <!-- ── Tab 2: Patch Inspector ──────────────────────────────── -->
-            <TabItem Header="Patch Inspector">
-                <Grid>
+            <!-- ── Tab 2: Patch Inspector (overlaps Tab 1; starts hidden) ─── -->
+            <Grid x:Name="InspectorBody" Opacity="0" IsHitTestVisible="False">
 
                     <!-- PRM viewer sections (populated by code) -->
                     <Grid x:Name="PrmViewerGrid"
@@ -654,9 +668,7 @@
                     </Border>
 
                 </Grid>
-            </TabItem>
-
-        </TabControl>
+        </Grid>
 
         </DockPanel>
     </Viewbox>

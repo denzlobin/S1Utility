@@ -238,6 +238,13 @@ public partial class MainWindow : Window
         MainTabs.SelectionChanged    += (_, _) =>
         {
             bool onTab2 = MainTabs.SelectedIndex == 1;
+            // Bodies overlap in TabBodyHost; toggle visibility without collapsing
+            // layout (Opacity, not IsVisible) so the host height stays put and the
+            // toolbar above does not shift on tab change.
+            RealtimeBody.Opacity           = onTab2 ? 0 : 1;
+            RealtimeBody.IsHitTestVisible  = !onTab2;
+            InspectorBody.Opacity          = onTab2 ? 1 : 0;
+            InspectorBody.IsHitTestVisible = onTab2;
             // Tab 1 (Realtime Editor): Init / Restore. Tab 2 (Patch Inspector, read-only): Open PRM.
             if (_initRestoreGroup != null) _initRestoreGroup.IsVisible = !onTab2;
             OpenPrmButton.IsVisible = onTab2;
