@@ -97,11 +97,55 @@ jobs:
             --exclude='*.pdb' --exclude='*.dll' --exclude='*.dylib' \
             -czf "publish/$name.tar.gz" -C "publish/$name" .
 
-      - name: Upload Linux artifact
+      - name: Package AppImage
+        run: |
+          ver="${{ steps.ver.outputs.version }}"
+          src="publish/S1Utility-${ver}-linux-x64"
+          appdir="publish/AppDir"
+
+          mkdir -p "$appdir/usr/bin" \
+                   "$appdir/usr/share/applications" \
+                   "$appdir/usr/share/icons/hicolor/256x256/apps"
+
+          cp -r "$src/." "$appdir/usr/bin/"
+          # Drop the Windows/macOS DryWetMidi natives and debug symbols; the
+          # Linux build uses the ALSA backend, so they are dead weight here.
+          rm -f "$appdir/usr/bin/"*.pdb "$appdir/usr/bin/"*.dll "$appdir/usr/bin/"*.dylib
+          chmod +x "$appdir/usr/bin/S1Utility"
+
+          cp S1Utility/Assets/icon-256.png "$appdir/S1Utility.png"
+          cp S1Utility/Assets/icon-256.png "$appdir/usr/share/icons/hicolor/256x256/apps/S1Utility.png"
+
+          cat > "$appdir/S1Utility.desktop" <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=S1Utility
+          Comment=Editor and patch utility for the Roland S-1
+          Exec=S1Utility
+          Icon=S1Utility
+          Categories=AudioVideo;Audio;
+          Terminal=false
+          DESKTOP
+          cp "$appdir/S1Utility.desktop" "$appdir/usr/share/applications/S1Utility.desktop"
+
+          cat > "$appdir/AppRun" <<'APPRUN'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/S1Utility" "$@"
+          APPRUN
+          chmod +x "$appdir/AppRun"
+
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool "$appdir" "publish/S1Utility-${ver}-x86_64.AppImage"
+
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: publish/S1Utility-${{ steps.ver.outputs.version }}-linux-x64.tar.gz
+          path: |
+            publish/S1Utility-${{ steps.ver.outputs.version }}-linux-x64.tar.gz
+            publish/S1Utility-${{ steps.ver.outputs.version }}-x86_64.AppImage
 
   release:
     needs: [build-windows, build-linux]
@@ -119,5 +163,6 @@ jobs:
           files: |
             dist/*.zip
             dist/*.tar.gz
+            dist/*.AppImage
           generate_release_notes: true
           fail_on_unmatched_files: true
