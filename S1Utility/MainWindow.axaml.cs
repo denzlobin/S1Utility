@@ -211,6 +211,17 @@ public partial class MainWindow : Window
                 _sizePolicy = new WindowsAspectRatioPolicy(AspectRatio);
                 _sizePolicy.Attach(this);
             }
+            else if (OperatingSystem.IsLinux())
+            {
+                _sizePolicy = new LinuxAspectRatioPolicy(AspectRatio);
+                _sizePolicy.Attach(this);
+            }
+            // X11 only delivers key events to a window once a focusable element
+            // inside it holds focus. Without this, the global arrow/shortcut
+            // handler never fired on Linux until the user first clicked a patch
+            // tile (which calls Focus()). Focusing the window on open makes
+            // keyboard nav work from launch; Windows delivered these regardless.
+            Focus();
         };
 
         LoadSettings();
