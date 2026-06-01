@@ -271,18 +271,22 @@
                                 Spacing="4"
                                 VerticalAlignment="Center"/>
                     <Border Width="1" Height="18" Background="#2C2C36" Margin="4,0"/>
+                    <!-- Glyph wrapped in a TextBlock so FontSize is local to the
+                         text element. With bare Content + Button.FontSize the
+                         FluentTheme :pointerover state re-measures and shrinks the
+                         glyph on hover. SupportButton below already does this. -->
                     <Button x:Name="SettingsButton"
                             Classes="toolbar"
-                            Content="⚙"
-                            FontSize="13"
                             Padding="8,2"
-                            ToolTip.Tip="Settings"/>
+                            ToolTip.Tip="Settings">
+                            <TextBlock Text="⚙" FontSize="13"/>
+                    </Button>
                     <Button x:Name="InfoButton"
                             Classes="toolbar"
-                            Content="ⓘ"
-                            FontSize="13"
                             Padding="8,2"
-                            ToolTip.Tip="About S-1 Utility"/>
+                            ToolTip.Tip="About S-1 Utility">
+                            <TextBlock Text="ⓘ" FontSize="13"/>
+                    </Button>
                     <Button x:Name="SupportButton"
                             Classes="toolbar"
                             Padding="8,2"
@@ -587,7 +591,7 @@
                     <Grid x:Name="PrmViewerGrid"
                           Margin="4"
                           ColumnDefinitions="*,*"
-                          RowDefinitions="*,Auto,Auto"
+                          RowDefinitions="Auto,Auto,Auto"
                           ColumnSpacing="4"
                           RowSpacing="4"/>
 

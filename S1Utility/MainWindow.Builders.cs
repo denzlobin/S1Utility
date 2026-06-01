@@ -998,11 +998,15 @@ public partial class MainWindow
         PrmViewerGrid.Children.Clear();
 
         // ── Row 0 — sound engine (left col) / mod & voice (right col) ─────
-        // Grids (not StackPanels) so the last card in each column can stretch
-        // to fill the row's `*` height — no blank gap at the column bottom.
+        // All rows content-sized (Auto). A trailing `*` stretched the last card
+        // to fill, but it also let the column's content exceed the parent row's
+        // squeezed `*` height and overflow downward — on Linux font metrics that
+        // pushed the Riser card down over OSC Chop in the row below. Auto rows
+        // take natural height, so the Viewbox scales the page to fit instead of
+        // any card overlapping.
         var colA = new Grid
         {
-            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto"),
             RowSpacing     = 4,
         };
         var oscCard      = new Panels.OscillatorCard(_patch, _prm, OscAccent).Build();
@@ -1033,7 +1037,7 @@ public partial class MainWindow
 
         var colB = new Grid
         {
-            RowDefinitions = new RowDefinitions("Auto,Auto,*"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
             RowSpacing     = 4,
         };
         var effectsCard = new Panels.EffectsCard(_patch, _prm, FxAccent).Build();
