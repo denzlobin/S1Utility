@@ -6,6 +6,8 @@ S-1 Utility connects to a S-1 over MIDI and provides a visual parameter editor, 
 
 The design principle: **While using heuristics, the app tries to stay honest about what it knows.** When the app can reflect the synth's exact state, it does. When it can't, it surfaces uncertainty rather than displaying wrong or misleading values.
 
+Video walkthrough: https://youtu.be/QvIQj3y7kds?si=FHXMjAINzbMv2fmb
+
 ---
 
 ## Disclaimer
