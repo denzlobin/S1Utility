@@ -1,0 +1,8 @@
+BACKUP/
+.DS_Store
+S1Utility.app/
+publish/
+cat >> .gitignore << 'EOF'
+bin/
+obj/
+EOF
