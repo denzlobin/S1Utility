@@ -137,7 +137,12 @@ jobs:
 
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
-          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool "$appdir" "publish/S1Utility-${ver}-x86_64.AppImage"
+          # Embedded update info lets AppImageUpdate fetch the latest release.
+          # appimagetool writes the matching .zsync only if zsyncmake exists.
+          sudo apt-get update -qq && sudo apt-get install -y -qq zsync
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool \
+            -u "gh-releases-zsync|denzlobin|S1Utility|latest|S1Utility-*-x86_64.AppImage.zsync" \
+            "$appdir" "publish/S1Utility-${ver}-x86_64.AppImage"
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -146,6 +151,7 @@ jobs:
           path: |
             publish/S1Utility-${{ steps.ver.outputs.version }}-linux-x64.tar.gz
             publish/S1Utility-${{ steps.ver.outputs.version }}-x86_64.AppImage
+            publish/S1Utility-${{ steps.ver.outputs.version }}-x86_64.AppImage.zsync
 
   release:
     needs: [build-windows, build-linux]
@@ -164,5 +170,6 @@ jobs:
             dist/*.zip
             dist/*.tar.gz
             dist/*.AppImage
+            dist/*.AppImage.zsync
           generate_release_notes: true
           fail_on_unmatched_files: true
