@@ -83,7 +83,7 @@ Feature-complete for its intended scope: everything the S-1 exposes over MIDI CC
 
 S-1 Utility runs on **Windows** and **Linux**, both exercised against real hardware. Prebuilt, self-contained downloads for each are on the [Releases](https://github.com/denzlobin/S1Utility/releases) page (Windows `.zip`, Linux `.AppImage` and `.tar.gz`).
 
-**macOS is feasible but unverified.** The app should compile and run there: MIDI goes through CoreMIDI via DryWetMidi, and the only platform-specific component, the window aspect-ratio policy, simply stays inactive, so nothing hard-blocks a Mac build. It has not been built or tested on one. The author does not own a Mac and does not plan to maintain a macOS build; a contributor with a device is welcome to verify it.
+**macOS is unsupported but reported working from source.** A community tester built and ran it on an Intel Mac (.NET 10 SDK), with MIDI to a real S-1 over USB working via CoreMIDI/DryWetMidi ([#2](https://github.com/denzlobin/S1Utility/pull/2)). Apple Silicon is untested. The window aspect-ratio policy stays inactive there, and shortcuts use Ctrl rather than Cmd. There are no prebuilt macOS downloads; build with `dotnet publish S1Utility/S1Utility.csproj -c Release -r osx-x64 --self-contained true` (or `osx-arm64`). The author does not own a Mac and does not plan to maintain a macOS build.
 
 ---
 
@@ -104,7 +104,7 @@ The draw and chop waveform visualizers could be made more faithful by drawing on
 
 ## Known limitations
 
-- **macOS is unverified.** Windows and Linux are supported and tested; the macOS build has not been validated on a device. See [Platform support](#platform-support).
+- **macOS is unsupported.** Windows and Linux are supported and tested; macOS has only a community report of building and running on Intel. See [Platform support](#platform-support).
 - **Tab 2 (Patch Inspector) is read-only.** The app does not write `.PRM` files; most PRM-only parameters have no MIDI CC path, and writing risks corrupting your patch backups.
 - **No sysex.** The S-1 does not use sysex for parameter control.
 - **Reliance on up-to-date manual backup.** The app cannot detect if the `.PRM` data on the synth diverged from what is stored on the user's machine. Every time you write into a patch/pattern slot on the hardware, you need to manually copy modified files to the `.PRM` folder on your machine.

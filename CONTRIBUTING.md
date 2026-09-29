@@ -132,7 +132,7 @@ The repo's `.editorconfig` enforces:
 
 ## Cross-platform contributions
 
-Most of the app is platform-agnostic. Windows and Linux are supported and tested; macOS is feasible but unverified. The platform-specific pieces are isolated behind two seams, both selected by `OperatingSystem.Is*()` checks:
+Most of the app is platform-agnostic. Windows and Linux are supported and tested; macOS is unsupported but reported working from source on Intel (#2). The platform-specific pieces are isolated behind two seams, both selected by `OperatingSystem.Is*()` checks:
 
 - **Window sizing.** `IWindowSizePolicy` is implemented by `WindowsAspectRatioPolicy` (Win32 `WM_SIZING` hook + `WS_MAXIMIZEBOX` strip) and `LinuxAspectRatioPolicy` (X11). Selection happens in the `Opened` handler in `MainWindow.axaml.cs`. macOS currently falls through with no policy attached, so the window does not lock its aspect ratio there; a contributor could add a `MacAspectRatioPolicy` sibling.
-- **MIDI backend.** `IS1MidiBackend` is implemented by `DryWetMidiBackend` (WinMM on Windows, CoreMIDI on macOS) and `AlsaMidiBackend` (ALSA sequencer on Linux). The backend is chosen in `MainWindow.axaml.cs`. macOS would use the DryWetMidi backend, which has not been exercised on a device.
+- **MIDI backend.** `IS1MidiBackend` is implemented by `DryWetMidiBackend` (WinMM on Windows, CoreMIDI on macOS) and `AlsaMidiBackend` (ALSA sequencer on Linux). The backend is chosen in `MainWindow.axaml.cs`. macOS uses the DryWetMidi backend, which a community tester confirmed with a real S-1 on an Intel Mac.
