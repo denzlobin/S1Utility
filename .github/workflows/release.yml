@@ -135,14 +135,21 @@ jobs:
           APPRUN
           chmod +x "$appdir/AppRun"
 
+          # Native libs ship without read bits for others; appimagetool warns
+          # these may fail to load for users other than the owner.
+          chmod -R a+rX "$appdir"
+
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
           # Embedded update info lets AppImageUpdate fetch the latest release.
-          # appimagetool writes the matching .zsync only if zsyncmake exists.
+          # appimagetool writes the matching .zsync only if zsyncmake exists,
+          # and writes it to the working directory rather than next to the
+          # output, so run it from publish/ to keep both files together.
           sudo apt-get update -qq && sudo apt-get install -y -qq zsync
-          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool \
+          (cd publish && ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ../appimagetool \
             -u "gh-releases-zsync|denzlobin|S1Utility|latest|S1Utility-*-x86_64.AppImage.zsync" \
-            "$appdir" "publish/S1Utility-${ver}-x86_64.AppImage"
+            AppDir "S1Utility-${ver}-x86_64.AppImage")
+          test -f "publish/S1Utility-${ver}-x86_64.AppImage.zsync"
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
