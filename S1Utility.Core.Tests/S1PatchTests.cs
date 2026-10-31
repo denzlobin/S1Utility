@@ -12,7 +12,7 @@ public class S1PatchTests
     public void Construction_HasFiftyThreeParameters()
     {
         // The editor exposes 53 CC-mapped parameters. CC65 (legacy portamento
-        // on/off) was dropped — redundant with CC31's Off/Auto/On dropdown.
+        // on/off) was dropped — redundant with CC31's Off/On/Auto dropdown.
         var patch = new S1Patch();
         Assert.Equal(53, patch.AllParameters.Count);
     }

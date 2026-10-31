@@ -19,7 +19,7 @@ A `.PRM` file is a plain text dump, one entry per line, structured as
 ```
 LFO_RATE = 64
 VCF_CUTOFF = 255
-STEP_NOTE 1 = NOTE1=60 VELO1=100 LENG1=24
+STEP_NOTE 1 = NOTE1=60 VELO1=100 LENG1=80
 STEP_MOTION 11 = M1=64 PB=-32768
 ; comment lines (semicolon or #) are ignored
 ```
@@ -59,7 +59,7 @@ Three categories of entry:
 | `LFO_SYNC`               | 106 | 0–127     | 0–127    | Off / On |
 | `PORTAMENTO_TIME`        | 5   | 0–255     | 0–127    | Lin scale |
 | `PAN`                    | 10  | 0–127     | 0–127    | Direct |
-| `PORTAMENTO_MODE`        | 31  | 0–127     | 0–127    | Off / Auto / On |
+| `PORTAMENTO_MODE`        | 31  | 0–127     | 0–127    | 0 Off / 1 On / 2 Auto (hardware-verified) |
 | `PORTAMENTO`             | 65  | 0–1       | 0–127    | Flag (see below) |
 | `KBD_TRANSPOSE`          | 77  | 0–127     | 0–127    | Direct |
 | `ASSIGN_MODE`            | 80  | 0–127     | 0–127    | Mono / Unison / Poly / Chord |
@@ -236,21 +236,39 @@ sent over MIDI. The full list is defined in `PrmFileManager` and includes:
 
 The low-cut and high-cut options for delay and reverb tone use fixed string
 tables defined in `PrmFileManager.s_lowCutOpts` / `s_highCutOpts` (frequency
-labels in Hz / kHz).
+labels in Hz / kHz). High cut has 15 values: 0 = 630 Hz up to 13 = 12.5 kHz,
+14 = Flat (hardware-verified: delay 2k stores 5, reverb 630 stores 0).
 
 ## Step sequencer encoding
 
 ### `STEP_NOTE N` (N = 1..64)
 
 ```
-STEP_NOTE 1 = NOTE1=60 VELO1=100 LENG1=24 NOTE2=-1 VELO2=0 LENG2=0 ...
+STEP_NOTE 1 = NOTE1=60 VELO1=100 LENG1=80 NOTE2=-1 VELO2=0 LENG2=0 ... SUBSTEP=0 PROB=10
 ```
 
 Each step holds up to 4 notes (chord steps). Fields per slot `x` (1..4):
 
 - `NOTEx` — MIDI note number, **−1 means slot inactive**
 - `VELOx` — 0–127 velocity
-- `LENGx` — duration in 1/96 ticks (so 24 = 1/16, 48 = 1/8, 96 = 1/4)
+- `LENGx` — gate percent of one step, 1–100 (default 80; 100 ties into the
+  next step when it repeats the same note)
+
+Per-step fields (hardware-verified, not yet read by `SequencerStep`):
+
+- `PROB` — probability in tens, 0–10 (display P.0 to P.100; default 10)
+- `SUBSTEP` — index 0–13 into the sub-step patterns below (`o` = plays,
+  `_` = silent part)
+
+| Value | Display | Value | Display |
+|---|---|---|---|
+| 0 | `o` | 7 | `__o` |
+| 1 | `oo` | 8 | `oo_` |
+| 2 | `ooo` | 9 | `ooo_` |
+| 3 | `oooo` | 10 | `o_o_` |
+| 4 | `oo__` | 11 | `_o_o` |
+| 5 | `o_o` | 12 | `o__o` |
+| 6 | `_o_` | 13 | `_oo_` |
 
 Slots without `NOTEx` set or with `NOTEx = -1` are inactive. Parsed by
 `SequencerStep.ParseFrom`.
@@ -267,7 +285,8 @@ STEP_MOTION 88 → bar 8, step 8 → linear index 63
 Value content:
 
 - `M1..M8` — motion lane values for motion CCs 1..8, **−1 means inactive**
-- `PB` — pitch bend, **−32768 means inactive**
+- `PB` — signed MIDI pitch bend stored verbatim, -8192..8191 (0 = centre);
+  **−32768 means inactive** (hardware-verified)
 
 Parsed by `SequencerStep.ParseMotionFrom`.
 

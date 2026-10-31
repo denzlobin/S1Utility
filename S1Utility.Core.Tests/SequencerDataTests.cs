@@ -62,12 +62,12 @@ public class SequencerStepTests
     public void ParseMotionFrom_ActiveMotion_PopulatesValues()
     {
         var step = new SequencerStep();
-        step.ParseMotionFrom("M1=42 M2=-1 M8=99 PB=8192");
+        step.ParseMotionFrom("M1=42 M2=-1 M8=99 PB=8191");
 
         Assert.Equal(42,   step.Motions[0]);
         Assert.Equal(-1,   step.Motions[1]);
         Assert.Equal(99,   step.Motions[7]);
-        Assert.Equal(8192, step.PitchBend);
+        Assert.Equal(8191, step.PitchBend);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class SequencerStepTests
     {
         var step = new SequencerStep();
         step.ParseFrom("NOTE1=67 VELO1=114 LENG1=100");
-        step.ParseMotionFrom("M1=42 PB=8192");
+        step.ParseMotionFrom("M1=42 PB=8191");
 
         step.Reset();
 

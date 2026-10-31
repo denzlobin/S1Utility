@@ -60,7 +60,7 @@ public class S1Patch : IDisposable
             new("Glide Time",        cc:  5, S1Section.Voice),
             new("Pan",                    cc: 10, S1Section.Voice, initialValue: 64),
             new("Portamento",             cc: 31, S1Section.Voice, initialValue: 0, Dropdown,
-                new[] { "Off", "Auto", "On" }),
+                new[] { "Off", "On", "Auto" }),
             new("Transpose",     cc: 77, S1Section.Voice, initialValue: 64),
             new("Polyphony",              cc: 80, S1Section.Voice, initialValue: 0, Dropdown,
                 new[] { "Mono", "Unison", "Poly", "Chord" }),

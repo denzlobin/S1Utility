@@ -28,7 +28,7 @@ public sealed class PrmFileManager
     };
 
     private static readonly string[] s_highCutOpts = {
-        "Flat","630","800","1k","1.25k","1.6k","2k","2.5k","3.15k",
+        "630","800","1k","1.25k","1.6k","2k","2.5k","3.15k",
         "4k","5k","6.3k","8k","10k","12.5k","Flat"
     };
 

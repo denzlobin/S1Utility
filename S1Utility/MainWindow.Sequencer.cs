@@ -148,7 +148,7 @@ public partial class MainWindow
 
             if (step.PitchBend != -32768)
             {
-                int pb     = Math.Clamp(8192 + (int)Math.Round(step.PitchBend * 8192.0 / 32768.0), 0, 16383);
+                int pb     = Math.Clamp(8192 + step.PitchBend, 0, 16383);
                 events.Add((tick, new byte[] { 0xE0, (byte)(pb & 0x7F), (byte)((pb >> 7) & 0x7F) }));
             }
         }
@@ -423,7 +423,7 @@ public partial class MainWindow
                 {
                     int    pb   = _prm.Sequence.Steps[s].PitchBend;
                     if (pb == -32768) continue;
-                    double norm = Math.Clamp(pb / 32768.0, -1.0, 1.0);
+                    double norm = Math.Clamp(pb / 8192.0, -1.0, 1.0);
                     double barH = Math.Max(1, Math.Abs(norm) * (LaneH / 2 - 1));
                     var    bar  = new Border
                     {
