@@ -254,7 +254,7 @@ Each step holds up to 4 notes (chord steps). Fields per slot `x` (1..4):
 - `LENGx` — gate percent of one step, 1–100 (default 80; 100 ties into the
   next step when it repeats the same note)
 
-Per-step fields (hardware-verified, not yet read by `SequencerStep`):
+Per-step fields (hardware-verified; parsed but not yet shown or exported):
 
 - `PROB` — probability in tens, 0–10 (display P.0 to P.100; default 10)
 - `SUBSTEP` — index 0–13 into the sub-step patterns below (`o` = plays,
@@ -273,27 +273,24 @@ Per-step fields (hardware-verified, not yet read by `SequencerStep`):
 Slots without `NOTEx` set or with `NOTEx = -1` are inactive. Parsed by
 `SequencerStep.ParseFrom`.
 
-### `STEP_MOTION BS` (B = bar 1..8, S = step 1..8)
+### `STEP_MOTION ST` (S = step 1..64, T = tick 1..8)
 
-The two-digit suffix encodes bar and step:
+Every file has 512 rows: 8 motion samples per step, id = step × 10 + tick.
 
 ```
-STEP_MOTION 11 → bar 1, step 1 → linear index 0
-STEP_MOTION 88 → bar 8, step 8 → linear index 63
+STEP_MOTION 11  → step 1,  tick 1 → linear index 0
+STEP_MOTION 648 → step 64, tick 8 → linear index 511
 ```
 
-Value content:
+Value content (hardware-verified):
 
-- `M1..M8` — motion lane values for motion CCs 1..8, **−1 means inactive**
+- `M1..M8` — motion lane values for `MOTION_CC1..8`, stored verbatim 0–127;
+  **−1 means inactive**
 - `PB` — signed MIDI pitch bend stored verbatim, -8192..8191 (0 = centre);
-  **−32768 means inactive** (hardware-verified)
+  **−32768 means inactive**. Independent of the `M` values in the same row.
 
-Parsed by `SequencerStep.ParseMotionFrom`.
-
-> ⚠ **Inferred, not hardware-verified.** All 64 backup patches examined so far
-> have fully inactive motion data (`M*` = −1, `PB` = −32768). The motion
-> encoding has *not* been exercised against a real patch with active motion.
-> If you have such a patch, please verify and update this section.
+Parsed by `SequencerStep.ParseMotionFrom`. Factory patterns 1-04, 1-06, 1-08,
+1-10, 1-11, 1-12 and 1-13 carry recorded motion.
 
 ## Chop pattern encoding
 

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using S1Utility.Core;
 using Xunit;
 
@@ -67,29 +68,31 @@ public class PrmFileParserTests
     }
 
     [Fact]
-    public void Parse_StepMotion_BarStepIsDecodedToZeroBasedIndex()
+    public void Parse_StepMotion_StepTickIsDecodedToZeroBasedIndex()
     {
-        // Encoded position 11 = bar 1, step 1 → stepIdx 0.
-        // Encoded position 88 = bar 8, step 8 → stepIdx 63.
+        // id = step * 10 + tick. 11 → index 0, 88 → step 8 tick 8 → 63,
+        // 91 → step 9 tick 1 → 64, 648 → step 64 tick 8 → 511.
         var data = Parse("""
             STEP_MOTION 11=M1=-1 PB=-32768
             STEP_MOTION 88=M1=-1 PB=-32768
+            STEP_MOTION 91=M1=-1 PB=-32768
+            STEP_MOTION 648=M1=-1 PB=-32768
             """);
 
-        Assert.True(data.StepMotions.ContainsKey(0));
-        Assert.True(data.StepMotions.ContainsKey(63));
+        Assert.Equal(new[] { 0, 63, 64, 511 }, data.StepMotions.Keys.OrderBy(k => k));
     }
 
     [Fact]
-    public void Parse_StepMotion_OutOfRangeBarOrStep_IsSkipped()
+    public void Parse_StepMotion_OutOfRangeStepOrTick_IsSkipped()
     {
-        // Bar/step digits must each be 1..8. 09, 90, 99 are all invalid.
+        // Step must be 1..64 and tick 1..8. 09, 90, 99, 651 are all invalid.
         // Include one valid line so the "no entries" guard doesn't throw.
         var data = Parse("""
             VCF_CUTOFF=255
             STEP_MOTION 09=M1=-1
             STEP_MOTION 90=M1=-1
             STEP_MOTION 99=M1=-1
+            STEP_MOTION 651=M1=-1
             """);
 
         Assert.Empty(data.StepMotions);

@@ -152,12 +152,7 @@ internal sealed class SequencerCard
     {
         int count = prm.Sequence.StepCount;
         for (int s = 0; s < count; s++)
-        {
-            var step = prm.Sequence.Steps[s];
-            if (step.Notes.Any(n => n >= 0))   return true;
-            if (step.Motions.Any(m => m >= 0)) return true;
-            if (step.PitchBend != -32768)       return true;
-        }
+            if (prm.Sequence.Steps[s].HasContent()) return true;
         return false;
     }
 

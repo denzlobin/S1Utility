@@ -5,19 +5,54 @@ namespace S1Utility.Core;
 
 public class SequencerStep
 {
-    public int[] Notes      { get; } = new int[4] { -1, -1, -1, -1 };
-    public int[] Velocities { get; } = new int[4];
-    public int[] Lengths    { get; } = new int[4];
-    public int[] Motions    { get; } = new int[8];   // M1-M8, -1 = inactive
-    public int   PitchBend  { get; set; } = -32768;  // -32768 = inactive
+    // The S-1 records 8 motion samples per step (STEP_MOTION id = step * 10 + tick).
+    public const int Ticks = 8;
+
+    // SUBSTEP index → S-1 display pattern; 'o' = part plays, '_' = silent part.
+    public static readonly string[] SubStepPatterns =
+    {
+        "o", "oo", "ooo", "oooo", "oo__", "o_o", "_o_",
+        "__o", "oo_", "ooo_", "o_o_", "_o_o", "o__o", "_oo_",
+    };
+
+    public string SubStepPattern =>
+        SubStep >= 0 && SubStep < SubStepPatterns.Length ? SubStepPatterns[SubStep] : "o";
+
+    public int[]  Notes       { get; } = new int[4] { -1, -1, -1, -1 };
+    public int[]  Velocities  { get; } = new int[4];
+    public int[]  Lengths     { get; } = new int[4];     // gate percent 1-100
+    public int    Probability { get; set; } = 10;        // PROB, tens: 0-10 = 0-100 %
+    public int    SubStep     { get; set; }              // SUBSTEP, pattern index 0-13
+    public int[,] Motions     { get; } = new int[Ticks, 8]; // [tick, M1-M8], -1 = inactive
+    public int[]  PitchBends  { get; } = new int[Ticks];    // -8192..8191, -32768 = inactive
+
+    public SequencerStep() => Reset();
+
+    public bool HasMotion(int lane)
+    {
+        for (int t = 0; t < Ticks; t++) if (Motions[t, lane] >= 0) return true;
+        return false;
+    }
+
+    public bool HasPitchBend => PitchBends.Any(pb => pb != -32768);
+
+    public bool HasContent()
+    {
+        if (Notes.Any(n => n >= 0) || HasPitchBend) return true;
+        for (int m = 0; m < 8; m++) if (HasMotion(m)) return true;
+        return false;
+    }
 
     public void Reset()
     {
         Array.Fill(Notes,      -1);
         Array.Fill(Velocities,  0);
         Array.Fill(Lengths,     0);
-        Array.Fill(Motions,    -1);
-        PitchBend = -32768;
+        Probability = 10;
+        SubStep     = 0;
+        for (int t = 0; t < Ticks; t++)
+            for (int m = 0; m < 8; m++) Motions[t, m] = -1;
+        Array.Fill(PitchBends, -32768);
     }
 
     public void ParseFrom(string value)
@@ -35,10 +70,14 @@ public class SequencerStep
                 Velocities[vi - 1] = v;
             else if (k.Length >= 5 && k.StartsWith("LENG", StringComparison.Ordinal) && int.TryParse(k[4..], out int li) && li is >= 1 and <= 4)
                 Lengths[li - 1] = v;
+            else if (k == "PROB")
+                Probability = v;
+            else if (k == "SUBSTEP")
+                SubStep = v;
         }
     }
 
-    public void ParseMotionFrom(string value)
+    public void ParseMotionFrom(string value, int tick)
     {
         foreach (var part in value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -48,9 +87,9 @@ public class SequencerStep
             if (!int.TryParse(part[(eq + 1)..], out int v)) continue;
 
             if (k == "PB")
-                PitchBend = v;
+                PitchBends[tick] = v;
             else if (k.Length >= 2 && k[0] == 'M' && int.TryParse(k[1..], out int mi) && mi is >= 1 and <= 8)
-                Motions[mi - 1] = v;
+                Motions[tick, mi - 1] = v;
         }
     }
 }
@@ -92,10 +131,10 @@ public class SequencerData
                 Steps[stepNum - 1].ParseFrom(rawValue);
         }
 
-        foreach (var (stepIdx, rawValue) in data.StepMotions)
+        foreach (var (idx, rawValue) in data.StepMotions)
         {
-            if (stepIdx >= 0 && stepIdx < 64)
-                Steps[stepIdx].ParseMotionFrom(rawValue);
+            if (idx >= 0 && idx < 64 * SequencerStep.Ticks)
+                Steps[idx / SequencerStep.Ticks].ParseMotionFrom(rawValue, idx % SequencerStep.Ticks);
         }
 
         DataChanged?.Invoke(this, EventArgs.Empty);

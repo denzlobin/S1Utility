@@ -45,14 +45,14 @@ public static class PrmFileParser
                 if (int.TryParse(key["STEP_NOTE ".Length..], out int stepNum))
                     data.StepNotes[stepNum] = value;
             }
-            // "STEP_MOTION 11" → bar=1 step=1 → stepIdx=0; "STEP_MOTION 88" → stepIdx=63
+            // "STEP_MOTION 11" → step 1 tick 1 → index 0; "STEP_MOTION 648" → step 64 tick 8 → index 511
             else if (key.StartsWith("STEP_MOTION ", StringComparison.Ordinal))
             {
                 if (int.TryParse(key["STEP_MOTION ".Length..], out int encoded))
                 {
-                    int tens = encoded / 10, ones = encoded % 10;
-                    if (tens >= 1 && tens <= 8 && ones >= 1 && ones <= 8)
-                        data.StepMotions[(tens - 1) * 8 + (ones - 1)] = value;
+                    int step = encoded / 10, tick = encoded % 10;
+                    if (step >= 1 && step <= 64 && tick >= 1 && tick <= 8)
+                        data.StepMotions[(step - 1) * 8 + (tick - 1)] = value;
                 }
             }
             else if (!key.StartsWith("STEP_", StringComparison.Ordinal))
@@ -78,6 +78,7 @@ public class PrmFileData
     // Step-sequencer notes: key = 1-based step number, value = raw composite string.
     public Dictionary<int, string>    StepNotes   { get; } = new();
 
-    // Step-sequencer motion: key = 0-based step index (0..63), value = raw composite string.
+    // Step-sequencer motion: key = (step - 1) * 8 + (tick - 1), 0..511 (8 samples per step),
+    // value = raw composite string.
     public Dictionary<int, string>    StepMotions { get; } = new();
 }
